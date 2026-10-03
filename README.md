@@ -1,11 +1,11 @@
 # OTPGuard
 
-PR 2 adds a local DOM detector and synthetic fixture harness for visible, enabled
-single and split OTP fields. It reports field groups and page-controlled evidence;
-email hints are heuristics and grant no trust. Gmail, account authentication,
-parsing, authorization, filling, and cloud synchronization remain unavailable.
+PR 3 adds a DOM insertion mechanism and explicit synthetic loopback fixture adapter
+for single and split OTP inputs, including React-controlled state. Detection reports
+page-controlled evidence; email hints grant no trust. Gmail, account authentication,
+parsing, authorization, production autofill, and cloud synchronization remain unavailable.
 No real services are currently supported. The packaged extension still has no site
-access or content injection; detection is exercised only in the local harness.
+access or content injection; detection and insertion run only in the local harness.
 
 ## Requirements and setup
 
@@ -76,14 +76,17 @@ separate manual check. CI runs these checks on GitHub; see the
 - `apps/extension`: popup, inert background worker, icon, and an intentionally
   **zero-byte** `content.ts` entry. Plasmo defaults nonempty content entries to
   all-site injection; its empty-entry handling omits this file from the manifest.
-  It remains empty in PR 2; site injection waits for an explicit supported-site permission design. The manifest test catches
+  It remains empty in PR 3; site injection waits for an explicit supported-site permission design. The manifest test catches
   accidental registration or permission expansion.
 - `apps/web`: static landing page, without SDKs, remote fonts, or account features.
 - `apps/extension/detection`: in-memory DOM group discovery and finite observation,
   without Chrome APIs, messaging, storage, network requests, or insertion.
+- `apps/extension/insertion`: synchronous native-value setter and input/change events,
+  with length, fresh-group and existing-value checks. This mechanism grants no authorization
+  and is not connected to production entry points.
 - `tests/fixtures` and `scripts/serve-fixtures.ts`: local-only synthetic harness,
   outside both application entry graphs.
-- `tests`: production manifest/bundle guards and real Chromium detection/entry tests.
+- `tests`: production manifest/bundle guards and real Chromium detection/insertion/entry tests.
 - `.github/workflows/ci.yml`: credential-free lockfile install, builds, checks, and
   Chromium smoke tests.
 
@@ -127,5 +130,35 @@ sender identity, destination trust, or an email transaction match.
 No permissions were added. Production detection registration is deliberately deferred:
 there is no validated real-service registry yet, and Plasmo's default nonempty content
 entry would expand to all-site injection. The local harness does not add localhost
-exceptions to the production extension or web application. PR 3 insertion remains
-separate and has not been started.
+exceptions to the production extension or web application. Production insertion orchestration remains deferred.
+
+## Manual insertion acceptance (synthetic local adapter)
+
+Run `bun run fixtures`, then open <http://127.0.0.1:3001/insertion>. The server binds
+only to loopback; this page requires no installed extension. It bundles the extension's
+React 18 version for controlled fixtures, independently of both production applications.
+
+1. Select `plain`, then click **Fill synthetic fixture**. Expect `filled` and the
+   six-digit synthetic value beginning with zero. Submission and submit-click counters
+   stay at zero. Reload before each independent scenario.
+2. Repeat for `react-single` and `react-split`. The inputs and the output under each
+   React form must contain the same complete value, including the leading zero.
+3. Type `9` into any target input, then fill that target. Expect `user-value`; all
+   existing values stay unchanged. A second fill of an already filled group also rejects.
+4. Change the plain field's maxlength to `5` in DevTools, then fill. Expect `length`
+   and an empty field. Hide or disable a field: filling rejects the missing group.
+5. Do not click the fixture submit buttons during these checks. Counters stay at zero
+   throughout filling. Stop the loopback server with Ctrl+C when finished.
+
+The mechanism accepts numeric strings of 4–8 characters and an explicit expected length
+from its caller. Split count must match; a single field's declared maxlength, when
+present, must match exactly. Number inputs are unsupported to avoid lossy handling.
+It rescans the actual element references before writing and after events, refuses
+nonempty values (including whitespace), and never focuses, clicks, or submits. Events
+are synthetic bubbling `input` then `change`, using the input prototype's native setter.
+A page that replaces fields, changes constraints, or changes values during events can
+produce `page-interference` after partial insertion; no rollback clears page/user values.
+Sites can themselves submit in response to input completion. Frameworks that reject
+synthetic events remain unsupported. This is a DOM mechanism, not a security decision;
+a future background authorization boundary must approve and bind every production fill.
+No code is sent through page globals, attributes, postMessage, storage, or URLs.

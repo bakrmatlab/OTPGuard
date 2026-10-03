@@ -1,7 +1,20 @@
 // Test-only local harness: never imported by either application.
 const build = await Bun.build({
-  entrypoints: ['tests/fixtures/harness.ts'],
+  entrypoints: ['tests/fixtures/harness.ts', 'tests/fixtures/insertion.ts'],
   target: 'browser',
+  plugins: [
+    {
+      name: 'fixture-react-18',
+      setup(builder) {
+        builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, (args) => ({
+          path: Bun.resolveSync(
+            args.path,
+            `${import.meta.dir}/../apps/extension`,
+          ),
+        }));
+      },
+    },
+  ],
 });
 if (!build.success) throw new Error('Fixture harness build failed');
 Bun.serve({
@@ -13,6 +26,12 @@ Bun.serve({
       return new Response(build.outputs[0], {
         headers: { 'content-type': 'text/javascript' },
       });
+    if (path === '/insertion.js')
+      return new Response(build.outputs[1], {
+        headers: { 'content-type': 'text/javascript' },
+      });
+    if (path === '/insertion')
+      return new Response(Bun.file('tests/fixtures/insertion.html'));
     if (path === '/')
       return new Response(Bun.file('tests/fixtures/detection.html'));
     return new Response('Not found', { status: 404 });

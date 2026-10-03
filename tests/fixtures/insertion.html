@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>Synthetic insertion fixtures</title>
+  <h1>Synthetic insertion fixtures</h1>
+  <p>
+    Development fixture adapter only. Synthetic numeric code with a leading
+    zero. Filling may cause a site's own handlers to submit; OTPGuard never
+    initiates submission.
+  </p>
+  <form id="plain">
+    <p>Verification code sent to your email</p>
+    <input
+      autocomplete="one-time-code"
+      maxlength="6"
+      inputmode="numeric"
+    /><button type="submit">Submit fixture</button>
+  </form>
+  <div id="react"></div>
+  <label
+    >Fixture
+    <select id="target">
+      <option>plain</option>
+      <option>react-single</option>
+      <option>react-split</option>
+    </select></label
+  >
+  <button type="button" id="fill">Fill synthetic fixture</button>
+  <pre id="fill-result" role="status"></pre>
+  <p>
+    Submissions: <output id="submissions">0</output> Submit clicks:
+    <output id="submit-clicks">0</output>
+  </p>
+  <script type="module" src="/insertion.js"></script>
+</html>

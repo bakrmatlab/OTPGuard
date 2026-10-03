@@ -35,6 +35,10 @@ describe('fixture isolation', () => {
         expect(source).not.toContain('Replace single field');
         expect(source).not.toContain('127.0.0.1:3001');
         expect(source).not.toContain('/harness.js');
+        expect(source).not.toContain('Synthetic insertion fixtures');
+        expect(source).not.toContain('Fill synthetic fixture');
+        expect(source).not.toContain('042681');
+        expect(source).not.toContain('/insertion.js');
       }
     });
   }
