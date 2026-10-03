@@ -1,4 +1,13 @@
 import { afterEach, expect, it, vi } from 'vitest';
+const gmail = vi.hoisted(() => ({
+  check: vi.fn(async () => ({ state: 'DISCONNECTED' })),
+  connect: vi.fn(async () => ({
+    state: 'CONNECTED',
+    mailbox: 'mailbox@fixture.invalid',
+  })),
+  disconnect: vi.fn(async () => ({ state: 'DISCONNECTED' })),
+}));
+vi.mock('../apps/extension/gmail/worker', () => ({ gmailLifecycle: gmail }));
 const account = vi.hoisted(() => ({
   status: vi.fn(async () => ({
     state: 'SIGNED_IN',
@@ -34,12 +43,18 @@ it('accepts only closed account UI requests from the exact owned popup', async (
     { ...sender, id: 'other' },
     { ...sender, url: url + '?page=1' },
     { ...sender, url: 'https://app.fixture.invalid' },
-  ])
+  ]) {
     expect(listener({ type: 'account-sign-out' }, wrong, respond)).toBe(false);
+    expect(listener({ type: 'gmail-connect' }, wrong, respond)).toBe(false);
+  }
   expect(
     listener({ type: 'account-status', userId: 'forged' }, sender, respond),
   ).toBe(false);
   expect(listener({ type: 'get-token' }, sender, respond)).toBe(false);
+  expect(
+    listener({ type: 'gmail-connect', token: 'forged' }, sender, respond),
+  ).toBe(false);
+  expect(gmail.connect).not.toHaveBeenCalled();
   expect(account.signOut).not.toHaveBeenCalled();
   expect(
     listener(
@@ -53,6 +68,12 @@ it('accepts only closed account UI requests from the exact owned popup', async (
     state: 'SIGNED_IN',
     userId: 'synthetic-user',
     label: 'Synthetic',
+  });
+  expect(listener({ type: 'gmail-connect' }, sender, respond)).toBe(true);
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  expect(respond).toHaveBeenCalledWith({
+    state: 'CONNECTED',
+    mailbox: 'mailbox@fixture.invalid',
   });
   account.signOut.mockRejectedValueOnce(new Error('synthetic signout failure'));
   expect(listener({ type: 'account-sign-out' }, sender, respond)).toBe(true);

@@ -1,7 +1,8 @@
 import {
-  accountManifest,
-  configuredAccount,
-} from '../apps/extension/account/config';
+  connectionManifest,
+  configuredGmail,
+} from '../apps/extension/gmail/config';
+import { configuredAccount } from '../apps/extension/account/config';
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -16,12 +17,20 @@ describe('production extension permission boundary', () => {
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.action.default_popup).toBe('popup.html');
     expect(manifest.background.service_worker).toBeTruthy();
-    const expected = accountManifest(configuredAccount());
+    const expected = connectionManifest(configuredAccount(), configuredGmail());
     expect(manifest.permissions ?? []).toEqual(expected.permissions);
     expect(manifest.host_permissions ?? []).toEqual(expected.host_permissions);
     expect(manifest.content_security_policy).toEqual(
       expected.content_security_policy,
     );
+    if (configuredGmail()) {
+      expect(manifest.oauth2).toEqual(expected.oauth2);
+      expect(manifest.key).toEqual(expected.key);
+      expect(manifest.minimum_chrome_version).toBe('106');
+    } else {
+      expect(manifest.oauth2).toBeUndefined();
+      expect(manifest.key).toBeUndefined();
+    }
     expect(manifest.content_scripts ?? []).toEqual([]);
     expect(manifest.web_accessible_resources ?? []).toEqual([]);
     expect(manifest.externally_connectable).toBeUndefined();

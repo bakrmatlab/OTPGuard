@@ -1,0 +1,59 @@
+import { createConnectedCoordinator } from '../account/connected';
+import type { AccountGate } from '../account/gate';
+import type { Adapter } from '../pipeline/coordinator';
+import type { createGmailLifecycle } from './lifecycle';
+/** Future production retrieval must pass both independent identity boundaries. */
+export function createMailboxCoordinator(
+  adapter: Adapter,
+  account: AccountGate,
+  mailbox: ReturnType<typeof createGmailLifecycle>,
+) {
+  let generation = 0;
+  const coordinator = createConnectedCoordinator(
+    {
+      ...adapter,
+      async context(sender) {
+        const before = generation;
+        const status = await mailbox.check();
+        if (status.state !== 'CONNECTED') return null;
+        const context = await adapter.context(sender);
+        return before === generation && context?.mailboxId === status.mailbox
+          ? context
+          : null;
+      },
+      async retrieve(context, signal) {
+        const status = await mailbox.check();
+        if (
+          signal.aborted ||
+          status.state !== 'CONNECTED' ||
+          status.mailbox !== context.mailboxId
+        )
+          return null;
+        return adapter.retrieve(context, signal);
+      },
+      async current(context) {
+        const before = generation;
+        const status = await mailbox.check();
+        return (
+          before === generation &&
+          status.state === 'CONNECTED' &&
+          status.mailbox === context.mailboxId &&
+          (await adapter.current(context)) &&
+          before === generation
+        );
+      },
+    },
+    account,
+  );
+  const unsubscribe = mailbox.subscribe(() => {
+    generation++;
+    coordinator.cancelAll();
+  });
+  return {
+    ...coordinator,
+    dispose() {
+      unsubscribe();
+      coordinator.dispose();
+    },
+  };
+}

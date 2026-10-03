@@ -1,11 +1,11 @@
 # OTPGuard
 
-PR 7 adds optional Clerk account sign-in and a worker-owned session boundary. PR 6 provides a secure synthetic pipeline in a separately built development extension.
+PR 8 adds an optional local Chrome OAuth Gmail connection lifecycle. PR 7 provides optional Clerk account sign-in and a worker-owned session boundary. PR 6 provides a secure synthetic pipeline in a separately built development extension.
 Its worker derives browser context, parses fabricated mail, enforces authorization and
 rechecks the current document before releasing a short-lived code to the bound field group.
 The production extension has no content injection or real autofill. Configured account builds
 receive only the exact Clerk host access described below; unconfigured builds have none.
-Gmail, real-service trust and cloud synchronization remain unavailable.
+Gmail message retrieval, real-service trust and cloud synchronization remain unavailable.
 
 ## Requirements and setup
 
@@ -60,12 +60,12 @@ Use `bun run format` to format implementation files.
    Gmail connection and autofill are not yet supported. Account authentication is explicitly unconfigured; `/sign-in` shows the same state.
 3. In `chrome://extensions`, load `apps/extension/build/chrome-mv3-prod` unpacked.
    Confirm there is no installation error. Pin the extension and click its icon;
-   confirm the popup shows the same unsupported-capabilities notice.
+   confirm the popup shows unconfigured Gmail and disabled real retrieval/autofill.
 4. Inspect the extension's service worker from its Details page. It should load
    without errors; becoming inactive is normal for an idle MV3 worker.
 5. Negative/security check: visit an ordinary login page or a local form with an
    OTP input. The extension must not read mail, modify fields, inject UI, or submit.
-   Its Details page should show no website access. There is no Connect/Fill control.
+   Its Details page should show no website access. Unconfigured builds have no Connect control. No production build has a Fill control.
 6. Inspect `apps/extension/build/chrome-mv3-prod/manifest.json`: MV3, popup and
    background worker, no API permissions, no host access, no content scripts, and
    no externally accessible resources. Remove the extension when finished.
@@ -76,10 +76,10 @@ separate manual check. CI runs these checks on GitHub; see the
 
 ## Layout and boundaries
 
-- `apps/extension`: popup, account-only production background worker, reusable pipeline modules, icon, and an intentionally
+- `apps/extension`: popup, account/Gmail-lifecycle production background worker, reusable pipeline modules, icon, and an intentionally
   **zero-byte** `content.ts` entry. Plasmo defaults nonempty content entries to
   all-site injection; its empty-entry handling omits this file from the manifest.
-  It remains empty in PR 7; site injection waits for an explicit supported-site permission design. The manifest test catches
+  It remains empty in PR 8; site injection waits for an explicit supported-site permission design. The manifest test catches
   accidental registration or permission expansion.
 - `apps/web`: minimal Clerk account host with an explicit unconfigured fallback.
 - `apps/extension/detection`: in-memory DOM group discovery and finite observation,
@@ -269,7 +269,7 @@ polling/coalescing, MIME, Gmail evidence, persistence/retries and real-service s
 
 Account sign-in identifies the OTPGuard user, **not** the Gmail mailbox and grants no Gmail
 consent. The web host and popup display the account ID and primary account email; the popup
-separately says no mailbox is connected. Production still has no retrieval or fill adapter.
+separately displays Gmail connection state. Production still has no retrieval or fill adapter.
 The separate synthetic demo does not use Clerk and remains credential-free.
 
 Installed SDKs: `@clerk/nextjs` 7.9.10 and `@clerk/chrome-extension` 3.1.90. Follow Clerk's
@@ -310,7 +310,7 @@ The web host also requires a production publishable key and a server-only produc
    tokens or personal account details in screenshots, traces, logs, or review artifacts.
 
 The popup polls status every 15 seconds while open; cookie changes invalidate worker bindings
-immediately when observed. Each future connected request must use `createConnectedCoordinator`:
+immediately when observed. Each future connected request must use `createMailboxCoordinator`, which wraps `createConnectedCoordinator`:
 its worker refreshes Clerk at request start and before release, binds user/session/generation,
 and cancels pending work on account changes, logout, freshness timeout or failed probes.
 Switching away and back cannot reuse an approval. Worker restart discards bindings; there is
@@ -323,7 +323,7 @@ Chrome host permissions cover all paths (and Chrome's host matching cannot enfor
 configuration therefore rejects explicit ports. The web link needs no host permission.
 CSP is `script-src 'self'; object-src 'none'; connect-src <exact Clerk API origin>;`.
 Clerk's no-remote-hosted-code SDK is bundled; no remote script, eval, broad site permission,
-`identity`, `tabs`, `scripting`, external messaging, or web-accessible resource is enabled.
+`tabs`, `scripting`, external messaging, or web-accessible resource is enabled.
 Unconfigured CSP denies network connections and adds no API/host permissions.
 
 The worker passes a no-cache adapter to Clerk, replacing its default persistent client-JWT
@@ -343,3 +343,70 @@ guards check exact auth permissions/CSP and continued fixture isolation. Browser
 unconfigured web sign-in/popup and the unchanged secure synthetic demo. Live account matching,
 Clerk cookie behavior, remote logout/revocation and configured network behavior require the
 external configuration above and are separate **unverified** acceptance checks.
+
+## Optional local Gmail connection (PR 8)
+
+No Google client or controlled mailbox is configured in the reviewed default build. Live
+Google consent, account selection, denial, reconnect and revocation remain **unverified**.
+Clerk setup remains deferred; connecting Gmail does not authorize OTP requests without a
+fresh OTPGuard account session. Real retrieval and autofill remain disabled in every build.
+
+Use an isolated Chrome profile and a controlled test mailbox. An owner must first authorize
+and perform external setup; this implementation provisions nothing:
+
+1. Obtain a stable extension public manifest key and ID. Chrome's [OAuth tutorial](https://developer.chrome.com/docs/extensions/how-to/integrate/oauth)
+   describes an unpublished Developer Dashboard upload and copying its public key. That upload
+   is an external action, not performed here. Keep private signing keys outside this repository.
+2. In the authorized Google project, enable Gmail API, configure consent/audience and controlled
+   test users, and register a **Chrome Extension** OAuth client with that exact extension ID.
+3. Set the three PR 8 public values from `.env.example` in ignored `apps/extension/.env.gmail`.
+   Run `bun --env-file=.env.gmail run build` from `apps/extension`. To include Clerk, load its
+   existing public configuration into the same build environment. The wrapper validates the
+   public key's derived ID against the registered ID; runtime also checks the loaded ID.
+   Missing settings produce UNCONFIGURED; partial/invalid build configuration fails explicitly.
+4. Load `apps/extension/build/chrome-mv3-prod`, verify the ID in Chrome, open the popup and click
+   **Connect Gmail**. Only this action requests interactive consent for `gmail.readonly`.
+   Confirm the displayed mailbox from Gmail's [profile API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users/getProfile).
+   It may differ from the separately displayed OTPGuard account. Broad read-only mailbox access
+   is requested; this PR fetches only profile identity, never messages.
+5. Deny consent or omit Gmail scope: connection fails safely with a retry explanation. Click
+   Connect again to retry. Close/reopen the popup: no unexpected consent prompt should appear.
+6. Use **Check Gmail connection** after removing access in your Google account: expect reconnect
+   required. An invalid profile token gets one cache eviction/noninteractive retry. No repeated
+   polling or interactive retry occurs. Connect explicitly to recover.
+7. Change the Chrome Google account and check/reconnect. Sign-in events cancel bindings. If Google
+   returns a different mailbox, expect MAILBOX_CHANGED; disconnect before accepting a new mailbox.
+   Chrome [identity documentation](https://developer.chrome.com/docs/extensions/reference/api/identity)
+   selects the Sync account, otherwise the first Google web account. No arbitrary account picker
+   is promised; actual selection must be checked live. Stable-channel account enumeration is
+   unavailable. Changing browser profile is the supported setup approach for another mailbox.
+8. Click **Disconnect Gmail**: mailbox state disappears immediately, pending profile work aborts,
+   and consent already in progress is drained before clearing Chrome's cache. The selected mailbox is rechecked before revocation; a different account cannot be used
+   to claim the old mailbox was revoked. Google revocation
+   is attempted with a token in a POST body, never a URL. Test with networking offline: expect
+   local disconnect plus unconfirmed remote revocation, with instructions to remove access in
+   Google account permissions. Cache cleanup failures have a separate explicit warning. Reconnect
+   only through Connect. Worker restart drops mailbox/bindings and requires Connect again.
+
+Configured Gmail adds only `identity`, Gmail API host access and the Google revocation endpoint;
+CSP connect-src adds those two Google origins. Chrome host permission paths do not constrain
+fetch paths, so the adapter itself hardcodes profile/revoke endpoints and rejects redirects.
+No identity.email, site access, content injection or external messaging is added. Default
+unconfigured builds retain zero permissions/hosts. Generated artifact guards cover both modes.
+Only the exact extension popup can invoke lifecycle actions. Tokens stay in worker operation
+locals and Chrome's own cache; no refresh tokens or Gmail credentials enter application storage,
+content scripts, backend requests, logs or UI. Mailbox identity is local volatile state. Google
+receives profile requests in Authorization headers and revocation credentials in POST bodies.
+Requests omit cookies, cache and referrers, reject redirects and time out after ten seconds.
+Chrome-owned consent dialogs cannot be programmatically aborted by this adapter; disconnect
+waits for their completion while authorization stays cancelled. Cleanup is best effort.
+
+`gmail.readonly` is a [restricted scope](https://developers.google.com/workspace/gmail/api/auth/scopes).
+Public distribution requires applicable [restricted-scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification)
+unless an exception applies, plus Chrome Web Store review. Local-only processing does not itself
+waive verification. Security-assessment applicability depends on actual storage/transmission;
+cloud Gmail-derived activity stays disabled pending its own policy review. Google documents
+[revocation](https://developers.google.com/identity/protocols/oauth2/web-server#tokenrevoke) as
+project-wide across previously granted scopes/clients, with possible propagation delay.
+Use a dedicated authorized project and understand that consequence before testing disconnect.
+No verification, registration, upload, publication or paid resource was performed here.

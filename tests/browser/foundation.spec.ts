@@ -51,13 +51,13 @@ test('unpacked extension worker and popup load without page access', async () =>
       popup.getByRole('heading', { name: 'OTPGuard', exact: true }),
     ).toBeVisible();
     await expect(popup.getByRole('status')).toHaveText(
-      'Gmail connection and autofill are not yet supported.',
+      'Real Gmail retrieval and autofill remain disabled.',
     );
     await expect(
       popup.getByText('Account authentication is unconfigured.'),
     ).toBeVisible();
     await expect(
-      popup.getByText('No mailbox connected.', { exact: false }),
+      popup.getByText('Gmail connection is unconfigured.', { exact: false }),
     ).toBeVisible();
     expect(
       await worker.evaluate(
