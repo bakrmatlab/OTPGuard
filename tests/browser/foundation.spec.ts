@@ -2,7 +2,7 @@ import { chromium, expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
 
 test('web entry point explains unavailable capabilities', async ({ page }) => {
-  await page.goto('http://127.0.0.1:3000');
+  await page.goto('http://127.0.0.1:3100');
   await expect(page.getByRole('heading', { name: 'OTPGuard' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveText(
     'Gmail connection and autofill are not yet supported.',
@@ -39,7 +39,7 @@ test('unpacked extension worker and popup load without page access', async () =>
       ),
     ).toEqual([]);
     const page = await context.newPage();
-    await page.goto('http://127.0.0.1:3000');
+    await page.goto('http://127.0.0.1:3100');
     await expect(page.locator('input')).toHaveCount(0);
     expect(
       await worker.evaluate(

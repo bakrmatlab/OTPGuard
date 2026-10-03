@@ -4,6 +4,6 @@
     "jsx": "react-jsx",
     "types": ["chrome"]
   },
-  "include": [".plasmo/index.d.ts", "*.ts", "*.tsx"],
+  "include": [".plasmo/index.d.ts", "*.ts", "*.tsx", "detection/**/*.ts"],
   "exclude": ["node_modules", "build", ".plasmo"]
 }

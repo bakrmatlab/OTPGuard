@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>Synthetic OTP detection fixtures</title>
+  <h1>Synthetic detection fixtures — no retrieval or filling</h1>
+  <form id="single">
+    <p>Enter the verification code sent to your email.</p>
+    <label
+      >Verification code
+      <input autocomplete="one-time-code" inputmode="numeric" maxlength="6"
+    /></label>
+  </form>
+  <fieldset id="split">
+    <legend>Verification code sent to your inbox</legend>
+    <input maxlength="1" inputmode="numeric" /><input
+      maxlength="1"
+      inputmode="numeric"
+    /><input maxlength="1" inputmode="numeric" /><input
+      maxlength="1"
+      inputmode="numeric"
+    /><input maxlength="1" inputmode="numeric" /><input
+      maxlength="1"
+      inputmode="numeric"
+    />
+  </fieldset>
+  <form id="ordinary">
+    <label>Quantity <input type="number" /></label>
+  </form>
+  <form id="payment">
+    <label
+      >Credit card security code
+      <input autocomplete="one-time-code" inputmode="numeric"
+    /></label>
+  </form>
+  <form id="hidden" hidden>
+    <label
+      >Email verification code <input autocomplete="one-time-code"
+    /></label>
+  </form>
+  <fieldset disabled id="disabled">
+    <legend>Email verification code</legend>
+    <input autocomplete="one-time-code" />
+  </fieldset>
+  <form id="authenticator">
+    <label
+      >Authenticator verification code
+      <input autocomplete="one-time-code" inputmode="numeric"
+    /></label>
+  </form>
+  <form id="ambiguous">
+    <label>Verification code <input autocomplete="one-time-code" /></label>
+  </form>
+  <iframe
+    title="Unsupported iframe"
+    srcdoc="<label>Email verification code <input autocomplete='one-time-code'></label>"
+  ></iframe>
+  <button id="replace" type="button">Replace single field</button>
+  <pre id="result" role="status"></pre>
+  <script type="module" src="/harness.js"></script>
+</html>

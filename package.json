@@ -7,6 +7,7 @@
     "node": ">=22.19.0 <23"
   },
   "scripts": {
+    "fixtures": "bun scripts/serve-fixtures.ts",
     "dev:web": "bun run --filter @otpguard/web dev",
     "dev:extension": "bun run --filter @otpguard/extension dev",
     "build": "bun run --filter '@otpguard/*' build",
