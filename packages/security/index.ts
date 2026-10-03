@@ -184,3 +184,6 @@ export function authorize(
     return unknown('code');
   return { state: 'VERIFIED', serviceId: policy.id };
 }
+
+export { assessGmailSender } from './gmail';
+export type { GmailSenderAssessment } from './gmail';

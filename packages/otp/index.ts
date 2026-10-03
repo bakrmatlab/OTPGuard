@@ -94,3 +94,10 @@ export function parseVerificationCode(email: NormalizedEmail): ParseResult {
     return { status: 'rejected', reason: 'unsupported-template' };
   return { status: 'candidate', candidate: candidates[0]! };
 }
+
+export { normalizeGmailMessage, gmailNormalizationLimits } from './gmail';
+export type {
+  GmailHeader,
+  NormalizedGmailMessage,
+  GmailNormalizationResult,
+} from './gmail';

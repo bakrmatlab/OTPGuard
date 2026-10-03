@@ -412,3 +412,29 @@ cloud Gmail-derived activity stays disabled pending its own policy review. Googl
 project-wide across previously granted scopes/clients, with possible propagation delay.
 Use a dedicated authorized project and understand that consequence before testing disconnect.
 No verification, registration, upload, publication or paid resource was performed here.
+
+## Gmail normalization and sender evidence (PR 9)
+
+Local helpers now normalize bounded Gmail `format=full` message payloads: canonical
+base64url, UTF-8/ASCII/Latin-1 text, a strict inert HTML subset and matching MIME
+alternatives. Attachments, unsupported MIME/charsets, hidden/active/quoted markup,
+malformed and oversized input fail conservatively. They do not fetch images or links,
+execute HTML, or perform Gmail retrieval. Limits include 256 KiB decoded body plus
+inspected headers, 64 parts and 32,768 normalized text characters.
+
+**Sender evidence remains UNKNOWN.** Gmail's documented API does not establish the
+receiver provenance needed to trust `Authentication-Results` or distinguish normal
+SMTP delivery from imported/inserted mail. `internalDate` is retained as unverified
+provider metadata, with no fallback to sender `Date`. Header pass strings, From names,
+ARC and copied receiver headers cannot authorize a fill. The production service
+registry remains empty and real retrieval/autofill remains disabled.
+
+Tests use explicitly fabricated mail, not sanitized real service templates. Real
+acceptance still needs authorized controlled Gmail configuration, a justified receiver
+boundary and sanitized direct-delivery templates for two or three selected flows.
+Sanitization must replace personal identifiers/codes and document that modifying mail
+invalidates original DKIM signatures. No live mail or credentials should be placed in
+test artifacts. Run `bun x --no-install vitest run tests/gmail-normalization.test.ts
+ tests/gmail-sender.test.ts` to reproduce normalization and fail-closed checks; the
+full credential-free validation remains `bun run build`, `bun run build:mock`,
+`bun run check` and `bun run test:browser`.
