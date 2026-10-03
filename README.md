@@ -1,11 +1,10 @@
 # OTPGuard
 
-PR 3 adds a DOM insertion mechanism and explicit synthetic loopback fixture adapter
-for single and split OTP inputs, including React-controlled state. Detection reports
-page-controlled evidence; email hints grant no trust. Gmail, account authentication,
-parsing, authorization, production autofill, and cloud synchronization remain unavailable.
-No real services are currently supported. The packaged extension still has no site
-access or content injection; detection and insertion run only in the local harness.
+PR 4 adds a pure normalized email-code parser with explicit templates, purpose evidence,
+ambiguity and conservative rejection results. Detection and insertion remain exercised
+only through synthetic loopback fixtures. Gmail, account authentication, authorization,
+production autofill and cloud synchronization remain unavailable. No real services are
+currently supported. The packaged extension still has no site access or content injection.
 
 ## Requirements and setup
 
@@ -76,7 +75,7 @@ separate manual check. CI runs these checks on GitHub; see the
 - `apps/extension`: popup, inert background worker, icon, and an intentionally
   **zero-byte** `content.ts` entry. Plasmo defaults nonempty content entries to
   all-site injection; its empty-entry handling omits this file from the manifest.
-  It remains empty in PR 3; site injection waits for an explicit supported-site permission design. The manifest test catches
+  It remains empty in PR 4; site injection waits for an explicit supported-site permission design. The manifest test catches
   accidental registration or permission expansion.
 - `apps/web`: static landing page, without SDKs, remote fonts, or account features.
 - `apps/extension/detection`: in-memory DOM group discovery and finite observation,
@@ -162,3 +161,31 @@ Sites can themselves submit in response to input completion. Frameworks that rej
 synthetic events remain unsupported. This is a DOM mechanism, not a security decision;
 a future background authorization boundary must approve and bind every production fill.
 No code is sent through page globals, attributes, postMessage, storage, or URLs.
+
+## Parser development (synthetic text only)
+
+`packages/otp` exports `parseVerificationCode({ subject, text })`. Supply normalized plain
+text, never raw MIME or HTML. Run `bun x --no-install vitest run tests/otp.test.ts`.
+Synthetic examples live only in `tests/fixtures/email/normalized.ts`. The applications do
+not import the parser or fixtures at this milestone.
+
+Supported English templates are a complete line such as `Your verification code is <digits>`,
+`Login code: <digits>`, or a code heading followed by a numeric line. Explicit sign-in/login
+or email-verification purpose is required. ASCII numeric lengths 4–8 remain strings.
+Inline and next-line templates score 90 and 80 respectively; these are deterministic
+heuristics, never probabilities or identity evidence. Multiple occurrences are ambiguous,
+including repeated identical codes. Other numbers, quoted/forwarded text, mixed or
+unsupported purposes, oversized inputs and unrecognized templates fail conservatively.
+Limits are 1,000 subject characters and 32,768 body characters; input is never truncated.
+
+To reproduce success and rejection cases, run the parser test command above: inspect the
+leading-zero and ambiguity assertions, then the order/date/phone/price/tracking, quote,
+unsupported-purpose and size-limit cases. Run `bun run build && bun run check` and
+`bun run test:browser` to check the application boundaries and existing DOM behavior.
+No live mailbox or real verification code is needed.
+
+This deliberately narrow grammar may reject legitimate emails containing expiry numbers,
+quoted prose, localized text or unfamiliar templates. Real service coverage, bounded MIME
+and inert HTML conversion require later validated adapters; extraction never authorizes a
+fill or proves sender identity. No storage, network, logs, browser APIs or React dependencies
+exist in the pure package. Keep returned candidates ephemeral and outside telemetry.

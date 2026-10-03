@@ -39,6 +39,9 @@ describe('fixture isolation', () => {
         expect(source).not.toContain('Fill synthetic fixture');
         expect(source).not.toContain('042681');
         expect(source).not.toContain('/insertion.js');
+        expect(source).not.toContain('Synthetic Lantern');
+        expect(source).not.toContain('003719');
+        expect(source).not.toContain('008417');
       }
     });
   }

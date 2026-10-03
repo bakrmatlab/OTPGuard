@@ -32,7 +32,8 @@
   },
   "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "trustedDependencies": [
     "esbuild",
