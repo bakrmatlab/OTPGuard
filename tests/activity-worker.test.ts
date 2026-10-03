@@ -55,6 +55,16 @@ it('history management is exact-popup only, cannot append from messages, restric
   expect(listener({ type: 'history-cloud-enable' }, sender, respond)).toBe(
     false,
   );
+  expect(await historyAction({ type: 'history-status' })).toEqual({
+    state: 'LOCAL',
+    cloud: 'POLICY_UNRESOLVED',
+    count: 1,
+    lastAction: {
+      result: event.result,
+      reason: event.reason,
+      time: event.time,
+    },
+  });
   const exported = await historyAction({ type: 'history-export' });
   expect(JSON.parse('json' in exported ? exported.json : '')).toEqual({
     version: 1,

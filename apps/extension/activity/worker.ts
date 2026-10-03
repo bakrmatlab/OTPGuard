@@ -43,10 +43,24 @@ export async function historyAction(
       cloud: 'POLICY_UNRESOLVED',
       json: await localHistory.export(),
     };
+  const events = await localHistory.list();
+  const latest = events.reduce<(typeof events)[number] | undefined>(
+    (last, event) => (!last || event.time >= last.time ? event : last),
+    undefined,
+  );
   return {
     state: 'LOCAL',
     cloud: 'POLICY_UNRESOLVED',
-    count: (await localHistory.list()).length,
+    count: events.length,
+    ...(latest
+      ? {
+          lastAction: {
+            result: latest.result,
+            reason: latest.reason,
+            time: latest.time,
+          },
+        }
+      : {}),
   };
 }
 // Opportunistic physical expiry on worker startup; no worker keepalive.

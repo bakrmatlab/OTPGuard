@@ -44,6 +44,7 @@ test('unpacked extension worker and popup load without page access', async () =>
       (await context.waitForEvent('serviceworker'));
     const id = new URL(worker.url()).host;
     const popup = await context.newPage();
+    await popup.setViewportSize({ width: 380, height: 600 });
     const errors: string[] = [];
     popup.on('pageerror', (error) => errors.push(error.name));
     await popup.goto(`chrome-extension://${id}/popup.html`);
@@ -123,6 +124,11 @@ test('unpacked extension worker and popup load without page access', async () =>
     }, event);
     await popup.reload();
     await expect(popup.getByText('1 local activity records.')).toBeVisible();
+    await expect(
+      popup.getByText('Input filled (login acceptance unknown)', {
+        exact: false,
+      }),
+    ).toBeVisible();
     await popup.getByRole('button', { name: 'Export local history' }).click();
     await expect(
       popup.getByRole('textbox', { name: 'Local history JSON' }),
@@ -145,6 +151,37 @@ test('unpacked extension worker and popup load without page access', async () =>
         () => chrome.runtime.getManifest().host_permissions ?? [],
       ),
     ).toEqual([]);
+    await expect(
+      popup.getByRole('button', { name: 'Fill verified code' }),
+    ).toBeDisabled();
+    await expect(
+      popup.getByRole('button', { name: 'Retry retrieval' }),
+    ).toBeDisabled();
+    await expect(
+      popup.getByRole('button', { name: 'Open dashboard' }),
+    ).toBeDisabled();
+    await expect(
+      popup.getByRole('button', { name: 'Enable on this site' }),
+    ).toBeDisabled();
+    await popup
+      .getByText('Understand protection states', { exact: true })
+      .focus();
+    await popup.keyboard.press('Enter');
+    await expect(
+      popup.getByText('Unrelated mail alone is not evidence of phishing.', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await expect(popup.getByText('NO_CODE — no eligible mail')).toBeVisible();
+    await expect(
+      popup.getByText('UNKNOWN — insufficient evidence'),
+    ).toBeVisible();
+    await popup.keyboard.press('Tab');
+    await expect(automatic).toBeFocused();
+    await expect(popup.getByText('No recorded fill action.')).toBeVisible();
+    expect(
+      await popup.locator('body').evaluate((body) => body.scrollWidth <= 380),
+    ).toBe(true);
     expect(errors).toEqual([]);
     expect(external).toEqual([]);
   } finally {

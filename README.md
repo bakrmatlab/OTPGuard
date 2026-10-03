@@ -668,3 +668,19 @@ fill. Build both apps and the separate mock before `bun run check` and `bun run 
 In an isolated production popup, export empty history, delete it and reload: count stays zero,
 cloud stays disabled and real retrieval/fill stays disabled. Browser tests additionally seed
 one fabricated closed record in their isolated profile to verify durable export/deletion.
+
+### Popup capabilities
+
+The popup separates OTPGuard account sign-in from the Chrome-profile Gmail mailbox.
+A configured Gmail build can connect, check, and disconnect a mailbox; read-only consent
+permits access to all mail. Connection status does not enable code retrieval or filling.
+Real services, sender verification, retrieval, automatic/manual fill, retry, and website
+access remain unsupported. The saved autofill preference applies only to future supported
+requests and cannot disable security checks. Exact local HTTPS blocks take precedence.
+
+The protection guide distinguishes UNKNOWN, MISMATCH, explicit BLOCKED, no eligible mail,
+and reconnect/error states. Unrelated mail is not evidence of phishing. No code copy,
+reveal, or verification override is provided. The last-action summary shows only sanitized
+historical result/reason/time; a filled input does not prove server login acceptance.
+Local history may be empty and can be exported or deleted. Account/cloud/dashboard features
+remain unavailable with the current configuration; dashboard completion is a later PR.

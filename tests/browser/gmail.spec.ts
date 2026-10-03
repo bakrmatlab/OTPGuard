@@ -48,12 +48,12 @@ for (const phase of ['startup', 'action'] as const) {
       await expect(popup.getByText(fallback, { exact: false })).toBeVisible();
       if (configuredGmail()) {
         await popup
-          .getByRole('button', { name: 'Connect Gmail', exact: true })
+          .getByRole('button', { name: /^(Re)?connect Gmail$/i })
           .click();
         await expect(popup.getByText(fallback, { exact: false })).toBeVisible();
       } else {
         await expect(
-          popup.getByRole('button', { name: 'Connect Gmail', exact: true }),
+          popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }),
         ).toHaveCount(0);
       }
       await expect(
@@ -118,15 +118,11 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
     await expect(
       popup.getByText('No mailbox connected.', { exact: true }),
     ).toBeVisible();
-    await popup
-      .getByRole('button', { name: 'Connect Gmail', exact: true })
-      .click();
+    await popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }).click();
     await expect(
       popup.getByText('Connection was denied', { exact: false }),
     ).toBeVisible();
-    await popup
-      .getByRole('button', { name: 'Connect Gmail', exact: true })
-      .click();
+    await popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }).click();
     await expect(
       popup.getByText('Mailbox: mailbox@fixture.invalid'),
     ).toBeVisible();
@@ -166,9 +162,7 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
           { status: 200 },
         );
     });
-    await popup
-      .getByRole('button', { name: 'Connect Gmail', exact: true })
-      .click();
+    await popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }).click();
     await expect(
       popup.getByText('Mailbox: other@fixture.invalid'),
     ).toBeVisible();
