@@ -1,9 +1,11 @@
 # OTPGuard
 
-PR 1 provides a runnable workspace foundation: a Chrome MV3 Plasmo extension and
-Next.js landing page for a future sign-in host. Gmail, account authentication,
-OTP detection, parsing, authorization, filling, and cloud synchronization are not
-implemented. No services are currently supported.
+PR 2 adds a local DOM detector and synthetic fixture harness for visible, enabled
+single and split OTP fields. It reports field groups and page-controlled evidence;
+email hints are heuristics and grant no trust. Gmail, account authentication,
+parsing, authorization, filling, and cloud synchronization remain unavailable.
+No real services are currently supported. The packaged extension still has no site
+access or content injection; detection is exercised only in the local harness.
 
 ## Requirements and setup
 
@@ -27,7 +29,7 @@ browser system dependencies too.
 
 `bun run test` inspects the built production manifest; run `bun run build` first.
 `bun run check` runs strict type checking, ESLint, Prettier, and Vitest. Browser tests
-start the production web server themselves; port 3000 must be free. They use a
+start the production web server themselves; ports 3100 and 3001 must be free. They use a
 temporary isolated Chromium profile, load the unpacked production extension, open
 its popup document, and check the web page. They do not use your personal profile
 or capture screenshots, video, or traces.
@@ -74,10 +76,14 @@ separate manual check. CI runs these checks on GitHub; see the
 - `apps/extension`: popup, inert background worker, icon, and an intentionally
   **zero-byte** `content.ts` entry. Plasmo defaults nonempty content entries to
   all-site injection; its empty-entry handling omits this file from the manifest.
-  Keep it empty until explicit site permissions arrive. The manifest test catches
+  It remains empty in PR 2; site injection waits for an explicit supported-site permission design. The manifest test catches
   accidental registration or permission expansion.
 - `apps/web`: static landing page, without SDKs, remote fonts, or account features.
-- `tests`: Vitest manifest guard and Playwright production entry-point smoke tests.
+- `apps/extension/detection`: in-memory DOM group discovery and finite observation,
+  without Chrome APIs, messaging, storage, network requests, or insertion.
+- `tests/fixtures` and `scripts/serve-fixtures.ts`: local-only synthetic harness,
+  outside both application entry graphs.
+- `tests`: production manifest/bundle guards and real Chromium detection/entry tests.
 - `.github/workflows/ci.yml`: credential-free lockfile install, builds, checks, and
   Chromium smoke tests.
 
@@ -87,3 +93,39 @@ Plasmo currently brings deprecated `source-map`/`stable` dependencies and an
 upstream htmlnano/SVGO peer mismatch. Bun's explicit `trustedDependencies` list
 allows install scripts for `esbuild`, `sharp`, `lmdb`, and `msgpackr-extract`.
 The tested platform binaries work without adding watcher/SWC fallback scripts.
+
+## Manual detection acceptance (synthetic local harness)
+
+Run `bun run fixtures`, then visit <http://127.0.0.1:3001>. This binds only to loopback
+and needs no extension or credentials. The status displays group identities, evidence
+enums and fixture IDs; it never displays field values or copies page text.
+
+1. Confirm four groups: `single` (one field, email), `split` (six fields, email),
+   `authenticator` (uncertain), and `ambiguous` (uncertain).
+2. Confirm ordinary quantity, credit-card security code, hidden, disabled and iframe
+   fields are absent. No field changes and no form submits occur.
+3. Click **Replace single field**. Its group identity changes, while the other groups
+   keep theirs. Repeated unrelated attribute mutations do not duplicate results.
+4. In DevTools, disable one split input or hide the single form: the affected group
+   disappears. Restore it before session expiry to see it return.
+5. After 60 seconds the status becomes an empty group list. Reload to start another
+   finite session. Stop the fixture server with Ctrl+C when finished.
+
+Observation debounces mutations by 100 ms, stops after 60 seconds or 120 scans,
+and clears groups on stop/pagehide. Scans fail closed above 2,000 DOM elements or
+200 inputs. Context is bounded to 4,000 characters; truncated context is uncertain.
+Field identities last only for a detector instance and must later be bound to a
+browser-provided document/request identity. Split groups require 4–8 one-character
+inputs in one form/fieldset (or immediate parent), with no hidden/disabled member.
+Generic numeric or `code` names alone are insufficient. Payment context is rejected;
+authenticator/recovery context remains uncertain. English text heuristics, ordinary
+light DOM, and top-level documents are the current coverage boundary. Arbitrary
+layouts, shadow roots and iframes are unsupported; stylesheet-only animation changes
+without observed DOM mutations may require a rescan. These hints cannot establish
+sender identity, destination trust, or an email transaction match.
+
+No permissions were added. Production detection registration is deliberately deferred:
+there is no validated real-service registry yet, and Plasmo's default nonempty content
+entry would expand to all-site injection. The local harness does not add localhost
+exceptions to the production extension or web application. PR 3 insertion remains
+separate and has not been started.
