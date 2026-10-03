@@ -47,6 +47,13 @@
       "name": "@otpguard/otp",
       "version": "0.0.0",
     },
+    "packages/security": {
+      "name": "@otpguard/security",
+      "version": "0.0.0",
+      "dependencies": {
+        "@otpguard/otp": "workspace:*",
+      },
+    },
   },
   "trustedDependencies": [
     "lmdb",
@@ -326,6 +333,8 @@
     "@otpguard/extension": ["@otpguard/extension@workspace:apps/extension"],
 
     "@otpguard/otp": ["@otpguard/otp@workspace:packages/otp"],
+
+    "@otpguard/security": ["@otpguard/security@workspace:packages/security"],
 
     "@otpguard/web": ["@otpguard/web@workspace:apps/web"],
 

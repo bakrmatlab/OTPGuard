@@ -1,8 +1,8 @@
 # OTPGuard
 
-PR 4 adds a pure normalized email-code parser with explicit templates, purpose evidence,
-ambiguity and conservative rejection results. Detection and insertion remain exercised
-only through synthetic loopback fixtures. Gmail, account authentication, authorization,
+PR 5 adds a pure authorization policy alongside the normalized email-code parser.
+It checks exact approved origins, sender evidence, request freshness and ambiguity. Detection and insertion remain exercised
+only through synthetic loopback fixtures. Gmail, account authentication, connected authorization,
 production autofill and cloud synchronization remain unavailable. No real services are
 currently supported. The packaged extension still has no site access or content injection.
 
@@ -75,7 +75,7 @@ separate manual check. CI runs these checks on GitHub; see the
 - `apps/extension`: popup, inert background worker, icon, and an intentionally
   **zero-byte** `content.ts` entry. Plasmo defaults nonempty content entries to
   all-site injection; its empty-entry handling omits this file from the manifest.
-  It remains empty in PR 4; site injection waits for an explicit supported-site permission design. The manifest test catches
+  It remains empty in PR 5; site injection waits for an explicit supported-site permission design. The manifest test catches
   accidental registration or permission expansion.
 - `apps/web`: static landing page, without SDKs, remote fonts, or account features.
 - `apps/extension/detection`: in-memory DOM group discovery and finite observation,
@@ -189,3 +189,27 @@ quoted prose, localized text or unfamiliar templates. Real service coverage, bou
 and inert HTML conversion require later validated adapters; extraction never authorizes a
 fill or proves sender identity. No storage, network, logs, browser APIs or React dependencies
 exist in the pure package. Keep returned candidates ephemeral and outside telemetry.
+
+## Authorization policy development (synthetic evidence only)
+
+`packages/security` exports `authorize(input, registry)` and `normalizeOrigin(url)`.
+The default `supportedServices` registry is empty. Run
+`bun x --no-install vitest run tests/security.test.ts` for synthetic success and refusal
+cases. `VERIFIED` returns a service ID, never a code or fill approval token. All other
+states refuse release: `UNKNOWN` for insufficient evidence, `MISMATCH` for an identified
+sender/destination mismatch and `BLOCKED` for explicit local policy.
+
+The registry defines exact HTTPS origins, exact sender/authenticated-domain/receiving-
+boundary relationships, templates, purposes, code lengths, freshness and provenance.
+Canonical default port 443 passes; unexpected ports, credentials and trailing-dot hosts
+fail. URL paths and query claims grant no authority. No suffix matching is performed.
+Sender evidence must come from a future trusted receiving adapter, never raw headers or
+page claims. The contract is not proof of provenance. Complete plausible messages and
+competing challenges must be supplied; ambiguity is never resolved by newest selection.
+Receipt timestamps must be trusted provider metadata. Parser scores are ignored.
+
+Reproduce acceptance with the test command above: the first test verifies a complete
+synthetic request and the empty production registry; destination and sender tests verify
+refusal. No mail, credentials or browser changes are needed. Background request binding,
+Gmail provenance, runtime schema validation and release-time rechecks remain deferred.
+The applications do not import this package or its synthetic test registry.
