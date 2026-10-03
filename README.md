@@ -362,6 +362,20 @@ if unavailable, leave authentication unconfigured. Do not invent keys or provisi
 resource just to pass a check. Live recognition remains unverified until configured.
 The web host also requires a production publishable key and a server-only production secret.
 
+Development-host feasibility was rechecked on October 3, 2026. Clerk officially supports
+development keys on a `*.vercel.app` preview host, but its development session architecture
+uses a sensitive dev-browser credential in query strings. Hosting on HTTPS does not change
+the installed extension SDK's transport. Its public background-client options expose no
+header-only development transport; disabling its storage cache does not remove URL credentials.
+See Clerk's [environment guidance](https://clerk.com/docs/guides/development/managing-environments)
+and [session architecture](https://clerk.com/docs/guides/how-clerk-works/overview).
+No supported path satisfying OTPGuard's session freshness and token privacy requirements
+has been established for development Clerk plus a Vercel-provided address. Leave both account
+integrations unconfigured under that setup. A Frontend API proxy or OAuth access token is
+not sufficient evidence of compatible logout/account-switch behavior. Do not remove the
+test-key gate or substitute locally decoded JWT expiry for an authoritative fresh session.
+This finding does not require a domain purchase or authorize provider changes or deployment.
+
 1. Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in `apps/web/.env.local`.
    Keep the secret exclusively on the web server. Build/start the web app and serve it on the
    authorized HTTPS origin. This PR does not deploy or provide HTTPS infrastructure.

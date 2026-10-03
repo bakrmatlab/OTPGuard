@@ -8,6 +8,30 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.resetModules();
 });
+it('never initializes Clerk or obtains a token for development keys on a Vercel host', async () => {
+  sdk.create.mockClear();
+  vi.stubEnv(
+    'PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY',
+    'pk_test_' + btoa('synthetic.clerk.accounts.dev$'),
+  );
+  vi.stubEnv(
+    'PLASMO_PUBLIC_CLERK_FRONTEND_API',
+    'https://synthetic.clerk.accounts.dev',
+  );
+  vi.stubEnv(
+    'PLASMO_PUBLIC_CLERK_SYNC_HOST',
+    'https://otpguard-fixture.vercel.app',
+  );
+  vi.stubEnv(
+    'PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN',
+    'https://otpguard-fixture.vercel.app',
+  );
+  const worker = await import('../apps/extension/account/worker');
+  expect(await worker.accountStatus()).toEqual({ state: 'UNCONFIGURED' });
+  expect(await worker.accountGate.refresh()).toBeNull();
+  await worker.signOutAccount();
+  expect(sdk.create).not.toHaveBeenCalled();
+});
 it('keeps freshness tokens in the worker and uses no persistent SDK JWT cache', async () => {
   vi.stubEnv(
     'PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY',
