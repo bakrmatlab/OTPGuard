@@ -1,0 +1,17 @@
+bun.lock
+node_modules/
+.next/
+.plasmo/
+build/
+playwright-report/
+test-results/
+# Preserve the supplied planning documentation byte-for-byte.
+AGENTS.md
+HANDOFF.md
+CODEX_PR_WORKFLOW.md
+docs/design.md
+docs/design-review.md
+docs/implementation-plan.md
+docs/*.original.md
+# Next regenerates this file during builds with its own formatting.
+apps/web/next-env.d.ts

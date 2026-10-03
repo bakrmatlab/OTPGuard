@@ -1,6 +1,7 @@
 # OTPGuard — Implementation Plan
 
-Status: proposed delivery plan for review. No application implementation has started.
+Status: PR 1 implemented and locally validated; owner approved publication and merge.
+PRs 2–16 have not started.
 Updated October 3, 2026.
 
 The [working design](design.md) defines behavior and security policy. This document
@@ -302,4 +303,4 @@ the local diff and proposed title/description without pretending a remote PR exi
 - Added request binding, safe cancellation, ambiguity rejection, and honest check reporting.
 - Distinguished a demonstrable prototype from publicly approved distribution.
 
-Next implementation step after review: PR 1 only.
+Next implementation step: PR 2 only after a separate owner request.

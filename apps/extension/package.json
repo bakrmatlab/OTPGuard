@@ -1,0 +1,26 @@
+{
+  "name": "@otpguard/extension",
+  "version": "0.0.0",
+  "private": true,
+  "displayName": "OTPGuard",
+  "description": "OTPGuard foundation. Gmail and autofill are not yet supported.",
+  "scripts": {
+    "dev": "plasmo dev",
+    "build": "plasmo build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "plasmo": "0.90.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.28",
+    "@types/react-dom": "18.3.7",
+    "@types/chrome": "0.1.37"
+  },
+  "manifest": {
+    "permissions": [],
+    "host_permissions": []
+  }
+}

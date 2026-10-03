@@ -1,0 +1,42 @@
+{
+  "name": "otpguard",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "node": ">=22.19.0 <23"
+  },
+  "scripts": {
+    "dev:web": "bun run --filter @otpguard/web dev",
+    "dev:extension": "bun run --filter @otpguard/extension dev",
+    "build": "bun run --filter '@otpguard/*' build",
+    "typecheck": "bun run --filter '@otpguard/*' typecheck && tsc -p tsconfig.tools.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun run test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.12.0",
+    "typescript-eslint": "8.71.0",
+    "typescript": "5.9.3",
+    "prettier": "3.8.1",
+    "vitest": "5.0.3",
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.19.15",
+    "@types/chrome": "0.1.37"
+  },
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "trustedDependencies": [
+    "esbuild",
+    "sharp",
+    "lmdb",
+    "msgpackr-extract"
+  ]
+}
