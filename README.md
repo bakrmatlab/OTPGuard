@@ -1,10 +1,10 @@
 # OTPGuard
 
-PR 5 adds a pure authorization policy alongside the normalized email-code parser.
-It checks exact approved origins, sender evidence, request freshness and ambiguity. Detection and insertion remain exercised
-only through synthetic loopback fixtures. Gmail, account authentication, connected authorization,
-production autofill and cloud synchronization remain unavailable. No real services are
-currently supported. The packaged extension still has no site access or content injection.
+PR 6 connects a secure synthetic pipeline in a separately built development extension.
+Its worker derives browser context, parses fabricated mail, enforces authorization and
+rechecks the current document before releasing a short-lived code to the bound field group.
+The production extension still has no site access or content injection. Gmail, account
+authentication, real-service trust and cloud synchronization remain unavailable.
 
 ## Requirements and setup
 
@@ -16,6 +16,7 @@ runs the framework and verification CLIs through their normal executable entry p
 ```sh
 bun install --frozen-lockfile
 bun run build
+bun run build:mock
 bun run check
 bun x --no-install playwright install chromium
 bun run test:browser
@@ -72,10 +73,10 @@ separate manual check. CI runs these checks on GitHub; see the
 
 ## Layout and boundaries
 
-- `apps/extension`: popup, inert background worker, icon, and an intentionally
+- `apps/extension`: popup, inert production background worker, reusable pipeline modules, icon, and an intentionally
   **zero-byte** `content.ts` entry. Plasmo defaults nonempty content entries to
   all-site injection; its empty-entry handling omits this file from the manifest.
-  It remains empty in PR 5; site injection waits for an explicit supported-site permission design. The manifest test catches
+  It remains empty in PR 6; site injection waits for an explicit supported-site permission design. The manifest test catches
   accidental registration or permission expansion.
 - `apps/web`: static landing page, without SDKs, remote fonts, or account features.
 - `apps/extension/detection`: in-memory DOM group discovery and finite observation,
@@ -210,6 +211,54 @@ Receipt timestamps must be trusted provider metadata. Parser scores are ignored.
 
 Reproduce acceptance with the test command above: the first test verifies a complete
 synthetic request and the empty production registry; destination and sender tests verify
-refusal. No mail, credentials or browser changes are needed. Background request binding,
-Gmail provenance, runtime schema validation and release-time rechecks remain deferred.
-The applications do not import this package or its synthetic test registry.
+refusal. No mail, credentials or browser changes are needed. The separate development extension now exercises background request binding, runtime
+schema validation and release-time rechecks. Gmail provenance remains unresolved.
+Production entry points do not import this package or a synthetic registry.
+
+## Secure mock extension demo (PR 6)
+
+Build with `bun run build:mock`, start `bun run fixtures`, then load
+`development/mock-extension/build` unpacked in an isolated Chrome profile. This artifact
+is named **OTPGuard — SYNTHETIC DEVELOPMENT ONLY**. It is separate from Plasmo output;
+`bun run build` never generates it. Never distribute the demo as production.
+
+Keep the fixture tab foreground in the focused browser window. Open each URL in a fresh
+navigation; this demo makes one bounded attempt per document and has no retry/override:
+
+- <http://127.0.0.1:3001/pipeline/safe> and `/pipeline/split`: synthetic `042681` fills
+  after about 800 ms, preserving the leading zero. Submission counter stays zero.
+- `/pipeline/mismatch`: MISMATCH; `/pipeline/unknown` and `/pipeline/ambiguous`: UNKNOWN.
+  All fields stay empty. Click the demo extension popup after retrieval to read local status.
+- During the delay, replace the field, type a value, navigate, change the URL with history,
+  add another OTP form, or switch tabs/windows. No code fills the invalidated request.
+- Stop the worker during the delay through Chrome's extension inspector. The field stays
+  empty after restart; reload the document to start a fresh request. No request is resumed.
+
+The development manifest adds only `webNavigation` and the exact loopback host permission
+`http://127.0.0.1:3001/*`; injection matches `/pipeline*` at top level. The worker independently
+checks a closed fixture-path allowlist, runtime sender ID/frame/document/lifecycle, browser
+frame URL and focused foreground tab. The fixture-path-derived synthetic HTTPS destination
+and fabricated sender authentication exist only in this artifact. Production retains zero
+API permissions, host access, injection and externally accessible resources.
+
+The fixed development account/mailbox are mock identities, not authentication. One adapter
+envelope supplies text, receipt time and sender evidence for the same message. Retrieval
+returns the entire synthetic plausible set; it never selects the newest. Simultaneous
+same-account/mailbox/service requests latch ambiguity, even if a competitor later cancels.
+Before release the worker checks document, URL, focus, deadline and policy again; content
+checks the exact live field references, unique group, visibility, empty values and approval
+binding/expiry. Codes travel only in an extension message addressed to the browser document.
+
+All requests, approvals, mail and deduplication remain in volatile memory. Local popup
+status contains only finite state/reason/service values, never mail, codes or arbitrary
+errors. No storage, network retrieval, logging, account SDK or cloud account is used. Worker
+termination discards pending work; content never automatically resends and consumes each
+approval once. Cleanup drops references best-effort, without claiming secure memory erasure.
+The existing DOM insertion mechanism may partially fill if page handlers interfere and may
+trigger site-driven submission; OTPGuard itself never submits.
+
+`bun run test:browser` requires both `bun run build` and `bun run build:mock`. Tests use real
+Chromium with isolated profiles and no screenshots, video or traces. Unit checks cover
+expiry, account/context invalidation, malformed protocols and concurrent requests. Provider
+polling/coalescing, MIME, Gmail evidence, authentication, persistence/retries, production
+permissions and real-service support remain deferred to their assigned later PRs.

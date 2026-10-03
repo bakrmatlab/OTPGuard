@@ -42,6 +42,10 @@ describe('fixture isolation', () => {
         expect(source).not.toContain('Synthetic Lantern');
         expect(source).not.toContain('003719');
         expect(source).not.toContain('008417');
+        expect(source).not.toContain('development-fabricated');
+        expect(source).not.toContain('development-mailbox');
+        expect(source).not.toContain('lantern.example');
+        expect(source).not.toContain('pipeline/safe');
       }
     });
   }

@@ -22,6 +22,11 @@ Bun.serve({
   port: 3001,
   fetch(request) {
     const path = new URL(request.url).pathname;
+    if (/^\/pipeline(?:\/(safe|split|mismatch|unknown|ambiguous))?$/.test(path))
+      return new Response(
+        `<!doctype html><html><head><title>Synthetic pipeline fixture</title></head><body><h1>Synthetic secure pipeline</h1><form><p>Verification code sent to your email</p>${Array.from({ length: path.endsWith('/split') ? 6 : 1 }, () => `<input autocomplete="one-time-code" inputmode="numeric" maxlength="${path.endsWith('/split') ? 1 : 6}">`).join('')}<button type="submit">Submit</button></form><output id="submissions">0</output><script>document.querySelector('form').addEventListener('submit', e => {e.preventDefault();document.querySelector('output').textContent='1';});</script></body></html>`,
+        { headers: { 'content-type': 'text/html' } },
+      );
     if (path === '/harness.js')
       return new Response(build.outputs[0], {
         headers: { 'content-type': 'text/javascript' },
