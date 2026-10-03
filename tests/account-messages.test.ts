@@ -1,0 +1,61 @@
+import { afterEach, expect, it, vi } from 'vitest';
+const account = vi.hoisted(() => ({
+  status: vi.fn(async () => ({
+    state: 'SIGNED_IN',
+    userId: 'synthetic-user',
+    label: 'Synthetic',
+  })),
+  signOut: vi.fn(async () => {}),
+}));
+vi.mock('../apps/extension/account/worker', () => ({
+  accountStatus: account.status,
+  signOutAccount: account.signOut,
+}));
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.resetModules();
+});
+it('accepts only closed account UI requests from the exact owned popup', async () => {
+  const addListener = vi.fn();
+  const url = 'chrome-extension://synthetic-id/popup.html';
+  vi.stubGlobal('chrome', {
+    runtime: {
+      id: 'synthetic-id',
+      getURL: () => url,
+      onMessage: { addListener },
+    },
+  });
+  await import('../apps/extension/background');
+  const listener = addListener.mock.calls[0]![0];
+  const respond = vi.fn();
+  const sender = { id: 'synthetic-id', url };
+  for (const wrong of [
+    { ...sender, url: 'https://page.fixture.invalid', tab: { id: 1 } },
+    { ...sender, id: 'other' },
+    { ...sender, url: url + '?page=1' },
+    { ...sender, url: 'https://app.fixture.invalid' },
+  ])
+    expect(listener({ type: 'account-sign-out' }, wrong, respond)).toBe(false);
+  expect(
+    listener({ type: 'account-status', userId: 'forged' }, sender, respond),
+  ).toBe(false);
+  expect(listener({ type: 'get-token' }, sender, respond)).toBe(false);
+  expect(account.signOut).not.toHaveBeenCalled();
+  expect(
+    listener(
+      { type: 'account-status' },
+      { ...sender, tab: { id: 1 } },
+      respond,
+    ),
+  ).toBe(true);
+  await Promise.resolve();
+  expect(respond).toHaveBeenCalledWith({
+    state: 'SIGNED_IN',
+    userId: 'synthetic-user',
+    label: 'Synthetic',
+  });
+  account.signOut.mockRejectedValueOnce(new Error('synthetic signout failure'));
+  expect(listener({ type: 'account-sign-out' }, sender, respond)).toBe(true);
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  expect(respond).toHaveBeenCalledWith({ state: 'SIGN_OUT_FAILED' });
+});

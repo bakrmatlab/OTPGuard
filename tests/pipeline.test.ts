@@ -240,3 +240,42 @@ describe('worker authorization boundary', () => {
     expect(s.sends).toEqual([]);
   });
 });
+
+describe('connected account release boundary', () => {
+  it('preserves a valid authorized fill and rejects switching away and back during prepare', async () => {
+    const { createAccountGate } =
+      await import('../apps/extension/account/gate');
+    const { createConnectedCoordinator } =
+      await import('../apps/extension/account/connected');
+    for (const switchAccount of [false, true]) {
+      const fixture = setup();
+      const gate = createAccountGate(
+        async () => ({
+          userId: fixture.context.accountId,
+          sessionId: 'synthetic-session',
+          expiresAt: fixture.adapter.now() + 30_000,
+          label: 'Synthetic',
+        }),
+        fixture.adapter.now,
+      );
+      const originalSend = fixture.adapter.send;
+      fixture.adapter.send = async (context, message) => {
+        if (switchAccount && message.type === 'prepare') {
+          fixture.context.accountId = 'other';
+          await gate.refresh();
+          fixture.context.accountId = 'account';
+          await gate.refresh();
+        }
+        return originalSend(context, message);
+      };
+      const coordinator = createConnectedCoordinator(fixture.adapter, gate);
+      const status = await coordinator.handle(detect, {});
+      expect(status.state).toBe(switchAccount ? 'CANCELLED' : 'FILLED');
+      expect(fixture.sends).toEqual(
+        switchAccount ? ['prepare'] : ['prepare', 'release'],
+      );
+      coordinator.dispose();
+      gate.invalidate();
+    }
+  });
+});

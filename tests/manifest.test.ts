@@ -1,3 +1,7 @@
+import {
+  accountManifest,
+  configuredAccount,
+} from '../apps/extension/account/config';
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -12,8 +16,12 @@ describe('production extension permission boundary', () => {
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.action.default_popup).toBe('popup.html');
     expect(manifest.background.service_worker).toBeTruthy();
-    expect(manifest.permissions ?? []).toEqual([]);
-    expect(manifest.host_permissions ?? []).toEqual([]);
+    const expected = accountManifest(configuredAccount());
+    expect(manifest.permissions ?? []).toEqual(expected.permissions);
+    expect(manifest.host_permissions ?? []).toEqual(expected.host_permissions);
+    expect(manifest.content_security_policy).toEqual(
+      expected.content_security_policy,
+    );
     expect(manifest.content_scripts ?? []).toEqual([]);
     expect(manifest.web_accessible_resources ?? []).toEqual([]);
     expect(manifest.externally_connectable).toBeUndefined();

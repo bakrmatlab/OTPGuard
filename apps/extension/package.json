@@ -6,10 +6,11 @@
   "description": "OTPGuard foundation. Gmail and autofill are not yet supported.",
   "scripts": {
     "dev": "plasmo dev",
-    "build": "plasmo build",
+    "build": "bun ../../scripts/build-extension.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@clerk/chrome-extension": "3.1.90",
     "plasmo": "0.90.5",
     "react": "18.3.1",
     "react-dom": "18.3.1"

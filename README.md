@@ -1,10 +1,11 @@
 # OTPGuard
 
-PR 6 connects a secure synthetic pipeline in a separately built development extension.
+PR 7 adds optional Clerk account sign-in and a worker-owned session boundary. PR 6 provides a secure synthetic pipeline in a separately built development extension.
 Its worker derives browser context, parses fabricated mail, enforces authorization and
 rechecks the current document before releasing a short-lived code to the bound field group.
-The production extension still has no site access or content injection. Gmail, account
-authentication, real-service trust and cloud synchronization remain unavailable.
+The production extension has no content injection or real autofill. Configured account builds
+receive only the exact Clerk host access described below; unconfigured builds have none.
+Gmail, real-service trust and cloud synchronization remain unavailable.
 
 ## Requirements and setup
 
@@ -22,8 +23,7 @@ bun x --no-install playwright install chromium
 bun run test:browser
 ```
 
-No Clerk, Gmail, Convex, or other credentials are required. `.env.example` is
-intentionally configuration-free. Never add a client secret to an extension.
+No Clerk, Gmail, Convex, or other credentials are required. `.env.example` lists optional public/server account configuration; leave it unset for CI. Never add a client secret to an extension.
 On Linux, use `bun x --no-install playwright install --with-deps chromium` to install
 browser system dependencies too.
 
@@ -48,13 +48,16 @@ Developer mode, choose **Load unpacked**, and select
 `apps/extension/build/chrome-mv3-dev`. Pin OTPGuard and click its toolbar icon.
 Reload the extension after manifest changes. Stop both watchers with Ctrl+C.
 
+Account integration uses the production build wrapper below. The Plasmo development watcher
+is for credential-free development; do not load account configuration through raw Plasmo.
+
 Use `bun run format` to format implementation files.
 
 ## Manual production acceptance
 
 1. Run `bun run build`, then `bun run --filter @otpguard/web start`.
 2. Visit <http://127.0.0.1:3000>. Confirm the OTPGuard heading and the notice that
-   Gmail connection and autofill are not yet supported. There is no sign-in form.
+   Gmail connection and autofill are not yet supported. Account authentication is explicitly unconfigured; `/sign-in` shows the same state.
 3. In `chrome://extensions`, load `apps/extension/build/chrome-mv3-prod` unpacked.
    Confirm there is no installation error. Pin the extension and click its icon;
    confirm the popup shows the same unsupported-capabilities notice.
@@ -73,12 +76,12 @@ separate manual check. CI runs these checks on GitHub; see the
 
 ## Layout and boundaries
 
-- `apps/extension`: popup, inert production background worker, reusable pipeline modules, icon, and an intentionally
+- `apps/extension`: popup, account-only production background worker, reusable pipeline modules, icon, and an intentionally
   **zero-byte** `content.ts` entry. Plasmo defaults nonempty content entries to
   all-site injection; its empty-entry handling omits this file from the manifest.
-  It remains empty in PR 6; site injection waits for an explicit supported-site permission design. The manifest test catches
+  It remains empty in PR 7; site injection waits for an explicit supported-site permission design. The manifest test catches
   accidental registration or permission expansion.
-- `apps/web`: static landing page, without SDKs, remote fonts, or account features.
+- `apps/web`: minimal Clerk account host with an explicit unconfigured fallback.
 - `apps/extension/detection`: in-memory DOM group discovery and finite observation,
   without Chrome APIs, messaging, storage, network requests, or insertion.
 - `apps/extension/insertion`: synchronous native-value setter and input/change events,
@@ -238,8 +241,8 @@ The development manifest adds only `webNavigation` and the exact loopback host p
 `http://127.0.0.1:3001/*`; injection matches `/pipeline*` at top level. The worker independently
 checks a closed fixture-path allowlist, runtime sender ID/frame/document/lifecycle, browser
 frame URL and focused foreground tab. The fixture-path-derived synthetic HTTPS destination
-and fabricated sender authentication exist only in this artifact. Production retains zero
-API permissions, host access, injection and externally accessible resources.
+and fabricated sender authentication exist only in this artifact. The credential-free production build retains zero API permissions and host access.
+Configured account builds retain zero injection and externally accessible resources.
 
 The fixed development account/mailbox are mock identities, not authentication. One adapter
 envelope supplies text, receipt time and sender evidence for the same message. Retrieval
@@ -260,5 +263,83 @@ trigger site-driven submission; OTPGuard itself never submits.
 `bun run test:browser` requires both `bun run build` and `bun run build:mock`. Tests use real
 Chromium with isolated profiles and no screenshots, video or traces. Unit checks cover
 expiry, account/context invalidation, malformed protocols and concurrent requests. Provider
-polling/coalescing, MIME, Gmail evidence, authentication, persistence/retries, production
-permissions and real-service support remain deferred to their assigned later PRs.
+polling/coalescing, MIME, Gmail evidence, persistence/retries and real-service support remain deferred to their assigned later PRs.
+
+## Optional OTPGuard account authentication (PR 7)
+
+Account sign-in identifies the OTPGuard user, **not** the Gmail mailbox and grants no Gmail
+consent. The web host and popup display the account ID and primary account email; the popup
+separately says no mailbox is connected. Production still has no retrieval or fill adapter.
+The separate synthetic demo does not use Clerk and remains credential-free.
+
+Installed SDKs: `@clerk/nextjs` 7.9.10 and `@clerk/chrome-extension` 3.1.90. Follow Clerk's
+[extension setup](https://clerk.com/docs/chrome-extension/getting-started/quickstart) and
+[Sync Host guide](https://clerk.com/docs/guides/sessions/sync-host). Enable Native API only
+in your own authorized Clerk instance, review its bot-protection implications, and register
+`chrome-extension://<actual-extension-id>` in the instance's allowed origins without removing
+existing entries. A stable extension ID is recommended; verify the loaded ID after each build.
+No instance is created or changed by this repository's scripts.
+
+The installed extension SDK uses development browser JWTs in request URLs for `pk_test_`.
+That violates OTPGuard's session transport rule: **test keys are unsupported for this PR's
+account integration**. Use an existing authorized production instance and HTTPS account host;
+if unavailable, leave authentication unconfigured. Do not invent keys or provision a paid
+resource just to pass a check. Live recognition remains unverified until configured.
+The web host also requires a production publishable key and a server-only production secret.
+
+1. Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in `apps/web/.env.local`.
+   Keep the secret exclusively on the web server. Build/start the web app and serve it on the
+   authorized HTTPS origin. This PR does not deploy or provide HTTPS infrastructure.
+2. Set the four `PLASMO_PUBLIC_...` values from `.env.example` in
+   `apps/extension/.env.account`. The publishable key must belong to the same Clerk instance as
+   the web host. `FRONTEND_API` and `SYNC_HOST` must equal the exact production Clerk Frontend
+   API HTTPS origin. `ACCOUNT_WEB_ORIGIN` is the web app's exact HTTPS origin. Wildcards, ports,
+   credentials, paths, queries, HTTP and loopback are rejected. Never put a secret in this file.
+3. From `apps/extension`, run `bun --env-file=.env.account run build`. Use the wrapper rather
+   than invoking Plasmo directly: it validates configuration and finalizes the manifest. Do not
+   rely on Plasmo-only `.env.production` values; supply the same environment to the wrapper.
+4. Load `apps/extension/build/chrome-mv3-prod` in an isolated profile. Sign in through **Open
+   account sign-in**, then reopen the popup. Confirm account ID/email match the web page. Signing
+   into another Gmail account does not change this identity. No mailbox has been connected.
+5. Sign out on the web; reopen/refresh the popup and expect sign-in required. Repeat using the
+   popup's **Sign out of OTPGuard** and confirm web sign-out after refresh. A failed remote sign-out
+   is reported explicitly; pending work is invalidated before attempting remote sign-out.
+6. Switch users or replace the session on the web and verify the new account ID in the popup.
+   Revoke/expire a test session using your authorized Clerk controls, then request popup status;
+   expect sign-in required. Network failure also pauses connected requests. Do not capture
+   tokens or personal account details in screenshots, traces, logs, or review artifacts.
+
+The popup polls status every 15 seconds while open; cookie changes invalidate worker bindings
+immediately when observed. Each future connected request must use `createConnectedCoordinator`:
+its worker refreshes Clerk at request start and before release, binds user/session/generation,
+and cancels pending work on account changes, logout, freshness timeout or failed probes.
+Switching away and back cannot reuse an approval. Worker restart discards bindings; there is
+no offline authorization. No production connected request exists yet; the cancellation checks
+exercise the actual coordinator with injected synthetic identities in tests.
+
+Configured manifest: only `cookies`, `storage`, and `<exact Clerk Frontend API origin>/*`.
+These SDK-required permissions sync the account cookie; they do not permit content injection.
+Chrome host permissions cover all paths (and Chrome's host matching cannot enforce a port);
+configuration therefore rejects explicit ports. The web link needs no host permission.
+CSP is `script-src 'self'; object-src 'none'; connect-src <exact Clerk API origin>;`.
+Clerk's no-remote-hosted-code SDK is bundled; no remote script, eval, broad site permission,
+`identity`, `tabs`, `scripting`, external messaging, or web-accessible resource is enabled.
+Unconfigured CSP denies network connections and adds no API/host permissions.
+
+The worker passes a no-cache adapter to Clerk, replacing its default persistent client-JWT
+cache, and restricts local storage access to trusted extension contexts. Clerk cookies remain
+in the browser's existing cookie store; credentials are not copied to application storage.
+Tokens are probed only in the worker, never returned by account UI messages. Only the exact
+extension popup sender may request account status/sign-out. Account UI returns ID/email only;
+content scripts, pages, URLs, OTP flows and backend services receive no account session token.
+Cleanup is best effort, not a secure memory-erasure guarantee. Clerk is an external auth
+provider; its own API receives auth traffic. No Gmail, OTP or email processing backend is added.
+
+Reproduce credential-free acceptance with `bun run build`, `bun run build:mock`,
+`bun run check`, and `bun run test:browser`. Session tests cover successful authorized synthetic
+release plus expiry/logout/user-switch cancellation, switched-away-and-back rejection, stale
+async results, failed refreshes, unconfigured refusal and token-free UI responses. Artifact
+guards check exact auth permissions/CSP and continued fixture isolation. Browser tests cover
+unconfigured web sign-in/popup and the unchanged secure synthetic demo. Live account matching,
+Clerk cookie behavior, remote logout/revocation and configured network behavior require the
+external configuration above and are separate **unverified** acceptance checks.

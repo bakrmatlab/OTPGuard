@@ -2,14 +2,16 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "types": ["chrome"]
+    "types": ["chrome", "node"]
   },
   "include": [
     ".plasmo/index.d.ts",
     "*.ts",
     "*.tsx",
     "detection/**/*.ts",
-    "insertion/**/*.ts"
+    "insertion/**/*.ts",
+    "account/**/*.ts",
+    "pipeline/**/*.ts"
   ],
   "exclude": ["node_modules", "build", ".plasmo"]
 }

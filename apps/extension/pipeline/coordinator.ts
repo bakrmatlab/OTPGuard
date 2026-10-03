@@ -12,6 +12,7 @@ import { parseClient, type WorkerMessage } from './protocol';
 
 export interface Context {
   accountId: string;
+  accountSession?: { userId: string; sessionId: string; generation: number };
   mailboxId: string;
   tabId: number;
   documentId: string;
