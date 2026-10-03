@@ -438,3 +438,28 @@ test artifacts. Run `bun x --no-install vitest run tests/gmail-normalization.tes
  tests/gmail-sender.test.ts` to reproduce normalization and fail-closed checks; the
 full credential-free validation remains `bun run build`, `bun run build:mock`,
 `bun run check` and `bun run test:browser`.
+
+## Bounded Gmail retrieval mechanics (PR 10)
+
+Local modules implement fixed-origin contextual list/get, raw JSON response bounds
+(16 KiB list, 512 KiB per full message), at most 20 IDs and 10 distinct bodies per
+cycle, and immediate/2/6/12/22-second polling with a 60-second deadline. Pagination
+or too many plausible bodies refuses the entire set rather than choosing the newest.
+Queries use shipped sender addresses and a bounded time window, never DOM text.
+HTTP 401 permits one worker-owned noninteractive token retry; quota responses respect
+Retry-After and do not read provider error bodies. Network failure never masquerades
+as a successful empty result. All envelopes and coalescing state remain volatile.
+
+`createGmailPageCoordinator` composes the existing Clerk/mailbox coordinator with
+retrieval. No production listener or site permission invokes it. The empty shipped
+registry prevents message requests, and Gmail metadata cannot construct a trusted
+sender/receipt envelope. **Real retrieval/autofill remains disabled.** Synthetic
+integration success proves mechanics only; sender provenance, real templates and live
+Clerk/Google acceptance remain unverified. Restart drops pending requests, approvals,
+mail and mailbox bindings; explicit Connect and fresh authorization are required.
+
+Run `bun x --no-install vitest run tests/retrieval.test.ts tests/pipeline.test.ts`
+for bounded success, mismatch/stale/ambiguity refusal, quota/network/token failures,
+response limits, cancellation, coalescing, restart refusal and mandatory Clerk tests.
+The existing mock browser demo remains credential-free. No new permissions, storage,
+backend traffic, OAuth registration or external resource changes are introduced.

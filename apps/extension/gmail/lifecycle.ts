@@ -38,6 +38,7 @@ export function createGmailLifecycle(
   let operation: Promise<MailboxStatus> | undefined;
   let controller: AbortController | undefined;
   const listeners = new Set<() => void>();
+  const mailGrants = new Set<Promise<void>>();
   const snapshot = () => ({ ...status });
   const cancel = () => {
     generation++;
@@ -135,6 +136,78 @@ export function createGmailLifecycle(
   return {
     snapshot,
     invalidate,
+    /** Worker-only mail operation; no token is exposed by runtime messages. */
+    async withMailbox<T>(
+      expected: string,
+      signal: AbortSignal,
+      work: (token: string, signal: AbortSignal) => Promise<T>,
+    ): Promise<T | null> {
+      if (
+        status.state !== 'CONNECTED' ||
+        mailbox !== expected ||
+        signal.aborted
+      )
+        return null;
+      const before = generation;
+      const abort = new AbortController();
+      const unsubscribe = (() => {
+        const listener = () => abort.abort();
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      })();
+      const combined = AbortSignal.any([
+        signal,
+        abort.signal,
+        AbortSignal.timeout(10_000),
+      ]);
+      let token: string | undefined;
+      try {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          if (combined.aborted || generation !== before) return null;
+          const pendingGrant = adapter.token(false);
+          const drained = pendingGrant.then(
+            () => {},
+            () => {},
+          );
+          mailGrants.add(drained);
+          let grant: Awaited<ReturnType<GmailAdapter['token']>>;
+          try {
+            grant = await pendingGrant;
+          } finally {
+            mailGrants.delete(drained);
+          }
+          token = grant.token;
+          if (!token || !grant.grantedScopes?.includes(GMAIL_SCOPE)) {
+            if (token) await adapter.remove(token);
+            throw new GmailUnauthorized();
+          }
+          if (combined.aborted || generation !== before) return null;
+          try {
+            const selected = await adapter.profile(token, combined);
+            if (combined.aborted || generation !== before) return null;
+            if (selected.toLowerCase() !== expected.toLowerCase()) {
+              cancel();
+              status = { state: 'MAILBOX_CHANGED' };
+              await adapter.remove(token);
+              return null;
+            }
+            const result = await work(token, combined);
+            return combined.aborted || generation !== before ? null : result;
+          } catch (error) {
+            if (!(error instanceof GmailUnauthorized)) throw error;
+            await adapter.remove(token);
+            if (attempt === 1) throw error;
+          }
+        }
+      } catch (error) {
+        if (error instanceof GmailUnauthorized && before === generation)
+          invalidate();
+        throw error;
+      } finally {
+        unsubscribe();
+      }
+      return null;
+    },
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => {
@@ -154,6 +227,7 @@ export function createGmailLifecycle(
       status = { state: 'DISCONNECTING' };
       // Drain a pending Chrome consent operation before clearing its resulting cached grant.
       if (operation) await operation;
+      await Promise.all([...mailGrants]);
       let revoked = false;
       let cleared = false;
       try {

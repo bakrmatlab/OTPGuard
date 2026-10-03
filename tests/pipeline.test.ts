@@ -279,3 +279,37 @@ describe('connected account release boundary', () => {
     }
   });
 });
+
+it('bounded polling hands synthetic success to authorization and retains mismatch/stale/ambiguity refusal', async () => {
+  const { createRetrievalEngine } =
+    await import('../apps/extension/gmail/retrieval');
+  for (const scenario of ['safe', 'mismatch', 'stale', 'ambiguous']) {
+    const test = setup();
+    if (scenario === 'mismatch')
+      test.context.policyUrl = 'https://unrelated.example';
+    if (scenario === 'stale') test.envelope.receivedAt = 1;
+    const engine = createRetrievalEngine({
+      now: test.adapter.now,
+      current: test.adapter.current,
+      cycle: async () =>
+        scenario === 'ambiguous'
+          ? [test.envelope, { ...test.envelope, messageId: 'second' }]
+          : [test.envelope],
+    });
+    const coordinator = createCoordinator({
+      ...test.adapter,
+      retrieve: engine.retrieve,
+    });
+    expect((await coordinator.handle(detect, {})).state).toBe(
+      scenario === 'safe'
+        ? 'FILLED'
+        : scenario === 'mismatch'
+          ? 'MISMATCH'
+          : 'UNKNOWN',
+    );
+    expect(test.sends).toEqual(
+      scenario === 'safe' ? ['prepare', 'release'] : [],
+    );
+    engine.cancelAll();
+  }
+});
