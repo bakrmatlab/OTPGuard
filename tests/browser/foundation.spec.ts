@@ -4,11 +4,16 @@ import { resolve } from 'node:path';
 test('web entry point explains unavailable capabilities', async ({ page }) => {
   await page.goto('http://127.0.0.1:3100');
   await expect(
-    page.getByRole('heading', { name: 'OTPGuard', exact: true }),
+    page.getByRole('heading', {
+      name: 'Your protection workspace',
+      exact: true,
+    }),
   ).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText(
-    'Gmail connection and autofill are not yet supported.',
-  );
+  await expect(
+    page.getByText('Real Gmail retrieval and autofill remain disabled.', {
+      exact: false,
+    }),
+  ).toBeVisible();
   await expect(
     page.getByText('Account authentication is unconfigured.'),
   ).toBeVisible();

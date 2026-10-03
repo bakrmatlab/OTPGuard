@@ -156,7 +156,7 @@ separate manual check. CI runs these checks on GitHub; see the
   all-site injection; its empty-entry handling omits this file from the manifest.
   It remains empty in PR 8; site injection waits for an explicit supported-site permission design. The manifest test catches
   accidental registration or permission expansion.
-- `apps/web`: minimal Clerk account host with an explicit unconfigured fallback.
+- `apps/web`: account and security dashboard with an explicit unconfigured fallback.
 - `apps/extension/detection`: in-memory DOM group discovery and finite observation,
   without Chrome APIs, messaging, storage, network requests, or insertion.
 - `apps/extension/insertion`: synchronous native-value setter and input/change events,
@@ -590,7 +590,7 @@ or trust-policy setting is accepted by the cloud schema/request contract. PR12 a
 a separate sanitized activity contract behind a disabled policy gate.
 Exact blocked origins remain local. Registration is idempotent for its owner and never
 transfers ownership; changing accounts cannot take over another account's registered ID.
-Device deregistration, ownership migration, a dashboard and live transport
+Device deregistration, ownership migration and live transport
 acceptance remain deferred. Cloud activity delivery remains disabled as described below. Settings writes are atomic Convex mutations with last-writer
 wins semantics; conflicts across offline devices are not automatically reconciled.
 
@@ -682,5 +682,28 @@ The protection guide distinguishes UNKNOWN, MISMATCH, explicit BLOCKED, no eligi
 and reconnect/error states. Unrelated mail is not evidence of phishing. No code copy,
 reveal, or verification override is provided. The last-action summary shows only sanitized
 historical result/reason/time; a filled input does not prove server login acceptance.
-Local history may be empty and can be exported or deleted. Account/cloud/dashboard features
-remain unavailable with the current configuration; dashboard completion is a later PR.
+Local history may be empty and can be exported or deleted. Account/cloud features
+remain unavailable with the current configuration.
+
+### Dashboard capabilities
+
+The web dashboard includes overview, connected accounts, activity, devices, settings,
+and read-only supported services/origins. Open the built web app at its local root.
+Navigation and a keyboard skip link reach each section; the layout adapts to narrow screens.
+The shipped registry currently contains no validated real services or approved origins.
+
+Authentication retains its existing production-key gate. Unsupported development Clerk
+transport stays disabled. No Convex client transport is connected, even when an ignored
+environment file contains a deployment endpoint. The dashboard does not query account
+metadata, access extension storage or display the owner's local Gmail connection.
+Unavailable data is not presented as zero devices, a disconnected mailbox or empty history.
+
+Device report presentation distinguishes loading, errors, opt-out, no records and missing
+configuration. Reports show receipt time/age, become stale at five minutes and never prove
+current token validity. Activity presentation distinguishes pending/failed/unavailable,
+opted-out and empty cloud history. These components are tested with synthetic inputs;
+only unconfigured states are reachable in the current application. Live transport, account
+switching and cloud settings/history management remain unverified and require separately
+reviewed implementation and activation. Sync/history controls are disabled with explanations.
+Local history export/deletion and autofill preferences remain in the extension; no trust
+editing, OTP display, account deletion or remote Gmail revocation is offered by the dashboard.

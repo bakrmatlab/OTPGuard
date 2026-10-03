@@ -4,8 +4,9 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './styles.css';
 export const metadata: Metadata = {
-  title: 'OTPGuard',
-  description: 'OTPGuard workspace foundation',
+  title: 'OTPGuard · Account & security',
+  description:
+    'Local-first account and security dashboard with explicit capability limits.',
 };
 export default function Layout({ children }: { children: ReactNode }) {
   return (
