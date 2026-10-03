@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { createLocalSettings } from '../apps/extension/settings/local';
+import { createSettingsSync } from '../apps/extension/settings/sync';
+import { createAccountGate } from '../apps/extension/account/gate';
 import {
   createCoordinator,
   type Adapter,
@@ -312,4 +315,139 @@ it('bounded polling hands synthetic success to authorization and retains mismatc
     );
     engine.cancelAll();
   }
+});
+
+describe('PR11 local settings at the actual authorization boundary', () => {
+  it('explicit local block refuses before any retrieval', async () => {
+    const f = setup();
+    const retrieve = vi.fn(f.adapter.retrieve);
+    const coordinator = createCoordinator({
+      ...f.adapter,
+      retrieve,
+      settings: () => ({
+        autofillEnabled: true,
+        blockedOrigins: [f.context.origin],
+      }),
+    });
+    expect(await coordinator.handle(detect, {})).toEqual({
+      state: 'BLOCKED',
+      reason: 'local-block',
+    });
+    expect(retrieve).not.toHaveBeenCalled();
+    expect(f.sends).toEqual([]);
+  });
+  it('a local block added during prepare prevents release despite enabling sync preference', async () => {
+    const f = setup();
+    let blockedOrigins: string[] = [];
+    const coordinator = createCoordinator({
+      ...f.adapter,
+      settings: () => ({ autofillEnabled: true, blockedOrigins }),
+      send: async (context, message) => {
+        const result = await f.adapter.send(context, message);
+        if (message.type === 'prepare') blockedOrigins = [f.context.origin];
+        return result;
+      },
+    });
+    expect(await coordinator.handle(detect, {})).toEqual({
+      state: 'BLOCKED',
+      reason: 'local-block',
+    });
+    expect(f.sends).toEqual(['prepare']);
+  });
+  it('disabling automatic fill during prepare prevents release', async () => {
+    const f = setup();
+    let enabled = true;
+    const coordinator = createCoordinator({
+      ...f.adapter,
+      settings: () => ({ autofillEnabled: enabled, blockedOrigins: [] }),
+      send: async (context, message) => {
+        const result = await f.adapter.send(context, message);
+        enabled = false;
+        return result;
+      },
+    });
+    expect(await coordinator.handle(detect, {})).toEqual({
+      state: 'CANCELLED',
+    });
+    expect(f.sends).toEqual(['prepare']);
+  });
+  it('stalled cloud sync does not delay a locally authorized synthetic fill', async () => {
+    const f = setup();
+    const local = createLocalSettings(
+      { read: async () => undefined, write: async () => {} },
+      () => '11111111-1111-4111-8111-111111111111',
+    );
+    await local.initialized;
+    await local.setAutofill(true);
+    const account = createAccountGate(async () => ({
+      userId: 'account',
+      sessionId: 'synthetic-session',
+      expiresAt: Date.now() + 60_000,
+      label: 'synthetic',
+    }));
+    let started!: () => void;
+    const readStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const sync = createSettingsSync(local, account, async () => ({
+      registerInstallation: async () => {},
+      writeSettings: async () => {},
+      readSettings: async () => {
+        started();
+        return new Promise(() => {});
+      },
+    }));
+    sync.enable(true);
+    const pending = sync.synchronize('CONNECTED');
+    await readStarted;
+    const coordinator = createCoordinator({
+      ...f.adapter,
+      settings: sync.settings,
+    });
+    expect(await coordinator.handle(detect, {})).toEqual({ state: 'FILLED' });
+    expect(f.sends).toEqual(['prepare', 'release']);
+    sync.dispose();
+    account.invalidate();
+    await pending;
+  });
+});
+
+it('a saved local block aborts an ongoing retrieval immediately', async () => {
+  const f = setup();
+  const local = createLocalSettings(
+    { read: async () => undefined, write: async () => {} },
+    () => '11111111-1111-4111-8111-111111111111',
+  );
+  await local.initialized;
+  await local.setAutofill(true);
+  let started!: () => void;
+  let aborted = false;
+  const retrieving = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const coordinator = createCoordinator({
+    ...f.adapter,
+    settings: local.snapshot,
+    subscribeSettings: local.subscribe,
+    retrieve: async (_context, signal) => {
+      started();
+      return new Promise((resolve) =>
+        signal.addEventListener(
+          'abort',
+          () => {
+            aborted = true;
+            resolve(null);
+          },
+          { once: true },
+        ),
+      );
+    },
+  });
+  const result = coordinator.handle(detect, {});
+  await retrieving;
+  await local.setBlock(f.context.origin, true);
+  expect(aborted).toBe(true);
+  expect(await result).toEqual({ state: 'CANCELLED' });
+  expect(f.sends).toEqual([]);
+  coordinator.dispose();
 });

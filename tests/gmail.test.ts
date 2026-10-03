@@ -241,7 +241,7 @@ it('limits configured Gmail permissions, hosts, scope and CSP independently of a
     key: 'cHVibGlj',
     extensionId: 'a'.repeat(32),
   });
-  expect(manifest.permissions).toEqual(['identity']);
+  expect(manifest.permissions).toEqual(['storage', 'identity']);
   expect(manifest.host_permissions).toEqual([
     'https://gmail.googleapis.com/*',
     'https://oauth2.googleapis.com/revoke',

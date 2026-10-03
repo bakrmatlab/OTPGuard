@@ -31,6 +31,8 @@ export interface Envelope {
   email: NormalizedEmail;
 }
 export interface Adapter {
+  subscribeSettings?(listener: () => void): () => void;
+  settings?(): { autofillEnabled: boolean; blockedOrigins: readonly string[] };
   now(): number;
   id(): string;
   context(sender: chrome.runtime.MessageSender): Promise<Context | null>;
@@ -83,7 +85,7 @@ export function createCoordinator(adapter: Adapter) {
       adapter.now() < request.deadline
     );
   };
-  return {
+  const coordinator = {
     status: () => status,
     cancelAll() {
       for (const request of requests.values()) cancel(request);
@@ -106,6 +108,13 @@ export function createCoordinator(adapter: Adapter) {
         return status;
       }
       if (!context.foreground || !message.emailFlow)
+        return { state: 'UNKNOWN', reason: 'request' };
+      const preferences = () =>
+        adapter.settings?.() ?? { autofillEnabled: true, blockedOrigins: [] };
+      const blocked = () =>
+        preferences().blockedOrigins.includes(context.origin);
+      if (blocked()) return { state: 'BLOCKED', reason: 'local-block' };
+      if (!preferences().autofillEnabled)
         return { state: 'UNKNOWN', reason: 'request' };
       // A document/group gets only one attempt per worker lifetime. No automatic restart/retry.
       const key = `${context.accountId}/${context.mailboxId}/${context.tabId}/${context.documentId}/${message.groupId}`;
@@ -137,6 +146,10 @@ export function createCoordinator(adapter: Adapter) {
       status = { state: 'SEARCHING' };
       const timer = setTimeout(() => cancel(request), 60_000);
       try {
+        if (blocked())
+          return (status = { state: 'BLOCKED', reason: 'local-block' });
+        if (!preferences().autofillEnabled)
+          return (status = { state: 'CANCELLED' });
         const envelopes = await adapter.retrieve(context, request.abort.signal);
         if (!(await alive(request))) return (status = { state: 'CANCELLED' });
         if (!envelopes || envelopes.length > 10)
@@ -151,7 +164,7 @@ export function createCoordinator(adapter: Adapter) {
             {
               serviceId: context.serviceId,
               now: adapter.now(),
-              locallyBlocked: false,
+              locallyBlocked: blocked(),
               request: {
                 mailboxId: context.mailboxId,
                 startedAt,
@@ -169,6 +182,8 @@ export function createCoordinator(adapter: Adapter) {
             },
             adapter.registry,
           );
+        if (!preferences().autofillEnabled)
+          return (status = { state: 'CANCELLED' });
         status = decide();
         if (status.state !== 'VERIFIED') return status;
         const expiresAt = Math.min(adapter.now() + 30_000, request.deadline);
@@ -187,6 +202,8 @@ export function createCoordinator(adapter: Adapter) {
           !(await alive(request)) ||
           adapter.now() >= expiresAt
         )
+          return (status = { state: 'CANCELLED' });
+        if (!preferences().autofillEnabled)
           return (status = { state: 'CANCELLED' });
         status = decide();
         if (status.state !== 'VERIFIED') return status;
@@ -207,6 +224,14 @@ export function createCoordinator(adapter: Adapter) {
         clearTimeout(timer);
         requests.delete(request.id);
       }
+    },
+  };
+  const unsubscribe = adapter.subscribeSettings?.(coordinator.cancelAll);
+  return {
+    ...coordinator,
+    dispose() {
+      unsubscribe?.();
+      coordinator.cancelAll();
     },
   };
 }

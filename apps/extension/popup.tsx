@@ -1,3 +1,4 @@
+import { canonicalBlock } from './settings/local';
 import type { MailboxStatus } from './gmail/lifecycle';
 import { configuredGmail } from './gmail/config';
 import { useEffect, useState } from 'react';
@@ -11,6 +12,44 @@ export default function Popup() {
   const [mailbox, setMailbox] = useState<MailboxStatus>({
     state: 'DISCONNECTED',
   });
+  const [settings, setSettings] = useState<{
+    state: string;
+    autofillEnabled?: boolean;
+    blockedOrigins?: string[];
+  }>({ state: 'CHECKING' });
+  const [blockOrigin, setBlockOrigin] = useState('');
+  const changeBlock = async (origin: string, blocked: boolean) => {
+    setSettingsBusy(true);
+    try {
+      const result = await chrome.runtime.sendMessage({
+        type: 'settings-block',
+        origin,
+        blocked,
+      });
+      setSettings(result ?? { state: 'UNAVAILABLE' });
+      if (result?.state === 'LOCAL') setBlockOrigin('');
+    } catch {
+      setSettings({ state: 'UNAVAILABLE' });
+    } finally {
+      setSettingsBusy(false);
+    }
+  };
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const changeAutofill = async (enabled: boolean) => {
+    setSettingsBusy(true);
+    try {
+      setSettings(
+        (await chrome.runtime.sendMessage({
+          type: 'settings-autofill',
+          enabled,
+        })) ?? { state: 'UNAVAILABLE' },
+      );
+    } catch {
+      setSettings({ state: 'UNAVAILABLE' });
+    } finally {
+      setSettingsBusy(false);
+    }
+  };
   const [busy, setBusy] = useState(false);
   const mailboxAction = async (type: string) => {
     setBusy(true);
@@ -38,6 +77,14 @@ export default function Popup() {
         });
     };
     refresh();
+    void chrome.runtime
+      .sendMessage({ type: 'settings-status' })
+      .then((value) => {
+        if (active) setSettings(value ?? { state: 'UNAVAILABLE' });
+      })
+      .catch(() => {
+        if (active) setSettings({ state: 'UNAVAILABLE' });
+      });
     void chrome.runtime
       .sendMessage({ type: 'gmail-status' })
       .then((value: MailboxStatus) => {
@@ -126,6 +173,64 @@ export default function Popup() {
           </button>
         </>
       )}
+      <h2>Local settings</h2>
+      <label>
+        <input
+          type="checkbox"
+          checked={settings.autofillEnabled ?? false}
+          disabled={settingsBusy || settings.state !== 'LOCAL'}
+          onChange={(event) => void changeAutofill(event.target.checked)}
+        />
+        Enable automatic fill for verified requests
+      </label>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void changeBlock(blockOrigin, true);
+        }}
+      >
+        <label>
+          Block access on this HTTPS origin
+          <input
+            aria-label="HTTPS origin to block"
+            maxLength={512}
+            placeholder="https://example.com"
+            value={blockOrigin}
+            onChange={(event) => setBlockOrigin(event.target.value)}
+            disabled={settingsBusy || settings.state !== 'LOCAL'}
+          />
+        </label>
+        <button
+          disabled={
+            settingsBusy ||
+            settings.state !== 'LOCAL' ||
+            !canonicalBlock(blockOrigin)
+          }
+        >
+          Block site locally
+        </button>
+      </form>
+      {(settings.blockedOrigins ?? []).map((origin) => (
+        <p key={origin}>
+          {origin}{' '}
+          <button
+            disabled={settingsBusy}
+            onClick={() => void changeBlock(origin, false)}
+          >
+            Remove local block for {origin}
+          </button>
+        </p>
+      ))}
+      {settings.state === 'UNAVAILABLE' && (
+        <p>Local settings unavailable. Automatic fill stays disabled.</p>
+      )}
+      <p>
+        Cloud settings sync is unconfigured. Local settings remain available.
+      </p>
+      <p>
+        Security checks always apply. Explicit local site blocks take
+        precedence.
+      </p>
       <p role="status">Real Gmail retrieval and autofill remain disabled.</p>
     </main>
   );

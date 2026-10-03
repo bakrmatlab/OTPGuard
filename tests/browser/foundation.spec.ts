@@ -64,6 +64,48 @@ test('unpacked extension worker and popup load without page access', async () =>
         () => chrome.runtime.getManifest().content_scripts ?? [],
       ),
     ).toEqual([]);
+    await expect(
+      popup.getByText('Cloud settings sync is unconfigured.', { exact: false }),
+    ).toBeVisible();
+    const automatic = popup.getByRole('checkbox', {
+      name: 'Enable automatic fill for verified requests',
+    });
+    await expect(automatic).toBeEnabled();
+    await expect(automatic).not.toBeChecked();
+    await automatic.click();
+    await expect(automatic).toBeChecked();
+    await expect(automatic).toBeEnabled();
+    await popup.reload();
+    await expect(automatic).toBeChecked();
+    await automatic.click();
+    await expect(automatic).not.toBeChecked();
+    await expect(automatic).toBeEnabled();
+    await popup
+      .getByRole('textbox', { name: 'HTTPS origin to block' })
+      .fill('https://site.fixture.invalid/login?synthetic=1');
+    await expect(
+      popup.getByRole('button', { name: 'Block site locally' }),
+    ).toBeDisabled();
+    await popup
+      .getByRole('textbox', { name: 'HTTPS origin to block' })
+      .fill('https://site.fixture.invalid');
+    await popup.getByRole('button', { name: 'Block site locally' }).click();
+    await expect(
+      popup.getByRole('button', {
+        name: 'Remove local block for https://site.fixture.invalid',
+      }),
+    ).toBeVisible();
+    await popup.reload();
+    await popup
+      .getByRole('button', {
+        name: 'Remove local block for https://site.fixture.invalid',
+      })
+      .click();
+    await expect(
+      popup.getByRole('button', {
+        name: 'Remove local block for https://site.fixture.invalid',
+      }),
+    ).toHaveCount(0);
     const page = await context.newPage();
     await page.goto('http://127.0.0.1:3100');
     await expect(page.locator('input')).toHaveCount(0);

@@ -215,7 +215,14 @@ export function createGmailPageCoordinator(
     },
   });
   const coordinator = createMailboxCoordinator(
-    { ...browser, registry: supportedServices, retrieve: engine.retrieve },
+    {
+      ...browser,
+      settings:
+        browser.settings ??
+        (() => ({ autofillEnabled: false, blockedOrigins: [] })),
+      registry: supportedServices,
+      retrieve: engine.retrieve,
+    },
     account,
     mailbox,
   );

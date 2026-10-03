@@ -11,7 +11,7 @@
     "dev:web": "bun run --filter @otpguard/web dev",
     "dev:extension": "bun run --filter @otpguard/extension dev",
     "build": "bun run --filter '@otpguard/*' build",
-    "typecheck": "bun run --filter '@otpguard/*' typecheck && tsc -p tsconfig.tools.json",
+    "typecheck": "bun run --filter '@otpguard/*' typecheck && tsc -p tsconfig.tools.json && tsc -p convex/tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -22,14 +22,15 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "eslint": "10.12.0",
-    "typescript-eslint": "8.71.0",
-    "typescript": "5.9.3",
-    "prettier": "3.8.1",
-    "vitest": "5.0.3",
     "@playwright/test": "1.63.0",
+    "@types/chrome": "0.1.37",
     "@types/node": "22.19.15",
-    "@types/chrome": "0.1.37"
+    "convex-test": "0.0.60",
+    "eslint": "10.12.0",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.0",
+    "vitest": "5.0.3"
   },
   "type": "module",
   "workspaces": [
@@ -41,5 +42,8 @@
     "sharp",
     "lmdb",
     "msgpackr-extract"
-  ]
+  ],
+  "dependencies": {
+    "convex": "1.46.0"
+  }
 }

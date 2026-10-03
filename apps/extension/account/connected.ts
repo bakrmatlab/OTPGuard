@@ -38,7 +38,7 @@ export function createConnectedCoordinator(
   return {
     ...coordinator,
     dispose() {
-      coordinator.cancelAll();
+      coordinator.dispose();
       unsubscribe();
     },
   };

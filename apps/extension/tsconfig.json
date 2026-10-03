@@ -11,7 +11,9 @@
     "detection/**/*.ts",
     "insertion/**/*.ts",
     "account/**/*.ts",
-    "pipeline/**/*.ts"
+    "pipeline/**/*.ts",
+    "gmail/**/*.ts",
+    "settings/**/*.ts"
   ],
   "exclude": ["node_modules", "build", ".plasmo"]
 }

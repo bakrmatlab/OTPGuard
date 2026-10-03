@@ -1,3 +1,4 @@
+import { parseSettingsAction, settingsAction } from './settings/worker';
 import { gmailLifecycle } from './gmail/worker';
 import { accountStatus, signOutAccount } from './account/worker';
 // Exact popup only. No message retrieval or production fill adapter.
@@ -7,6 +8,13 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
     sender.url !== chrome.runtime.getURL('popup.html')
   )
     return false;
+  const settings = parseSettingsAction(message);
+  if (settings) {
+    void settingsAction(settings)
+      .then(respond)
+      .catch(() => respond({ state: 'UNAVAILABLE', sync: 'UNCONFIGURED' }));
+    return true;
+  }
   if (
     !message ||
     typeof message !== 'object' ||

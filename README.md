@@ -67,7 +67,7 @@ Use `bun run format` to format implementation files.
    OTP input. The extension must not read mail, modify fields, inject UI, or submit.
    Its Details page should show no website access. Unconfigured builds have no Connect control. No production build has a Fill control.
 6. Inspect `apps/extension/build/chrome-mv3-prod/manifest.json`: MV3, popup and
-   background worker, no API permissions, no host access, no content scripts, and
+   background worker, local settings storage permission, no host access, no content scripts, and
    no externally accessible resources. Remove the extension when finished.
 
 The automated check opens the popup URL; the actual Chrome toolbar click is a
@@ -241,7 +241,7 @@ The development manifest adds only `webNavigation` and the exact loopback host p
 `http://127.0.0.1:3001/*`; injection matches `/pipeline*` at top level. The worker independently
 checks a closed fixture-path allowlist, runtime sender ID/frame/document/lifecycle, browser
 frame URL and focused foreground tab. The fixture-path-derived synthetic HTTPS destination
-and fabricated sender authentication exist only in this artifact. The credential-free production build retains zero API permissions and host access.
+and fabricated sender authentication exist only in this artifact. The credential-free production build has only local settings storage permission and no host access.
 Configured account builds retain zero injection and externally accessible resources.
 
 The fixed development account/mailbox are mock identities, not authentication. One adapter
@@ -324,7 +324,7 @@ configuration therefore rejects explicit ports. The web link needs no host permi
 CSP is `script-src 'self'; object-src 'none'; connect-src <exact Clerk API origin>;`.
 Clerk's no-remote-hosted-code SDK is bundled; no remote script, eval, broad site permission,
 `tabs`, `scripting`, external messaging, or web-accessible resource is enabled.
-Unconfigured CSP denies network connections and adds no API/host permissions.
+Unconfigured CSP denies network connections; only local settings storage permission is present, with no host access.
 
 The worker passes a no-cache adapter to Clerk, replacing its default persistent client-JWT
 cache, and restricts local storage access to trusted extension contexts. Clerk cookies remain
@@ -394,7 +394,7 @@ Configured Gmail adds only `identity`, Gmail API host access and the Google revo
 CSP connect-src adds those two Google origins. Chrome host permission paths do not constrain
 fetch paths, so the adapter itself hardcodes profile/revoke endpoints and rejects redirects.
 No identity.email, site access, content injection or external messaging is added. Default
-unconfigured builds retain zero permissions/hosts. Generated artifact guards cover both modes.
+unconfigured builds have only local settings storage permission and no hosts. Generated artifact guards cover both modes.
 Only the exact extension popup can invoke lifecycle actions. Tokens stay in worker operation
 locals and Chrome's own cache; no refresh tokens or Gmail credentials enter application storage,
 content scripts, backend requests, logs or UI. Mailbox identity is local volatile state. Google
@@ -463,3 +463,57 @@ for bounded success, mismatch/stale/ambiguity refusal, quota/network/token failu
 response limits, cancellation, coalescing, restart refusal and mandatory Clerk tests.
 The existing mock browser demo remains credential-free. No new permissions, storage,
 backend traffic, OAuth registration or external resource changes are introduced.
+
+## Local settings and authenticated metadata backend (PR 11)
+
+The popup now saves the automatic-fill preference (off by default) and explicit local
+HTTPS site blocks. Blocks accept exact origins only, excluding paths and query strings;
+they never grant site access or trust. These settings persist across worker restarts.
+Production real retrieval/autofill remains disabled regardless of the preference.
+The default manifest now includes `storage`, with access restricted to trusted extension
+contexts; no new host access or network/CSP permission is added.
+
+`convex/schema.ts` and `convex/sync.ts` implement account-scoped preferences and
+installation reports. Every endpoint requires Convex-validated identity, derives ownership
+from its issuer-qualified token identifier, and refuses foreign installation reads,
+updates and takeover registration. Settings contain only `autofillEnabled`. Reports
+contain a random installation UUID, a closed provider status and server-recorded last-seen
+time. Reports describe what a device observed; they do not prove a currently valid Google
+grant. Reports aged five minutes or more are labeled stale; future/invalid timestamps
+are unknown. Installation IDs identify extension installations, not hardware attestation.
+
+**Cloud sync is unconfigured.** No Convex deployment or live Clerk JWT integration exists
+in this change, and no backend traffic is sent by either app. Backend auth defaults to no
+providers. The worker-owned `settings/sync.ts` controller is an inactive, opt-in integration
+seam tested with injected transports. Its ten-second deadline, fresh account checks and
+account-switch/opt-out cancellation discard stale responses. Pull/push is explicit;
+local automatic-fill disablement and site blocks always win. Remote preferences remain
+in memory, never overwrite local blocks, and sync is never awaited by the fill coordinator.
+A future reviewed worker transport must bind its JWT to the same account/session, use
+header authentication at a fixed authorized Convex endpoint, honor cancellation, and keep
+Clerk sessions out of persistent storage, URLs, logs and test artifacts. Existing PR7
+production-key/no-cache/fresh-session requirements still apply. No external setup is
+needed to review the local work, and merely setting an environment variable does not
+activate cloud sync.
+
+No OTP, mail, subject, snippet, mailbox ID, Gmail credential, browsing URL, hostname,
+security event or trust-policy setting is accepted by the cloud schema/request contract.
+Exact blocked origins remain local. Registration is idempotent for its owner and never
+transfers ownership; changing accounts cannot take over another account's registered ID.
+Device deregistration, ownership migration, cloud history, a dashboard and live transport
+acceptance remain deferred. Settings writes are atomic Convex mutations with last-writer
+wins semantics; conflicts across offline devices are not automatically reconciled.
+
+Reproduce without credentials:
+
+```sh
+bun x --no-install vitest run tests/sync-backend.test.ts tests/settings.test.ts tests/settings-worker.test.ts tests/pipeline.test.ts
+```
+
+These tests run the actual Convex functions against `convex-test`'s local runtime/schema,
+plus local persistence, strict payload rejection, account isolation/takeover refusal,
+report age and actual coordinator block/outage tests. They are not live JWT or deployed
+backend acceptance. For a UI check, open the production popup, toggle the preference,
+reload and verify it persists. Add `https://example.com` as a local block and reload;
+remove it afterward. A URL with `/login?anything=1` cannot be saved as an origin.
+Cloud sync must stay visibly unconfigured and real fill disabled throughout.

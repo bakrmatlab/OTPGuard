@@ -58,7 +58,13 @@ export function connectionManifest(
   return {
     ...base,
     ...gmailManifest(gmail),
-    permissions: [...base.permissions, ...(gmail ? ['identity'] : [])],
+    permissions: [
+      ...new Set([
+        'storage',
+        ...base.permissions,
+        ...(gmail ? ['identity'] : []),
+      ]),
+    ],
     host_permissions: [
       ...base.host_permissions,
       ...(gmail
