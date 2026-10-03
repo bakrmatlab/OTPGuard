@@ -106,6 +106,37 @@ test('unpacked extension worker and popup load without page access', async () =>
         name: 'Remove local block for https://site.fixture.invalid',
       }),
     ).toHaveCount(0);
+    await expect(popup.getByText('0 local activity records.')).toBeVisible();
+    const event = {
+      serviceId: null,
+      action: 'FILL',
+      result: 'FILLED',
+      reason: 'none',
+      time: Date.now(),
+      installationId: '11111111-1111-4111-8111-111111111111',
+    };
+    // Fabricated closed record in isolated Chromium only; no real mail or page capture.
+    await worker.evaluate(async (event) => {
+      await chrome.storage.local.set({
+        'otpguard.activity.v1': { version: 1, events: [event] },
+      });
+    }, event);
+    await popup.reload();
+    await expect(popup.getByText('1 local activity records.')).toBeVisible();
+    await popup.getByRole('button', { name: 'Export local history' }).click();
+    await expect(
+      popup.getByRole('textbox', { name: 'Local history JSON' }),
+    ).toHaveValue(JSON.stringify({ version: 1, events: [event] }));
+    await popup.getByRole('button', { name: 'Delete local history' }).click();
+    await expect(popup.getByText('0 local activity records.')).toBeVisible();
+    await expect(
+      popup.getByRole('textbox', { name: 'Local history JSON' }),
+    ).toHaveCount(0);
+    await popup.reload();
+    await expect(popup.getByText('0 local activity records.')).toBeVisible();
+    await expect(
+      popup.getByText('Cloud activity upload is disabled', { exact: false }),
+    ).toBeVisible();
     const page = await context.newPage();
     await page.goto('http://127.0.0.1:3100');
     await expect(page.locator('input')).toHaveCount(0);

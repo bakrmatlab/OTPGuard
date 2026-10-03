@@ -18,6 +18,31 @@ export default function Popup() {
     blockedOrigins?: string[];
   }>({ state: 'CHECKING' });
   const [blockOrigin, setBlockOrigin] = useState('');
+  const [history, setHistory] = useState<{ state: string; count?: number }>({
+    state: 'CHECKING',
+  });
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyExport, setHistoryExport] = useState('');
+  const historyAction = async (type: 'history-export' | 'history-delete') => {
+    setHistoryBusy(true);
+    setHistoryExport('');
+    try {
+      const result = await chrome.runtime.sendMessage({ type });
+      if (type === 'history-export' && typeof result?.json === 'string')
+        setHistoryExport(result.json);
+      if (result?.state !== 'LOCAL') setHistory({ state: 'UNAVAILABLE' });
+      else
+        setHistory(
+          (await chrome.runtime.sendMessage({ type: 'history-status' })) ?? {
+            state: 'UNAVAILABLE',
+          },
+        );
+    } catch {
+      setHistory({ state: 'UNAVAILABLE' });
+    } finally {
+      setHistoryBusy(false);
+    }
+  };
   const changeBlock = async (origin: string, blocked: boolean) => {
     setSettingsBusy(true);
     try {
@@ -77,6 +102,14 @@ export default function Popup() {
         });
     };
     refresh();
+    void chrome.runtime
+      .sendMessage({ type: 'history-status' })
+      .then((value) => {
+        if (active) setHistory(value ?? { state: 'UNAVAILABLE' });
+      })
+      .catch(() => {
+        if (active) setHistory({ state: 'UNAVAILABLE' });
+      });
     void chrome.runtime
       .sendMessage({ type: 'settings-status' })
       .then((value) => {
@@ -232,6 +265,45 @@ export default function Popup() {
         precedence.
       </p>
       <p role="status">Real Gmail retrieval and autofill remain disabled.</p>
+      <h2>Local activity history</h2>
+      <p>
+        Records expire after seven days, with at most 500 records. This browser
+        profile holds its own history. No real fill activity is available yet.
+      </p>
+      <p aria-live="polite">
+        {history.state === 'LOCAL'
+          ? `${history.count ?? 0} local activity records.`
+          : history.state === 'CHECKING'
+            ? 'Checking local history…'
+            : 'Local history unavailable.'}
+      </p>
+      <button
+        disabled={historyBusy || history.state !== 'LOCAL'}
+        onClick={() => void historyAction('history-export')}
+      >
+        Export local history
+      </button>
+      <button
+        disabled={historyBusy || history.state === 'CHECKING'}
+        onClick={() => void historyAction('history-delete')}
+      >
+        Delete local history
+      </button>
+      {historyExport && (
+        <label>
+          Local history JSON
+          <textarea
+            aria-label="Local history JSON"
+            readOnly
+            value={historyExport}
+          />
+        </label>
+      )}
+      <p>
+        Cloud activity upload is disabled pending Google policy review and cloud
+        configuration. Future cloud history requires explicit opt-in and expires
+        after thirty days.
+      </p>
     </main>
   );
 }

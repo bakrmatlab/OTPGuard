@@ -13,7 +13,8 @@
     "account/**/*.ts",
     "pipeline/**/*.ts",
     "gmail/**/*.ts",
-    "settings/**/*.ts"
+    "settings/**/*.ts",
+    "activity/**/*.ts"
   ],
   "exclude": ["node_modules", "build", ".plasmo"]
 }

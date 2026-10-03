@@ -451,3 +451,100 @@ it('a saved local block aborts an ongoing retrieval immediately', async () => {
   expect(f.sends).toEqual([]);
   coordinator.dispose();
 });
+
+it.each(['reject', 'throw', 'stall'])(
+  'history %s never blocks a locally authorized fill or sees secrets',
+  async (mode) => {
+    const { adapter, coordinator, sends } = setup();
+    const activity = vi.fn(async () => {
+      if (mode === 'reject') throw new Error('offline');
+      if (mode === 'stall') await new Promise(() => {});
+    });
+    adapter.activity =
+      mode === 'throw'
+        ? () => {
+            throw new Error('offline');
+          }
+        : activity;
+    expect(await coordinator.handle(detect, {})).toEqual({ state: 'FILLED' });
+    expect(sends).toEqual(['prepare', 'release']);
+    if (mode !== 'throw')
+      expect(activity).toHaveBeenCalledWith(
+        {
+          serviceId: 'mock',
+          result: 'FILLED',
+          reason: 'none',
+          time: 100_000,
+        },
+        undefined,
+      );
+    coordinator.dispose();
+  },
+);
+
+it('actual recorder and failed cloud delivery preserve local history and connected synthetic fill', async () => {
+  const { createConnectedCoordinator } =
+    await import('../apps/extension/account/connected');
+  const { createLocalHistory } =
+    await import('../apps/extension/activity/local');
+  const { createActivityRecorder } =
+    await import('../apps/extension/activity/record');
+  const { createActivitySync } =
+    await import('../apps/extension/activity/sync');
+  const { adapter, coordinator: unused, sends } = setup();
+  unused.dispose();
+  const id = '11111111-1111-4111-8111-111111111111';
+  const account = createAccountGate(async () => ({
+    userId: 'account',
+    sessionId: 'session',
+    expiresAt: Date.now() + 60_000,
+    label: 'Synthetic',
+  }));
+  const append = vi.fn(async () => {
+    throw new Error('offline');
+  });
+  const cloud = createActivitySync(
+    account,
+    async () => ({
+      optIn: async () => {},
+      append,
+      optOutAndDelete: async () => {},
+      exportHistory: async () => [],
+    }),
+    ['mock'],
+    () => true,
+  );
+  let stored: unknown;
+  const history = createLocalHistory(
+    {
+      read: async () => stored,
+      write: async (value) => {
+        stored = value;
+      },
+    },
+    ['mock'],
+    adapter.now,
+  );
+  adapter.activity = createActivityRecorder(history, () => id, ['mock'], cloud);
+  const coordinator = createConnectedCoordinator(adapter, account);
+  try {
+    expect(await cloud.enable()).toBe(true);
+    expect(await coordinator.handle(detect, {})).toEqual({ state: 'FILLED' });
+    expect(sends).toEqual(['prepare', 'release']);
+    expect(await history.list()).toEqual([
+      {
+        serviceId: 'mock',
+        action: 'FILL',
+        result: 'FILLED',
+        reason: 'none',
+        time: 100_000,
+        installationId: id,
+      },
+    ]);
+    await vi.waitFor(() => expect(append).toHaveBeenCalledTimes(1));
+  } finally {
+    coordinator.dispose();
+    cloud.dispose();
+    account.invalidate();
+  }
+});

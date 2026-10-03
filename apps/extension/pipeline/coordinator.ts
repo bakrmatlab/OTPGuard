@@ -31,6 +31,16 @@ export interface Envelope {
   email: NormalizedEmail;
 }
 export interface Adapter {
+  /** Trusted sink gets a closed outcome only; never context, mail or code. Not awaited. */
+  activity?(
+    outcome: {
+      serviceId: string;
+      result: 'FILLED' | 'REFUSED' | 'CANCELLED' | 'ERROR';
+      reason: import('../../../packages/shared').ActivityEvent['reason'];
+      time: number;
+    },
+    binding?: import('../account/gate').AccountBinding,
+  ): Promise<void>;
   subscribeSettings?(listener: () => void): () => void;
   settings?(): { autofillEnabled: boolean; blockedOrigins: readonly string[] };
   now(): number;
@@ -113,7 +123,41 @@ export function createCoordinator(adapter: Adapter) {
         adapter.settings?.() ?? { autofillEnabled: true, blockedOrigins: [] };
       const blocked = () =>
         preferences().blockedOrigins.includes(context.origin);
-      if (blocked()) return { state: 'BLOCKED', reason: 'local-block' };
+      const record = (outcome: LocalStatus) => {
+        if (['IDLE', 'SEARCHING', 'VERIFIED'].includes(outcome.state)) return;
+        try {
+          void adapter
+            .activity?.(
+              {
+                serviceId: context.serviceId,
+                result:
+                  outcome.state === 'FILLED'
+                    ? 'FILLED'
+                    : outcome.state === 'ERROR'
+                      ? 'ERROR'
+                      : outcome.state === 'CANCELLED'
+                        ? 'CANCELLED'
+                        : 'REFUSED',
+                reason:
+                  'reason' in outcome
+                    ? outcome.reason
+                    : outcome.state === 'FILLED'
+                      ? 'none'
+                      : 'delivery',
+                time: adapter.now(),
+              },
+              context.accountSession,
+            )
+            .catch(() => {});
+        } catch {
+          /* History cannot affect authorization or release. */
+        }
+      };
+      if (blocked()) {
+        const outcome = { state: 'BLOCKED', reason: 'local-block' } as const;
+        record(outcome);
+        return outcome;
+      }
       if (!preferences().autofillEnabled)
         return { state: 'UNKNOWN', reason: 'request' };
       // A document/group gets only one attempt per worker lifetime. No automatic restart/retry.
@@ -223,6 +267,7 @@ export function createCoordinator(adapter: Adapter) {
       } finally {
         clearTimeout(timer);
         requests.delete(request.id);
+        record(status);
       }
     },
   };

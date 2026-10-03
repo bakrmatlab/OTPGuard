@@ -12,7 +12,8 @@ it('keeps settings and blocks in trusted local storage and only accepts the exac
   const id = '11111111-1111-4111-8111-111111111111';
   let stored: unknown;
   const set = vi.fn(async (record: Record<string, unknown>) => {
-    stored = record['otpguard.settings.v1'];
+    if ('otpguard.settings.v1' in record)
+      stored = record['otpguard.settings.v1'];
   });
   const setAccessLevel = vi.fn(async () => {});
   const addListener = vi.fn();

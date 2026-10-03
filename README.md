@@ -496,12 +496,13 @@ production-key/no-cache/fresh-session requirements still apply. No external setu
 needed to review the local work, and merely setting an environment variable does not
 activate cloud sync.
 
-No OTP, mail, subject, snippet, mailbox ID, Gmail credential, browsing URL, hostname,
-security event or trust-policy setting is accepted by the cloud schema/request contract.
+No OTP, mail, subject, snippet, mailbox ID, Gmail credential, browsing URL, hostname
+or trust-policy setting is accepted by the cloud schema/request contract. PR12 adds
+a separate sanitized activity contract behind a disabled policy gate.
 Exact blocked origins remain local. Registration is idempotent for its owner and never
 transfers ownership; changing accounts cannot take over another account's registered ID.
-Device deregistration, ownership migration, cloud history, a dashboard and live transport
-acceptance remain deferred. Settings writes are atomic Convex mutations with last-writer
+Device deregistration, ownership migration, a dashboard and live transport
+acceptance remain deferred. Cloud activity delivery remains disabled as described below. Settings writes are atomic Convex mutations with last-writer
 wins semantics; conflicts across offline devices are not automatically reconciled.
 
 Reproduce without credentials:
@@ -517,3 +518,64 @@ backend acceptance. For a UI check, open the production popup, toggle the prefer
 reload and verify it persists. Add `https://example.com` as a local block and reload;
 remove it afterward. A URL with `/login?anything=1` cannot be saved as an origin.
 Cloud sync must stay visibly unconfigured and real fill disabled throughout.
+
+## Optional activity history (PR 12)
+
+The production popup offers local history count, JSON export and deletion. History is
+profile-local, excludes exact hostnames and all mail/code/account/mailbox identifiers,
+and retains at most 500 records for seven days. It uses a separate versioned trusted-context
+storage key. Expired records are excluded from every read/export and physically removed
+on worker startup or history access; an inactive browser can retain old disk bytes until
+it runs again. Corrupt records are unavailable and preserved until explicit deletion.
+History/storage failure never changes authorization or blocks fill.
+
+There is no production fill listener yet, so ordinary production history is empty. The
+coordinator exposes a trusted outcome sink and `activity/record.ts` constructs only six
+fields: shipped service ID (or `null` for unsupported), FILL action, result, enum reason,
+time and installation UUID. It accepts no context/envelope serialization, raw URL, hostname,
+message ID, arbitrary text, OTP or hash. Cloud delivery also requires the source's worker-only
+account/session/generation binding; that binding never enters the event or history storage.
+The shipped service registry remains empty. Synthetic tests exercise the actual recorder
+and locally authorized coordinator; these are not real service acceptance.
+
+**Cloud activity upload is disabled.** Both controller and backend require a code-level
+Google policy gate that currently returns false; environment settings and user opt-in
+cannot bypass it. No live Convex transport, deployment or cloud UI opt-in is configured.
+Google's [Limited Use policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy)
+covers derived data, and [restricted-scope guidance](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification)
+requires assessment for server handling. Metadata minimization and local-first processing
+establish no exemption. Appropriate application-type eligibility, verification/assessment,
+privacy disclosures and the final deployed data flow remain unresolved.
+
+The inactive controller requires explicit consent for one fresh account session, never uploads
+old local history, queues no retries, caps concurrent delivery and times out after ten seconds.
+Account change, opt-out or disposal cancels stale work. A future transport must bind dedicated
+minimal-claim identity headers to that same fresh account at a fixed endpoint and honor abort.
+Cloud failures do not affect local recording/fill. Opt-out/deletion disables local consent
+immediately; failed remote deletion returns failure and must not be presented as complete.
+Already committed remote writes cannot be undone by client cancellation alone.
+
+Actual Convex activity functions derive the owner solely from validated tokenIdentifier,
+require the installation's immutable owner and server-side opt-in for append, and reject
+extra event fields. Export/deletion/pruning take no owner argument. A maximum of 500 events
+per owner bounds operations; cloud records become invisible at thirty days. An internal
+hourly indexed cleanup deletes expired records in batches of 100, with scheduled continuation;
+physical deletion depends on deployed scheduler availability (up to the hourly sweep plus
+execution delay). Deletion and opt-out erase current events and disable backend consent,
+refusing later uploads until another explicit opt-in. No deployed retention or JWT/network
+acceptance is claimed. Production upload remains disabled until those prerequisites are reviewed.
+
+Credential-free success and failure checks:
+
+```sh
+bun x --no-install vitest run tests/activity.test.ts tests/activity-backend.test.ts tests/activity-worker.test.ts tests/pipeline.test.ts
+```
+
+The backend suite explicitly overrides the policy function only inside its isolated test
+runtime to exercise hypothetical approved delivery. Production policy remains false. Tests
+verify anonymous/foreign-owner/issuer/installation refusal, closed fields, retention/deletion,
+opt-out silence, stale account and consent races, and failed/stalled delivery during synthetic
+fill. Build both apps and the separate mock before `bun run check` and `bun run test:browser`.
+In an isolated production popup, export empty history, delete it and reload: count stays zero,
+cloud stays disabled and real retrieval/fill stays disabled. Browser tests additionally seed
+one fabricated closed record in their isolated profile to verify durable export/deletion.

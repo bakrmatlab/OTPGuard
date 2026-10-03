@@ -60,3 +60,5 @@ export function providerReportLabel(report: Installation, now: number): string {
     return 'Stale device report; current Gmail connection unknown.';
   return `Device reported ${report.providerStatus.toLowerCase().replaceAll('_', ' ')}; current Gmail connection unverified.`;
 }
+
+export * from './activity';
