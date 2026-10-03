@@ -25,6 +25,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
     ].includes(message.type)
   )
     return false;
+  const type = message.type;
   const action =
     message.type === 'gmail-connect'
       ? gmailLifecycle.connect()
@@ -37,8 +38,9 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
             : accountStatus();
   void action.then(respond).catch(() =>
     respond({
-      state:
-        message.type === 'account-sign-out'
+      state: type.startsWith('gmail-')
+        ? 'RECONNECT_REQUIRED'
+        : message.type === 'account-sign-out'
           ? 'SIGN_OUT_FAILED'
           : 'SIGN_IN_REQUIRED',
     }),

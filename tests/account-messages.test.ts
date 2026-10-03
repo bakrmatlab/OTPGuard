@@ -79,4 +79,8 @@ it('accepts only closed account UI requests from the exact owned popup', async (
   expect(listener({ type: 'account-sign-out' }, sender, respond)).toBe(true);
   for (let i = 0; i < 5; i++) await Promise.resolve();
   expect(respond).toHaveBeenCalledWith({ state: 'SIGN_OUT_FAILED' });
+  gmail.check.mockRejectedValueOnce(new Error('synthetic worker failure'));
+  expect(listener({ type: 'gmail-status' }, sender, respond)).toBe(true);
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  expect(respond).toHaveBeenLastCalledWith({ state: 'RECONNECT_REQUIRED' });
 });

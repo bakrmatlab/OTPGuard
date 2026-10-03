@@ -1,7 +1,11 @@
 import type { MailboxStatus } from './gmail/lifecycle';
+import { configuredGmail } from './gmail/config';
 import { useEffect, useState } from 'react';
 import { configuredAccount } from './account/config';
 type Status = { state: string; userId?: string; label?: string };
+const unavailableMailbox = (): MailboxStatus => ({
+  state: configuredGmail() ? 'RECONNECT_REQUIRED' : 'UNCONFIGURED',
+});
 export default function Popup() {
   const [status, setStatus] = useState<Status>({ state: 'CHECKING' });
   const [mailbox, setMailbox] = useState<MailboxStatus>({
@@ -11,9 +15,11 @@ export default function Popup() {
   const mailboxAction = async (type: string) => {
     setBusy(true);
     try {
-      setMailbox(await chrome.runtime.sendMessage({ type }));
+      setMailbox(
+        (await chrome.runtime.sendMessage({ type })) ?? unavailableMailbox(),
+      );
     } catch {
-      setMailbox({ state: 'RECONNECT_REQUIRED' });
+      setMailbox(unavailableMailbox());
     } finally {
       setBusy(false);
     }
@@ -35,10 +41,10 @@ export default function Popup() {
     void chrome.runtime
       .sendMessage({ type: 'gmail-status' })
       .then((value: MailboxStatus) => {
-        if (active) setMailbox(value);
+        if (active) setMailbox(value ?? unavailableMailbox());
       })
       .catch(() => {
-        if (active) setMailbox({ state: 'RECONNECT_REQUIRED' });
+        if (active) setMailbox(unavailableMailbox());
       });
     const timer = setInterval(refresh, 15_000);
     return () => {

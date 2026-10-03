@@ -26,7 +26,7 @@ describe('production extension permission boundary', () => {
     if (configuredGmail()) {
       expect(manifest.oauth2).toEqual(expected.oauth2);
       expect(manifest.key).toEqual(expected.key);
-      expect(manifest.minimum_chrome_version).toBe('106');
+      expect(manifest.minimum_chrome_version).toBe('116');
     } else {
       expect(manifest.oauth2).toBeUndefined();
       expect(manifest.key).toBeUndefined();

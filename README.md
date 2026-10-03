@@ -351,6 +351,8 @@ Google consent, account selection, denial, reconnect and revocation remain **unv
 Clerk setup remains deferred; connecting Gmail does not authorize OTP requests without a
 fresh OTPGuard account session. Real retrieval and autofill remain disabled in every build.
 
+Configured Gmail builds require Chrome 116 or newer because worker requests combine cancellation and timeout signals with `AbortSignal.any()`.
+
 Use an isolated Chrome profile and a controlled test mailbox. An owner must first authorize
 and perform external setup; this implementation provisions nothing:
 

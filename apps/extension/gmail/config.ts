@@ -44,7 +44,8 @@ export function gmailManifest(config: GmailConfig | null) {
     ? {
         key: config.key,
         oauth2: { client_id: config.clientId, scopes: [GMAIL_SCOPE] },
-        minimum_chrome_version: '106',
+        // The worker combines cancellation/deadline signals with AbortSignal.any.
+        minimum_chrome_version: '116',
       }
     : {};
 }

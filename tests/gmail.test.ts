@@ -247,6 +247,8 @@ it('limits configured Gmail permissions, hosts, scope and CSP independently of a
     'https://oauth2.googleapis.com/revoke',
   ]);
   expect(manifest.oauth2?.scopes).toEqual([GMAIL_SCOPE]);
+  // Worker profile requests combine cancellation and deadlines with AbortSignal.any.
+  expect(manifest.minimum_chrome_version).toBe('116');
   expect(manifest.content_security_policy.extension_pages).toBe(
     "script-src 'self'; object-src 'none'; connect-src https://gmail.googleapis.com https://oauth2.googleapis.com;",
   );
