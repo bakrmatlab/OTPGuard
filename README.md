@@ -46,8 +46,7 @@ Developer mode, choose **Load unpacked**, and select
 `apps/extension/build/chrome-mv3-dev`. Pin OTPGuard and click its toolbar icon.
 Reload the extension after manifest changes. Stop both watchers with Ctrl+C.
 
-Use `bun run format` to format implementation files. Supplied design and workflow
-documents are excluded to preserve the original documentation.
+Use `bun run format` to format implementation files.
 
 ## Manual production acceptance
 
@@ -88,8 +87,3 @@ Plasmo currently brings deprecated `source-map`/`stable` dependencies and an
 upstream htmlnano/SVGO peer mismatch. Bun's explicit `trustedDependencies` list
 allows install scripts for `esbuild`, `sharp`, `lmdb`, and `msgpackr-extract`.
 The tested platform binaries work without adding watcher/SWC fallback scripts.
-
-Read [HANDOFF.md](HANDOFF.md), [design](docs/design.md), and
-[implementation plan](docs/implementation-plan.md) before extending the project.
-See [foundation decision](docs/adr/0001-workspace-foundation.md) and
-[PR 1 review results](docs/pr-1-review.md). PR 2 requires a separate user request.

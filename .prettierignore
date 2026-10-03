@@ -15,3 +15,6 @@ docs/implementation-plan.md
 docs/*.original.md
 # Next regenerates this file during builds with its own formatting.
 apps/web/next-env.d.ts
+
+# Local-only planning documents
+docs/

@@ -10,3 +10,9 @@ test-results/
 .env*
 !.env.example
 .DS_Store
+
+# Local planning and agent instructions
+/AGENTS.md
+/HANDOFF.md
+/CODEX_PR_WORKFLOW.md
+/docs/
