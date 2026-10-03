@@ -167,6 +167,59 @@ describe('local settings persistence and cloud boundary', () => {
     expect(unconfigured.sync.status()).toBe('UNCONFIGURED');
     unconfigured.dispose();
   });
+  it('never reconnects or writes after disposal, even if enabled again', async () => {
+    const transport = {
+      readSettings: vi.fn(async () => ({ autofillEnabled: false })),
+      writeSettings: vi.fn(async () => {}),
+      registerInstallation: vi.fn(async () => {}),
+    };
+    const f = syncFixture(transport);
+    await f.local.initialized;
+    await f.local.setAutofill(true);
+    f.sync.enable(true);
+    f.sync.dispose();
+    await f.sync.synchronize('CONNECTED', 'push');
+    f.sync.enable(true);
+    f.switchUser();
+    await f.sync.synchronize('DISCONNECTED', 'push');
+    expect(transport.registerInstallation).not.toHaveBeenCalled();
+    expect(transport.writeSettings).not.toHaveBeenCalled();
+    expect(transport.readSettings).not.toHaveBeenCalled();
+    expect(f.sync.status()).toBe('OFF');
+    expect(f.sync.settings().autofillEnabled).toBe(true);
+    f.dispose();
+  });
+  it('cancels a pending read on disposal and discards its late preference', async () => {
+    let finish!: (value: unknown) => void;
+    let started!: () => void;
+    const reading = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const transport: SyncTransport = {
+      readSettings: async () => {
+        started();
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      },
+      writeSettings: vi.fn(async () => {}),
+      registerInstallation: async () => {},
+    };
+    const f = syncFixture(transport);
+    await f.local.initialized;
+    await f.local.setAutofill(true);
+    f.sync.enable(true);
+    const pending = f.sync.synchronize('CONNECTED');
+    await reading;
+    f.sync.dispose();
+    await pending;
+    finish({ autofillEnabled: false });
+    await Promise.resolve();
+    expect(f.sync.status()).toBe('OFF');
+    expect(f.sync.settings().autofillEnabled).toBe(true);
+    expect(transport.writeSettings).not.toHaveBeenCalled();
+    f.dispose();
+  });
   it('round-trips only allowlisted preferences/report and local blocks always win', async () => {
     let server = { autofillEnabled: false };
     const transport = {

@@ -27,6 +27,7 @@ export function createSettingsSync(
   connect: ConnectSyncTransport | null,
 ) {
   let enabled = false;
+  let disposed = false;
   let generation = 0;
   let remote: Settings | null = null;
   let active: AbortController | null = null;
@@ -46,6 +47,7 @@ export function createSettingsSync(
   return {
     status: () => state,
     enable(value: boolean) {
+      if (disposed) return;
       enabled = value;
       reset();
       state = connect ? (value ? 'UNAVAILABLE' : 'OFF') : 'UNCONFIGURED';
@@ -64,7 +66,7 @@ export function createSettingsSync(
       providerStatus: InstallationReport['providerStatus'],
       direction: 'pull' | 'push' = 'pull',
     ) {
-      if (!connect || !enabled || active) return;
+      if (disposed || !connect || !enabled || active) return;
       const before = generation;
       const controller = new AbortController();
       active = controller;
@@ -135,7 +137,10 @@ export function createSettingsSync(
       }
     },
     dispose() {
+      disposed = true;
+      enabled = false;
       reset();
+      state = connect ? 'OFF' : 'UNCONFIGURED';
       unsubscribe();
     },
   };

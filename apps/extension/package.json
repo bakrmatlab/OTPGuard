@@ -5,7 +5,7 @@
   "displayName": "OTPGuard",
   "description": "OTPGuard foundation. Gmail and autofill are not yet supported.",
   "scripts": {
-    "dev": "plasmo dev",
+    "dev": "bun ../../scripts/dev-extension.ts",
     "build": "bun ../../scripts/build-extension.ts",
     "typecheck": "tsc --noEmit"
   },

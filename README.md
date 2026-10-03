@@ -1,5 +1,8 @@
 # OTPGuard
 
+PRs 1–12 are integrated with partial connected-feature acceptance. Local settings,
+sanitized history and undeployed Convex ownership/retention functions are implemented.
+Cloud activity is policy-disabled and cloud transport is unconfigured.
 PR 8 adds an optional local Chrome OAuth Gmail connection lifecycle. PR 7 provides optional Clerk account sign-in and a worker-owned session boundary. PR 6 provides a secure synthetic pipeline in a separately built development extension.
 Its worker derives browser context, parses fabricated mail, enforces authorization and
 rechecks the current document before releasing a short-lived code to the bound field group.
@@ -34,22 +37,94 @@ temporary isolated Chromium profile, load the unpacked production extension, ope
 its popup document, and check the web page. They do not use your personal profile
 or capture screenshots, video, or traces.
 
+## CLI readiness and provider setup
+
+Use the project-local CLIs installed by the frozen lockfile:
+
+```sh
+bun run cli:check
+bun run cli:clerk --help
+bun run cli:convex --help
+bun run check:convex
+```
+
+`cli:check` checks Node 22.19.0/Bun 1.4.2, numeric CLI versions/help and config-file
+presence. It buffers provider errors and prints no config values or account details.
+It performs no login, provisioning, deployment or live integration verification.
+`check:convex` typechecks the actual backend and runs credential-free ownership,
+schema, retention and policy tests. It uses the local test runtime, not a deployment.
+
+| Tool                                                                 | Purpose and readiness boundary                                                                                                         |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Bun / Node                                                           | Pinned workspace/runtime; no pnpm required                                                                                             |
+| Convex 1.46.0                                                        | Already supplied by the backend dependency; CLI manages deployments/codegen. No separate global install needed                         |
+| Clerk 3.4.0                                                          | Pinned development CLI for the existing app's account/configuration management; telemetry disabled by `cli:clerk`                      |
+| Next / Plasmo / TypeScript / ESLint / Prettier / Vitest / Playwright | Already installed in workspaces; use existing scripts. Chromium is a separate Playwright browser installation                          |
+| Google Cloud SDK                                                     | Optional Google project administration, not the extension's Chrome OAuth token source                                                  |
+| GitHub CLI                                                           | Optional repository operations; unnecessary for local builds                                                                           |
+| Google Workspace CLI                                                 | Optional diagnostic tool, already available in this Mac setup; not needed by OTPGuard. Its own login does not validate Chrome identity |
+
+The current Mac setup has Google Cloud SDK 587.0.0 and Workspace CLI 0.22.5 in
+`/tmp/otpguard-runtime`. `bun run cli:gcloud --help` reuses that SDK with usage
+reporting disabled and its separate setup configuration directory. For a durable SDK
+installation, set `OTPGUARD_GCLOUD_BIN` to its binary and `CLOUDSDK_CONFIG` to your
+chosen configuration directory. Temporary files can disappear after reboot/cleanup.
+The SDK can be installed using its [official instructions](https://docs.cloud.google.com/sdk/docs/install-sdk).
+No global shell configuration changes are needed for these project commands.
+
+Clerk interactive login is `bun run cli:clerk auth login` on the Mac when ready.
+Select the existing authorized production instance before linking/pulling configuration;
+keep keys in the ignored files described below. Do not run `clerk init` here: it can
+create a development application and rewrite an already configured codebase.
+[Clerk CLI documentation](https://clerk.com/docs/cli).
+
+For Convex, CLI account login and deployment selection are separate. An authenticated
+CLI account does not configure this project's backend or authenticate extension users.
+After selecting and authorizing the intended existing team/project/development deployment,
+`bun run cli:convex dev --configure existing --once --tail-logs disable` configures
+and pushes backend code. Run it only as part of an authorized deployment step.
+`bun run cli:convex codegen --dry-run --typecheck enable` requires deployment selection;
+its absence is an unmet prerequisite. Preserve/review the existing offline schema-derived
+`convex/_generated/server.ts` before replacing it with deployed generated bindings.
+[Convex CLI](https://docs.convex.dev/cli/overview).
+
+Live sync additionally requires the production Clerk Convex integration, issuer and
+`convex` audience, a dedicated minimal-claim account-bound token, reviewed worker transport
+and exact host/CSP permissions. Current apps have no active cloud transport. Verify real
+JWT issuer/audience/expiry/revocation, cross-user/two-device behavior, network privacy and
+deployed cleanup/deletion before enabling sync. `.env.local`, `.clerk/` and `.convex/`
+are ignored. Do not dump keys, tokens, sessions, mailbox data or provider logs into artifacts.
+[Convex Clerk integration](https://docs.convex.dev/auth/clerk).
+
+Google setup needs the chosen project, controlled test mailbox and a registered Chrome
+Extension OAuth client matching the stable public key/extension ID. The OAuth client is
+registered in the Google console; `gcloud iam oauth-clients` manages a different IAM API.
+[Chrome OAuth setup](https://developer.chrome.com/docs/extensions/how-to/integrate/oauth).
+CLI login never substitutes for Chrome consent/profile/revocation tests. Sender/SMTP receipt
+provenance and two or three authorized real templates remain unresolved. Neither CLI nor
+environment setup enables real fill or overrides the false cloud-activity policy gate.
+
 ## Development
 
-Run these in separate terminals:
+Start the credential-free web development server:
 
 ```sh
 bun run dev:web
-bun run dev:extension
 ```
 
-Open <http://127.0.0.1:3000>. In Chrome, open `chrome://extensions`, enable
-Developer mode, choose **Load unpacked**, and select
-`apps/extension/build/chrome-mv3-dev`. Pin OTPGuard and click its toolbar icon.
-Reload the extension after manifest changes. Stop both watchers with Ctrl+C.
+Open <http://127.0.0.1:3000>. Extension hot reload (`dev:extension` and the extension's
+`dev` script) is disabled because the pinned Parcel server exposes project source to
+arbitrary browser origins, including on loopback. Use `bun run build`, load
+`apps/extension/build/chrome-mv3-prod` unpacked, and reload after each rebuild.
+[Parcel advisory](https://github.com/advisories/GHSA-qm9p-f9j5-w83w).
+Stop the web watcher with Ctrl+C when finished.
 
-Account integration uses the production build wrapper below. The Plasmo development watcher
-is for credential-free development; do not load account configuration through raw Plasmo.
+Account integration uses the production build wrapper below. Direct `plasmo dev` bypasses
+this disabled entry and remains unsafe. Dependency remediation requires a separate reviewed
+toolchain upgrade: `bun audit --json` currently reports 19 advisories (8 high, 10 moderate,
+1 low), and `bun audit fix --dry-run` cannot fix them within current dependent ranges.
+Build only reviewed repository inputs; affected build-time libraries must be upgraded or
+replaced before handling untrusted assets/configuration. This is not a clean dependency audit.
 
 Use `bun run format` to format implementation files.
 
