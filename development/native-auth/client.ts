@@ -8,6 +8,7 @@ const providerRejections = [
   'PASSWORD_REJECTED',
   'CODE_REJECTED',
   'CAPTCHA_REQUIRED',
+  'BROWSER_TRANSPORT_UNSUPPORTED',
 ] as const;
 const errors = new Set<string>([
   ...providerRejections,
@@ -30,6 +31,7 @@ const providerCodes = new Map([
   ['form_code_incorrect', 'CODE_REJECTED'],
   ['captcha_missing_token', 'CAPTCHA_REQUIRED'],
   ['captcha_invalid', 'CAPTCHA_REQUIRED'],
+  ['origin_authorization_headers_conflict', 'BROWSER_TRANSPORT_UNSUPPORTED'],
 ]);
 const object = (value: unknown): RecordValue => {
   if (!value || typeof value !== 'object' || Array.isArray(value))

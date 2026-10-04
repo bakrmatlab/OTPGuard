@@ -32,3 +32,15 @@ The existing trusted SMTP receipt requirement remains unchanged.
 Exact-instance readback reports native API enabled. Real Node/Chromium native bootstrap,
 synthetic login/Convex/logout and anonymous live Convex rejection passed. Owner live
 login/token/logout is unverified. See [scope and acceptance](../native-auth-prototype.md).
+
+## Browser feasibility correction
+
+Owner review reproduced HTTP 400 `origin_authorization_headers_conflict` in the
+actual Chromium worker. Node registration reaches email verification, while the
+browser automatically supplies Origin alongside the native Authorization header.
+Clerk documents these headers as mutually exclusive. Bootstrap and synthetic
+transport checks were insufficient evidence for browser login feasibility.
+
+The experiment remains blocked, with a specific safe UI error and regression test.
+No header stripping, new permissions or proxy is approved by this decision.
+Replacement transport requires design review and actual browser signup acceptance.

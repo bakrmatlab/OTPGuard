@@ -198,8 +198,26 @@ try {
       'data-state',
       'SIGNED_OUT',
     );
+    stage = 'browser-origin-conflict';
+    await context.route(clerk + '/v1/client/sign_ups?*', (route) =>
+      route.fulfill({
+        status: 400,
+        json: { errors: [{ code: 'origin_authorization_headers_conflict' }] },
+      }),
+    );
+    await page.locator('#create-mode').click();
+    await page.locator('#password').fill('synthetic-password');
+    await page.locator('#continue').click();
+    await expect(page.locator('#status')).toHaveAttribute(
+      'data-state',
+      'BROWSER_TRANSPORT_UNSUPPORTED',
+    );
+    await expect(page.locator('#status')).toContainText(
+      'Retrying your details will not fix this',
+    );
+    await expect(page.locator('#password')).toHaveValue('');
     console.log(
-      'Synthetic Chromium login, registration, credential clearing, Convex identity and logout passed.',
+      'Synthetic Chromium login, registration, credential clearing, Convex identity, logout and transport refusal passed.',
     );
   }
   expect(violations).toBe(0);
@@ -219,6 +237,7 @@ try {
       'PASSWORD_REJECTED',
       'CODE_REJECTED',
       'CAPTCHA_REQUIRED',
+      'BROWSER_TRANSPORT_UNSUPPORTED',
     ]);
     let last = '';
     for (let i = 0; i < 600; i++) {

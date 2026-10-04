@@ -33,6 +33,8 @@ const descriptions: Record<string, string> = {
   CODE_REJECTED: 'That code was not accepted. Check it and try again.',
   PROVIDER_REJECTED:
     'Clerk could not complete this step. Check your details and try again.',
+  BROWSER_TRANSPORT_UNSUPPORTED:
+    'This experimental login cannot work in Chromium: Clerk rejects the browser Origin header together with native authorization. Retrying your details will not fix this.',
   CAPTCHA_REQUIRED:
     'Clerk requires a CAPTCHA that this native prototype does not support. Account creation cannot continue here.',
   UNSUPPORTED_FACTOR:

@@ -6,6 +6,22 @@ replacement. The owner approved independent extension and dashboard sessions:
 dashboard logout does not automatically log out the extension. The ordinary web
 and production extension configuration remains gated on production Clerk keys.
 
+## Live browser blocker
+
+Owner signup fails in the actual loaded Chromium extension with HTTP 400 and the
+documented `origin_authorization_headers_conflict` code. Chromium automatically adds
+Origin to the POST; the native client also supplies Authorization. Clerk forbids
+this combination. The same direct registration succeeds in Node and reaches email
+verification, establishing that bootstrap success and mocked browser flows did not
+validate browser signup. No verified account or successful session is inferred.
+
+The UI now explains this transport incompatibility instead of asking the owner to
+retry their details. Live signup, sign-in, Convex exchange and logout acceptance remain
+blocked. This experiment is **not a working browser login**. No Origin stripping,
+proxy, additional extension permission or provider policy weakening was introduced.
+A replacement transport needs design review and live browser acceptance before the
+prototype can be accepted.
+
 ## Decision and boundary
 
 The development Chrome SDK appends a browser JWT to URLs. This prototype instead
@@ -97,16 +113,16 @@ credential form; browser/device compromise is outside this prototype's guarantee
 
 ## Validation and acceptance
 
-| Acceptance                                                                                                                                                            | Result                                                                                                |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Native API enabled on exact OTPGuard development instance                                                                                                             | Achieved by read-only Platform API lookup                                                             |
-| Real FAPI creates a native client and returns Authorization header without credential URL                                                                             | Achieved in Node and loaded Chromium                                                                  |
-| Existing-account password/email-code, supported MFA, header rotation, fresh identity, revocation, selected-session change, cancellation, late result and logout logic | Achieved with 14 synthetic unit/backend tests                                                         |
-| Loaded extension login/registration, credential-input clearing, Convex identity and logout                                                                            | Achieved with synthetic Chromium transport                                                            |
-| Deployed Convex rejects anonymous callers                                                                                                                             | Achieved in live loaded Chromium                                                                      |
-| Real owner login, template JWT exchange, authenticated Convex subject and provider logout                                                                             | Unverified; earlier owner attempts were refused, followed by a simplified staged UI and pending retry |
-| Real dashboard login and cross-client independence                                                                                                                    | Unverified; standard dashboard development auth remains disabled                                      |
-| Real Gmail retrieval and real-site autofill                                                                                                                           | Blocked by existing trusted SMTP receipt, sender and service-template gates                           |
+| Acceptance                                                                                                                                                            | Result                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Native API enabled on exact OTPGuard development instance                                                                                                             | Achieved by read-only Platform API lookup                                   |
+| Real FAPI creates a native client and returns Authorization header without credential URL                                                                             | Achieved in Node and loaded Chromium                                        |
+| Existing-account password/email-code, supported MFA, header rotation, fresh identity, revocation, selected-session change, cancellation, late result and logout logic | Achieved with 14 synthetic unit/backend tests                               |
+| Loaded extension login/registration, credential-input clearing, Convex identity and logout                                                                            | Achieved with synthetic Chromium transport                                  |
+| Deployed Convex rejects anonymous callers                                                                                                                             | Achieved in live loaded Chromium                                            |
+| Real owner login, template JWT exchange, authenticated Convex subject and provider logout                                                                             | Blocked; real Chromium signup fails with Origin/Authorization conflict      |
+| Real dashboard login and cross-client independence                                                                                                                    | Unverified; standard dashboard development auth remains disabled            |
+| Real Gmail retrieval and real-site autofill                                                                                                                           | Blocked by existing trusted SMTP receipt, sender and service-template gates |
 
 Validation commands: `bun install --frozen-lockfile --offline`, `bun run build`,
 `bun run check`, `bun run test:browser`, `bun run test:native-browser`, and

@@ -91,6 +91,7 @@ describe('isolated native Clerk transport', () => {
   it.each([
     ['form_password_length_too_short', 'PASSWORD_TOO_SHORT'],
     ['captcha_missing_token', 'CAPTCHA_REQUIRED'],
+    ['origin_authorization_headers_conflict', 'BROWSER_TRANSPORT_UNSUPPORTED'],
   ])(
     'maps safe provider code %s and discards private messages and causes',
     async (code, state) => {
