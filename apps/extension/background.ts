@@ -1,7 +1,7 @@
 import { parseSettingsAction, settingsAction } from './settings/worker';
 import { parseHistoryAction, historyAction } from './activity/worker';
 import { gmailLifecycle } from './gmail/worker';
-import { accountStatus, signOutAccount } from './account/worker';
+import { accountStatus, accountProbe, signOutAccount } from './account/worker';
 // Exact popup only. No message retrieval or production fill adapter.
 chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
   if (
@@ -36,6 +36,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
     typeof message.type !== 'string' ||
     ![
       'account-status',
+      'account-probe',
       'account-sign-out',
       'gmail-status',
       'gmail-connect',
@@ -53,7 +54,9 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
           ? gmailLifecycle.check()
           : message.type === 'account-sign-out'
             ? signOutAccount().then(accountStatus)
-            : accountStatus();
+            : message.type === 'account-probe'
+              ? accountProbe()
+              : accountStatus();
   void action.then(respond).catch(() =>
     respond({
       state: type.startsWith('gmail-')

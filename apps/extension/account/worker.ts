@@ -1,8 +1,10 @@
 import { createClerkClient } from '@clerk/chrome-extension/client';
 import { configuredAccount } from './config';
 import { createAccountGate } from './gate';
+import { checkAccountSubject, convexProbeOrigin, querySubject } from './probe';
 const config = configuredAccount();
 let signingOut = false;
+let logoutUnconfirmed = false;
 // Clerk's default cache persists a client JWT. Use no fallback cache: cookie is authoritative.
 const storageCache = {
   createKey: (...keys: string[]) => keys.join('|'),
@@ -11,7 +13,7 @@ const storageCache = {
   remove: async () => {},
 };
 export const accountGate = createAccountGate(async () => {
-  if (!config || signingOut) return null;
+  if (!config || signingOut || logoutUnconfirmed) return null;
   const clerk = await createClerkClient({
     publishableKey: config.publishableKey,
     syncHost: config.syncHost,
@@ -20,6 +22,9 @@ export const accountGate = createAccountGate(async () => {
   });
   const session = clerk.session;
   if (!session || session.status !== 'active' || !clerk.user) return null;
+  await session.reload();
+  if (session.status !== 'active' || session.user.id !== clerk.user.id)
+    return null;
   // Freshness probe only. Never send this token to popup/content/page/backend or retain it.
   if (!(await session.getToken({ skipCache: true }))) return null;
   if (
@@ -49,6 +54,7 @@ if (config) {
 }
 export async function accountStatus() {
   if (!config) return { state: 'UNCONFIGURED' as const };
+  if (logoutUnconfirmed) return { state: 'SIGN_OUT_FAILED' as const };
   await accountGate.refresh();
   const identity = accountGate.identity();
   return identity
@@ -70,9 +76,48 @@ export async function signOutAccount() {
       background: true,
       storageCache,
     });
-    await clerk.signOut();
+    const sessionId = clerk.session?.id;
+    if (sessionId) await clerk.signOut({ sessionId });
+    logoutUnconfirmed = false;
+  } catch {
+    logoutUnconfirmed = true;
+    throw new Error('Sign-out unconfirmed');
   } finally {
     accountGate.invalidate();
     signingOut = false;
   }
+}
+
+export async function accountProbe() {
+  let origin: string | null;
+  try {
+    origin = convexProbeOrigin(process.env.PLASMO_PUBLIC_AUTH_CONVEX_ORIGIN);
+  } catch {
+    return { state: 'IDENTITY_UNAVAILABLE' as const };
+  }
+  if (!config || !origin) return { state: 'UNCONFIGURED' as const };
+  return checkAccountSubject(
+    accountGate,
+    async (userId, sessionId) => {
+      if (signingOut || logoutUnconfirmed) return null;
+      const clerk = await createClerkClient({
+        publishableKey: config.publishableKey,
+        syncHost: config.syncHost,
+        background: true,
+        storageCache,
+      });
+      const session = clerk.session;
+      if (!session || session.id !== sessionId || clerk.user?.id !== userId)
+        return null;
+      await session.reload();
+      if (
+        session.status !== 'active' ||
+        session.user.id !== userId ||
+        signingOut
+      )
+        return null;
+      return session.getToken({ template: 'convex', skipCache: true });
+    },
+    (jwt, signal) => querySubject(origin, jwt, signal),
+  );
 }

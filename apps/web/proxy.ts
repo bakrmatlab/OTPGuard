@@ -1,7 +1,9 @@
 import { webAccountConfigured } from './account-config';
 import { clerkMiddleware } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-const middleware = clerkMiddleware();
+const middleware = clerkMiddleware({
+  authorizedParties: ['https://otpguard.net'],
+});
 export default function proxy(...args: Parameters<typeof middleware>) {
   return webAccountConfigured() ? middleware(...args) : NextResponse.next();
 }

@@ -15,6 +15,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         {webAccountConfigured() ? (
           <ClerkProvider
             signInUrl="/sign-in"
+            signUpUrl="/sign-up"
             signInFallbackRedirectUrl="/"
             signUpFallbackRedirectUrl="/"
           >

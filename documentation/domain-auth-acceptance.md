@@ -1,0 +1,89 @@
+# Domain-hosted authentication completion report
+
+October 4, 2026. Local branch codex/domain-clerk-auth, based on verified remote main
+0576669d77f3447acda0d7c613cdfd88376e93ae. One review scope; no remote PR was opened,
+no merge occurred and no provider/DNS/hosting/backend configuration was mutated.
+Existing blocked PR #3 and its branch remain intact.
+
+## Changes
+
+- Standard website /sign-up complements /sign-in, with shared-session consequences
+  visible in the website and popup. Google is provider-controlled and unverified.
+- Existing production-only Clerk worker/Sync Host is retained, with authoritative
+  session.reload before fresh token use and selected-session logout. Failed logout
+  suspends this worker until retry succeeds; popup can retry and ignores stale probe UI.
+- Auth-only build has a stable public key/ID without enabling Gmail permissions. Its
+  exact origin is supplied as a provider desired-state fragment, not applied remotely.
+- Optional read-only Convex subject check uses header-only fresh template JWTs, a
+  10-second timeout/abort, 16 KiB response cap, exact origin and fresh identity checks
+  around the query. Subject mismatch, stale session, revocation and late replies refuse.
+- Vercel configuration and [Cloudflare/Clerk/Vercel plan](domain-auth.md) are concrete
+  review artifacts. Automatic Git deployments are disabled in vercel.json.
+- Architecture/privacy/threat notes and [ADR0016](adr/0016-domain-hosted-shared-auth.md)
+  are updated. ADR0015 and failed-browser research are preserved as history, without
+  the experiment's source, builder, staged signup or development issuer exception.
+- Owner-local ignored docs/design.md and docs/implementation-plan.md were amended.
+  The tracked domain-auth.md and ADR0016 carry that amendment for publication without
+  importing the repository's entire ignored historical planning tree.
+
+## Acceptance results
+
+| Criterion                                                                 | Result                                                                                                        |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Explicit shared website/extension session choice                          | Achieved: owner selected shared sign-in and sign-out in this chat                                             |
+| Standard website sign-in/signup and no custom FAPI                        | Implemented; unconfigured routes verified in actual Chromium                                                  |
+| Stable auth-only extension ID and narrow manifest                         | Achieved with synthetic public config in loaded Chromium; jfncecbkgdnhdppgpblbokkceflpmgif                    |
+| Fresh identity, logout/revocation/switch/expiry/cancellation/late refusal | Achieved with synthetic worker/gate/probe tests; live provider behavior unverified                            |
+| Convex authenticated identity derived from server and anonymous refusal   | Achieved in actual offline Convex test runtime; live production signature/issuer/audience exchange unverified |
+| Website signup or Google through extension signed-in state                | Blocked: no production Clerk instance, hosted domain/certificates or Vercel project established               |
+| Shared live logout, remote revoke/account switch and fresh Convex subject | Blocked/unverified pending approved provider configuration and actual Chromium flow                           |
+| Production credential-URL/cookie/storage/network audit                    | Unverified; installed production SDK source uses header credentials, but no live login is inferred            |
+| Google production login                                                   | Unverified; production social OAuth credentials and callback URL audit required                               |
+| Gmail retrieval/real fill/cloud history remain closed                     | Achieved by source/artifact review and existing synthetic acceptance                                          |
+
+## Exact validation
+
+Build/check commands ran in fresh credential-free /tmp/otpguard-domain-validation with
+Node 22.19.0 and Bun 1.4.2 using
+`PATH=/tmp/otpguard-runtime/bun-darwin-aarch64:$PATH`. Root .env.local,
+apps/extension/.env.gmail and the pre-existing configured owner build were preserved.
+The export excludes ignored provider files, browser profiles and generated artifacts.
+
+| Command/check                                                                                     | Outcome                                                                                                                         |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `git ls-remote --symref origin HEAD`                                                              | Passed: integration main and SHA verified, read-only                                                                            |
+| `bun install --frozen-lockfile --offline` with Bun 1.4.2                                          | Passed: 294 cached platform packages; not a network clean-machine bootstrap claim                                               |
+| `NEXT_TELEMETRY_DISABLED=1 bun run build`                                                         | Passed: Next.js website including signup and Bun MV3 extension                                                                  |
+| `bun run --filter @otpguard/extension build` after final worker/UI edits                          | Passed                                                                                                                          |
+| `bun run check` after final code edits                                                            | Passed: workspace/tool/backend types, lint, format; 301 tests in 22 files                                                       |
+| `bun run build:mock`                                                                              | Passed: separate synthetic artifact                                                                                             |
+| `bun run test:browser` with local loopback servers and isolated Chromium                          | Passed: 29 tests; 1 expected skip for configured Gmail fixture; traces/video/screenshots off                                    |
+| Auth-only configured build with fabricated production-shaped public key and synthetic Convex host | Passed: cookies/storage, exact Clerk/Convex hosts, no identity/OAuth/content access; does not validate an assigned provider key |
+| Temporary isolated Chromium manifest check                                                        | Passed: actual loaded stable ID and no Gmail/page access; no sign-in attempted or inferred                                      |
+| `git diff --check` and local documentation link check                                             | Passed after report creation                                                                                                    |
+| Exact OTPGuard Clerk Platform API application read, minimized output                              | Only development instance found; no production instance established                                                             |
+| Connected Vercel project read in available account/team                                           | No OTPGuard project found; no unrelated project changed                                                                         |
+
+Earlier checks and corrections: the initial checkout `bun run check` passed types,
+lint and format but failed two artifact tests against the owner's stale 312 MB
+configured build (wrong size/permissions). A fresh provider-free export resolved them.
+The system Bun 1.2.22 could not parse lockfile version 2; the already available pinned
+Bun 1.4.2 completed frozen installation. First sandboxed browser run could not start
+its local web server; the same local-only suite with approved host execution passed.
+These failed attempts are not represented as passing acceptance.
+
+Tests added/extended: account-probe.test.ts tests actual backend anonymous/matching
+identity, subject mismatch, revocation, account/session replacement, expiry, logout
+abort/late response and bounded header-only transport; domain-auth-config.test.ts
+checks stable SPKI/extension origin and narrow auth permissions; worker tests verify
+server reload failure stops token use, no-cache behavior, exact session logout,
+failed logout suspension and retry; foundation browser test covers unconfigured signup.
+
+## Review boundary
+
+Reproducible live success and failure steps, environment names, exact allowed origin
+and staged provider actions are in [domain-auth.md](domain-auth.md). Publishing the
+branch/draft PR requires owner authorization. Provider production setup and deployment
+require their own explicit authorization after reviewing those concrete actions.
+No live credentials belong in chat. No next PR, store publication, Gmail activation,
+real sender claim or real autofill is authorized by these results.

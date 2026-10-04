@@ -3,7 +3,7 @@ import type { ActivityEvent } from '../../packages/shared';
 import { canonicalBlock } from './settings/local';
 import type { MailboxStatus } from './gmail/lifecycle';
 import { configuredGmail } from './gmail/config';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { configuredAccount } from './account/config';
 type Status = { state: string; userId?: string; label?: string };
 const unavailableMailbox = (): MailboxStatus => ({
@@ -11,6 +11,8 @@ const unavailableMailbox = (): MailboxStatus => ({
 });
 export default function Popup() {
   const [status, setStatus] = useState<Status>({ state: 'CHECKING' });
+  const [probe, setProbe] = useState('');
+  const probeGeneration = useRef(0);
   const [mailbox, setMailbox] = useState<
     MailboxStatus | { state: 'CHECKING'; mailbox?: never }
   >({
@@ -242,9 +244,12 @@ export default function Popup() {
             Open account sign-in
           </a>
         )}
-        {status.state === 'SIGNED_IN' && (
+        {(status.state === 'SIGNED_IN' ||
+          status.state === 'SIGN_OUT_FAILED') && (
           <button
             onClick={() => {
+              probeGeneration.current++;
+              setProbe('');
               setStatus({ state: 'CHECKING' });
               void chrome.runtime
                 .sendMessage({ type: 'account-sign-out' })
@@ -257,6 +262,31 @@ export default function Popup() {
             Sign out of OTPGuard
           </button>
         )}
+        {status.state === 'SIGNED_IN' && (
+          <button
+            onClick={() => {
+              const generation = ++probeGeneration.current;
+              setProbe('Checking cloud identity…');
+              void chrome.runtime
+                .sendMessage({ type: 'account-probe' })
+                .then((value) => {
+                  if (probeGeneration.current !== generation) return;
+                  setProbe(
+                    value?.state === 'IDENTITY_VERIFIED'
+                      ? 'Cloud identity verified for this check. Metadata sync remains disabled.'
+                      : 'Cloud identity could not be verified. Check configuration and sign in again.',
+                  );
+                })
+                .catch(() => {
+                  if (probeGeneration.current === generation)
+                    setProbe('Cloud identity could not be verified.');
+                });
+            }}
+          >
+            Check cloud identity
+          </button>
+        )}
+        {probe && <p aria-live="polite">{probe}</p>}
         {!config && (
           <button disabled aria-describedby="account-limit">
             Open account sign-in
@@ -266,7 +296,7 @@ export default function Popup() {
           Account authentication is separate from Gmail consent. Development
           Clerk transport is unsupported.{' '}
           {config
-            ? 'Use the configured account host to sign in. Cloud features remain unavailable.'
+            ? 'Sign in on the website, then reopen the popup. Website and extension share this session; sign-out applies to both. Metadata sync remains unavailable.'
             : 'Account and cloud features remain unavailable.'}
         </p>
       </section>

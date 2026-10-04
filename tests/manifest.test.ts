@@ -2,6 +2,8 @@ import {
   connectionManifest,
   configuredGmail,
 } from '../apps/extension/gmail/config';
+import domainAuth from '../configuration/domain-auth.json';
+import { convexProbeOrigin } from '../apps/extension/account/probe';
 import { configuredAccount } from '../apps/extension/account/config';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -29,18 +31,35 @@ describe('production extension permission boundary', () => {
     expect(manifest.action.default_popup).toBe('popup.html');
     expect(manifest.background.service_worker).toBeTruthy();
     const expected = connectionManifest(configuredAccount(), configuredGmail());
+    const probeOrigin = convexProbeOrigin(
+      process.env.PLASMO_PUBLIC_AUTH_CONVEX_ORIGIN,
+    );
+    if (probeOrigin) {
+      expected.host_permissions.push(probeOrigin + '/*');
+      expected.content_security_policy.extension_pages =
+        expected.content_security_policy.extension_pages.replace(
+          /;$/,
+          ' ' + probeOrigin + ';',
+        );
+    }
     expect(manifest.permissions ?? []).toEqual(expected.permissions);
     expect(manifest.host_permissions ?? []).toEqual(expected.host_permissions);
     expect(manifest.content_security_policy).toEqual(
       expected.content_security_policy,
     );
+    if (configuredAccount())
+      expect(manifest.minimum_chrome_version).toBe('116');
     if (configuredGmail()) {
       expect(manifest.oauth2).toEqual(expected.oauth2);
-      expect(manifest.key).toEqual(expected.key);
+      expect(manifest.key).toEqual(
+        configuredAccount() ? domainAuth.extensionPublicKey : expected.key,
+      );
       expect(manifest.minimum_chrome_version).toBe('116');
     } else {
       expect(manifest.oauth2).toBeUndefined();
-      expect(manifest.key).toBeUndefined();
+      if (configuredAccount())
+        expect(manifest.key).toBe(domainAuth.extensionPublicKey);
+      else expect(manifest.key).toBeUndefined();
     }
     expect(manifest.content_scripts ?? []).toEqual([]);
     expect(manifest.web_accessible_resources ?? []).toEqual([]);

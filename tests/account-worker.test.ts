@@ -57,6 +57,7 @@ it('keeps freshness tokens in the worker and uses no persistent SDK JWT cache', 
   });
   const token = vi.fn(async () => 'synthetic-session-token-never-export');
   const signOut = vi.fn(async () => {});
+  const reload = vi.fn(async () => {});
   sdk.create.mockResolvedValue({
     user: {
       id: 'synthetic-user',
@@ -67,6 +68,8 @@ it('keeps freshness tokens in the worker and uses no persistent SDK JWT cache', 
       status: 'active',
       expireAt: new Date(Date.now() + 120_000),
       getToken: token,
+      reload,
+      user: { id: 'synthetic-user' },
     },
     signOut,
   });
@@ -79,6 +82,10 @@ it('keeps freshness tokens in the worker and uses no persistent SDK JWT cache', 
   });
   expect(JSON.stringify(status)).not.toContain('token');
   expect(token).toHaveBeenCalledWith({ skipCache: true });
+  const calls = token.mock.calls.length;
+  reload.mockRejectedValueOnce(new Error('synthetic revoked session'));
+  expect(await worker.accountStatus()).toEqual({ state: 'SIGN_IN_REQUIRED' });
+  expect(token.mock.calls.length).toBe(calls);
   const options = sdk.create.mock.calls[0]![0];
   expect(options.background).toBe(true);
   await options.storageCache.set('key', 'synthetic-jwt');
@@ -93,6 +100,15 @@ it('keeps freshness tokens in the worker and uses no persistent SDK JWT cache', 
   worker.accountGate.subscribe(cancelled);
   await worker.signOutAccount();
   expect(cancelled).toHaveBeenCalled();
-  expect(signOut).toHaveBeenCalled();
+  expect(signOut).toHaveBeenCalledWith({ sessionId: 'synthetic-session' });
+  signOut.mockRejectedValueOnce(new Error('synthetic remote failure'));
+  await expect(worker.signOutAccount()).rejects.toThrow('Sign-out unconfirmed');
+  expect(await worker.accountStatus()).toEqual({ state: 'SIGN_OUT_FAILED' });
+  expect(await worker.accountGate.refresh()).toBeNull();
+  signOut.mockImplementationOnce(async () => {
+    sdk.create.mockResolvedValue({ user: null, session: null, signOut });
+  });
+  await worker.signOutAccount();
+  expect(await worker.accountStatus()).toEqual({ state: 'SIGN_IN_REQUIRED' });
   worker.accountGate.invalidate();
 });

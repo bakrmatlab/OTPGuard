@@ -47,3 +47,27 @@ not live OAuth, sender trust, JWT verification or public-release acceptance.
 No supported-service claim, verification override, token bridge, empty issuer or cloud-policy
 bypass is an acceptable demo repair. Preserve disabled gates until separately reviewed proof.
 [Release readiness](release-readiness.md) enumerates the remaining work.
+
+## Domain-authentication revision
+
+Shared website identity intentionally becomes extension authority (owner-approved
+ADR0016). Website account replacement can replace the extension account; fresh session/
+user bindings invalidate prior work. Exact Frontend API cookie permission, no-cache
+worker SDK, session.reload and fresh tokens reduce stale authority. Public manifests
+have a stable reviewed extension ID; provider allowed_origins must preserve unrelated
+valid entries and include only the exact extension origin. Web middleware restricts
+accepted authorized parties to https://otpguard.net.
+
+The optional Convex subject probe is read-only, argument-free and authenticated; its
+transport uses a bounded response, timeout/abort, no redirects/cookies/referrers and
+header-only JWT. Subject mismatch, revocation, account/session switch, expiry and late
+logout results refuse local acceptance. A signed JWT may remain valid until expiry;
+client rechecks do not create instant server revocation. Failed logout reports failure
+and locally suspends authority until successful retry; restart cannot guarantee remote
+revocation. No development issuer exception or privileged session creation is introduced.
+
+Remaining high-impact acceptance gate: actual production Chromium website-to-extension
+login/logout and URL audit are unverified. The SDK's production header path alone does
+not prove the earlier Origin/Authorization blocker resolved. Domain verification,
+Google callback behavior and live Convex issuer/JWT validation need the approved setup
+in [domain-auth.md](domain-auth.md). Sender/receipt/real-fill gates remain mandatory.

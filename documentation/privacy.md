@@ -48,3 +48,19 @@ String cleanup is best effort, not secure memory erasure. A page can read an ins
 split insertion may be partial if the page interferes, and the page may submit on its own.
 OTPGuard itself never initiates submission. Browser/device/mailbox compromise and malicious
 approved-site scripts remain outside this protection. See [threat model](threat-model.md).
+
+## Domain-authentication revision
+
+Website and extension now share the selected provider session in this browser profile
+when production setup is authorized. Website and extension sign-out end that shared
+session; they do not delete local history, revoke Gmail consent or sign out other
+browser profiles. Cookie observation and fresh checks are bounded, not instantaneous
+remote revocation. Failed logout suspends this worker; restart revalidates remote state.
+
+The optional read-only Convex probe sends a fresh short-lived Clerk template JWT only
+in Authorization to the exact configured deployment. No Gmail/mail/OTP or installation
+metadata accompanies it. The backend returns a validated subject to the worker, which
+compares it locally and exposes only a fixed acceptance state to the popup. Provider
+cookies remain browser-owned; no application credential cache is added. Website UI
+and public configuration contain no secrets. Google social login stays separately
+unverified, including its callback URL behavior. See [domain auth plan](domain-auth.md).

@@ -1,0 +1,7 @@
+{
+  "webOrigin": "https://otpguard.net",
+  "frontendApi": "https://clerk.otpguard.net",
+  "syncHost": "https://clerk.otpguard.net",
+  "extensionId": "jfncecbkgdnhdppgpblbokkceflpmgif",
+  "extensionPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoSV2Hrno8C2oU5M3XlwHsovAqnJT6iu3ipxZtGE18iCP1X9d/t6ceQOqZGHr1uMHaFiAkLq9+/iQFAT0POGjxMS6nbEDxH1GnAS4gdyM7JTGERrXByizZU7lkqyuB3Q5H58UU78bBtj22/b4Avty3j/5wVSlpWIesjrk1zBthNNCTj8G9OLfwLeHMNm2Ifu/2bvnhEWi3xPJ9cUPpuMnPInGFmsSjOhTZUJGNQyEvWv49eNHR1sY3AAULXJcUrSjwhfKBmyPjup+xugFK3k/b+8O6czbCQYRKWCUwQH18kd75IBYsYUN6lO7ndC4KELYewITHgBnFrWYndmsbEShOQIDAQAB"
+}
