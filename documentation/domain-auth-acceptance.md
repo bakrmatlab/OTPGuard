@@ -49,20 +49,21 @@ Node 22.19.0 and Bun 1.4.2 using
 apps/extension/.env.gmail and the pre-existing configured owner build were preserved.
 The export excludes ignored provider files, browser profiles and generated artifacts.
 
-| Command/check                                                                                     | Outcome                                                                                                                         |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `git ls-remote --symref origin HEAD`                                                              | Passed: integration main and SHA verified, read-only                                                                            |
-| `bun install --frozen-lockfile --offline` with Bun 1.4.2                                          | Passed: 294 cached platform packages; not a network clean-machine bootstrap claim                                               |
-| `NEXT_TELEMETRY_DISABLED=1 bun run build`                                                         | Passed: Next.js website including signup and Bun MV3 extension                                                                  |
-| `bun run --filter @otpguard/extension build` after final worker/UI edits                          | Passed                                                                                                                          |
-| `bun run check` after final code edits                                                            | Passed: workspace/tool/backend types, lint, format; 301 tests in 22 files                                                       |
-| `bun run build:mock`                                                                              | Passed: separate synthetic artifact                                                                                             |
-| `bun run test:browser` with local loopback servers and isolated Chromium                          | Passed: 29 tests; 1 expected skip for configured Gmail fixture; traces/video/screenshots off                                    |
-| Auth-only configured build with fabricated production-shaped public key and synthetic Convex host | Passed: cookies/storage, exact Clerk/Convex hosts, no identity/OAuth/content access; does not validate an assigned provider key |
-| Temporary isolated Chromium manifest check                                                        | Passed: actual loaded stable ID and no Gmail/page access; no sign-in attempted or inferred                                      |
-| `git diff --check` and local documentation link check                                             | Passed after report creation                                                                                                    |
-| Exact OTPGuard Clerk Platform API application read, minimized output                              | Only development instance found; no production instance established                                                             |
-| Connected Vercel project read in available account/team                                           | No OTPGuard project found; no unrelated project changed                                                                         |
+| Command/check                                                                                                      | Outcome                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git ls-remote --symref origin HEAD`                                                                               | Passed: integration main and SHA verified, read-only                                                                                                                   |
+| `bun install --frozen-lockfile --offline` with Bun 1.4.2                                                           | Passed: 294 cached platform packages; not a network clean-machine bootstrap claim                                                                                      |
+| `NEXT_TELEMETRY_DISABLED=1 bun run build`                                                                          | Passed: Next.js website including signup and Bun MV3 extension                                                                                                         |
+| `bun run --filter @otpguard/extension build` after final worker/UI edits                                           | Passed                                                                                                                                                                 |
+| `bun run check` after final code edits                                                                             | Passed: workspace/tool/backend types, lint, format; 301 tests in 22 files                                                                                              |
+| `bun run build:mock`                                                                                               | Passed: separate synthetic artifact                                                                                                                                    |
+| `bun run test:browser` with local loopback servers and isolated Chromium                                           | Passed: 29 tests; 1 expected skip for configured Gmail fixture; traces/video/screenshots off                                                                           |
+| Auth-only configured build with fabricated production-shaped public key and synthetic Convex host                  | Passed: cookies/storage, exact Clerk/Convex hosts, no identity/OAuth/content access; does not validate an assigned provider key                                        |
+| Temporary isolated Chromium manifest check                                                                         | Passed: actual loaded stable ID and no Gmail/page access; no sign-in attempted or inferred                                                                             |
+| `git diff --check` and local documentation link check                                                              | Passed after report creation                                                                                                                                           |
+| Exact OTPGuard Clerk Platform API application read, minimized output                                               | Only development instance found; no production instance established                                                                                                    |
+| `cf auth whoami`, `cf zones list --name otpguard.net`, `cf dns records list --zone <exact zone ID> --per-page 100` | Passed: authenticated read-only CLI; active, unpaused full zone; nameservers fay.ns.cloudflare.com / venkat.ns.cloudflare.com; zero DNS records, verified array result |
+| Connected Vercel project read in available account/team                                                            | No OTPGuard project found; no unrelated project changed                                                                                                                |
 
 Earlier checks and corrections: the initial checkout `bun run check` passed types,
 lint and format but failed two artifact tests against the owner's stale 312 MB
@@ -71,6 +72,13 @@ The system Bun 1.2.22 could not parse lockfile version 2; the already available 
 Bun 1.4.2 completed frozen installation. First sandboxed browser run could not start
 its local web server; the same local-only suite with approved host execution passed.
 These failed attempts are not represented as passing acceptance.
+
+Owner-requested Cloudflare follow-up installed official cf 1.0.0-beta.12 under
+/tmp/otpguard-cloudflare-cli, outside this repository, and completed its browser
+login with account/zone/DNS/user read scopes plus refresh access. Credentials, login
+codes/URLs and raw authentication responses were withheld. No DNS write scope was
+requested and no record or provider setting was changed. The zone ID is used only
+for exact resource targeting; no credential is embedded in repository configuration.
 
 Tests added/extended: account-probe.test.ts tests actual backend anonymous/matching
 identity, subject mismatch, revocation, account/session replacement, expiry, logout

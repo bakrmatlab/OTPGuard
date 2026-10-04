@@ -38,8 +38,11 @@ the owner's existing .env.gmail is preserved and not silently migrated.
   instance in the Platform API readback. No production instance is established.
 - Connected Vercel account and team bakr-matlabs-projects contain no project matching
   otpguard. No other project was changed.
-- Owner identified Cloudflare registrar/DNS and Vercel hosting. Cloudflare zone access,
-  DNS values, HTTPS/certificates and hosting are not yet verified.
+- Owner identified Cloudflare registrar/DNS and Vercel hosting. Read-only official
+  cf CLI 1.0.0-beta.12 inspection verified otpguard.net is active, unpaused and a full
+  Cloudflare zone, with nameservers fay.ns.cloudflare.com and venkat.ns.cloudflare.com.
+  The exact-zone DNS listing is an empty array: no records exist yet. Vercel/Clerk
+  destination records, HTTPS/certificates and hosting remain unconfigured/unverified.
 - Existing development Convex deployment does not establish production issuer/JWT
   acceptance. The production-only auth.config.ts is retained without the experiment's
   development issuer exception. No backend deployment occurred in this PR.
