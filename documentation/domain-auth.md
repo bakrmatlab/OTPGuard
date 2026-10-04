@@ -185,7 +185,6 @@ values. The secret uses Vercel sensitive storage. Production deployment,
 Google OAuth configuration, Convex production setup and live end-to-end acceptance
 remain outstanding; earlier offline validation results still apply to unchanged code.
 
-
 ## Authorized deployment follow-up
 
 The owner authorized production setup/deployment and PR publication after reviewing
