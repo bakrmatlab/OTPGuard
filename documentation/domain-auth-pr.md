@@ -31,7 +31,8 @@ Retain the native failure evidence without porting its custom transport.
   verification is complete. Production Convex is deployed and rejects anonymous
   identity probes. Actual browser renders the Clerk sign-in form. Owner email verification, website-to-extension account sharing and production
   identity check passed. First logout revoked the website session but exposed worker
-  navigation failure; callback fix and regression pass, live retest pending. Reverse
+  navigation failure; callback retest also failed. Final selected Session.remove() implementation and
+  revised regression pass, live retest pending. Reverse
   logout, revocation/switch/expiry and URL audit remain unverified.
   Google is disabled until production OAuth credentials are configured.
 - [Commands and acceptance](domain-auth-acceptance.md), [deployment plan](domain-auth.md),

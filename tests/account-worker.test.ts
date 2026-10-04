@@ -56,9 +56,10 @@ it('keeps freshness tokens in the worker and uses no persistent SDK JWT cache', 
     },
   });
   const token = vi.fn(async () => 'synthetic-session-token-never-export');
-  const signOut = vi.fn<
-    (callback?: () => void, options?: { sessionId: string }) => Promise<void>
-  >(async () => {});
+  const remove = vi.fn(async () => {});
+  const signOut = vi.fn(async () => {
+    throw new Error('Browser logout flow is unavailable in a worker');
+  });
   const reload = vi.fn(async () => {});
   sdk.create.mockResolvedValue({
     user: {
@@ -71,6 +72,7 @@ it('keeps freshness tokens in the worker and uses no persistent SDK JWT cache', 
       expireAt: new Date(Date.now() + 120_000),
       getToken: token,
       reload,
+      remove,
       user: { id: 'synthetic-user' },
     },
     signOut,
@@ -102,20 +104,13 @@ it('keeps freshness tokens in the worker and uses no persistent SDK JWT cache', 
   worker.accountGate.subscribe(cancelled);
   await worker.signOutAccount();
   expect(cancelled).toHaveBeenCalled();
-  expect(signOut).toHaveBeenCalledWith(expect.any(Function), {
-    sessionId: 'synthetic-session',
-  });
-  // Clerk invokes this callback instead of navigation after remote revocation.
-  // A service worker must complete it without referring to a browser window.
-  const callback = signOut.mock.calls.at(-1)?.[0];
-  expect(callback).toBeTypeOf('function');
-  if (!callback) throw new Error('Missing worker logout callback');
-  expect(() => callback()).not.toThrow();
-  signOut.mockRejectedValueOnce(new Error('synthetic remote failure'));
+  expect(remove).toHaveBeenCalledWith();
+  expect(signOut).not.toHaveBeenCalled();
+  remove.mockRejectedValueOnce(new Error('synthetic remote failure'));
   await expect(worker.signOutAccount()).rejects.toThrow('Sign-out unconfirmed');
   expect(await worker.accountStatus()).toEqual({ state: 'SIGN_OUT_FAILED' });
   expect(await worker.accountGate.refresh()).toBeNull();
-  signOut.mockImplementationOnce(async () => {
+  remove.mockImplementationOnce(async () => {
     sdk.create.mockResolvedValue({ user: null, session: null, signOut });
   });
   await worker.signOutAccount();

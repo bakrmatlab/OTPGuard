@@ -170,3 +170,14 @@ The boundary regression assertion failed before this change and passed afterward
 changed-file lint/format checks passed. Production auth-only build passed and the
 installed extension was reloaded. Corrected live logout and reverse website logout
 still await owner-controlled reauthentication; do not infer their acceptance.
+
+The callback live retest still reported SIGN_OUT_FAILED after actual revocation;
+the callback regression did not cover the complete SDK logout lifecycle. That
+intermediate approach is superseded. The final worker calls the selected Session's
+public `remove()` method, which remotely invalidates that session without invoking
+Clerk's browser signOut lifecycle. Error suspension and retry remain unchanged.
+The revised boundary test models browser signOut as unsupported and requires selected
+session removal; it failed against the callback implementation, then passed with the
+Session method. Twelve worker/message/probe tests, workspace/tool/backend typechecks,
+changed-file lint/format and production extension build passed. Final live retest is
+pending owner sign-in; this update does not claim it passed.

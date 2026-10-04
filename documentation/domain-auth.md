@@ -209,3 +209,8 @@ navigation failure in the worker. The adapter now supplies Clerk's supported cal
 form to omit navigation while preserving exact-session remote logout and failure
 suspension. Synthetic regression passed; corrected live/logout-direction checks are
 pending reauthentication. See the acceptance report for partial results.
+
+Correction: live callback-form logout still failed after revocation. The final adapter
+uses the documented selected `Session.remove()` operation, avoiding the entire browser
+logout lifecycle. The earlier callback hypothesis was incomplete; final live retest
+is pending. The session removal rejection still suspends local authority until retry.

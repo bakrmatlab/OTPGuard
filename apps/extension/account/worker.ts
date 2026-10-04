@@ -76,9 +76,10 @@ export async function signOutAccount() {
       background: true,
       storageCache,
     });
-    const sessionId = clerk.session?.id;
-    // Clerk otherwise navigates after revocation; a service worker has no window.
-    if (sessionId) await clerk.signOut(() => {}, { sessionId });
+    // Revoke only the selected session without Clerk's browser logout lifecycle.
+    // Its navigation/events are unsupported in a background service worker.
+    const session = clerk.session;
+    if (session) await session.remove();
     logoutUnconfirmed = false;
   } catch {
     logoutUnconfirmed = true;
