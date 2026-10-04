@@ -88,32 +88,38 @@ function harness() {
 }
 afterEach(() => vi.useRealTimers());
 describe('isolated native Clerk transport', () => {
-  it('maps only safe provider error codes and discards private messages and causes', async () => {
-    const auth = createNativeAuth(
-      origin,
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              errors: [
-                {
-                  code: 'form_password_length_too_short',
-                  message: 'synthetic private credential',
-                  meta: { value: 'synthetic private credential' },
-                },
-              ],
-            }),
-            { status: 422 },
-          ),
-      ),
-    );
-    const error = await auth
-      .register('synthetic@example.invalid', 'short')
-      .catch((error) => error as unknown);
-    expect(error).toMatchObject({ message: 'PASSWORD_TOO_SHORT' });
-    expect(error).not.toHaveProperty('cause');
-    expect(auth.gate.identity()).toBeNull();
-  });
+  it.each([
+    ['form_password_length_too_short', 'PASSWORD_TOO_SHORT'],
+    ['captcha_missing_token', 'CAPTCHA_REQUIRED'],
+  ])(
+    'maps safe provider code %s and discards private messages and causes',
+    async (code, state) => {
+      const auth = createNativeAuth(
+        origin,
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                errors: [
+                  {
+                    code,
+                    message: 'synthetic private credential',
+                    meta: { value: 'synthetic private credential' },
+                  },
+                ],
+              }),
+              { status: 422 },
+            ),
+        ),
+      );
+      const error = await auth
+        .register('synthetic@example.invalid', 'short')
+        .catch((error) => error as unknown);
+      expect(error).toMatchObject({ message: state });
+      expect(error).not.toHaveProperty('cause');
+      expect(auth.gate.identity()).toBeNull();
+    },
+  );
   it('registers through native email verification only and refuses missing provider requirements', async () => {
     let missing: string[] = [];
     const pending = () => ({

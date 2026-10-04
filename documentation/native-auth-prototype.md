@@ -101,7 +101,7 @@ credential form; browser/device compromise is outside this prototype's guarantee
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Native API enabled on exact OTPGuard development instance                                                                                                             | Achieved by read-only Platform API lookup                                                             |
 | Real FAPI creates a native client and returns Authorization header without credential URL                                                                             | Achieved in Node and loaded Chromium                                                                  |
-| Existing-account password/email-code, supported MFA, header rotation, fresh identity, revocation, selected-session change, cancellation, late result and logout logic | Achieved with 13 synthetic unit/backend tests                                                         |
+| Existing-account password/email-code, supported MFA, header rotation, fresh identity, revocation, selected-session change, cancellation, late result and logout logic | Achieved with 14 synthetic unit/backend tests                                                         |
 | Loaded extension login/registration, credential-input clearing, Convex identity and logout                                                                            | Achieved with synthetic Chromium transport                                                            |
 | Deployed Convex rejects anonymous callers                                                                                                                             | Achieved in live loaded Chromium                                                                      |
 | Real owner login, template JWT exchange, authenticated Convex subject and provider logout                                                                             | Unverified; earlier owner attempts were refused, followed by a simplified staged UI and pending retry |
@@ -115,7 +115,7 @@ validation uses a fresh credential-free export because the owner's pre-existing
 configured extension artifact is stale. Initial checks against that stale artifact
 failed its size/manifest expectations; it was preserved, not treated as current code.
 
-Final local results: 304 tests in 21 files, type/lint/format checks and both application
+Final local results: 305 tests in 21 files, type/lint/format checks and both application
 builds passed in `/tmp/otpguard-native-validation`. Browser results were 26 passes,
 one configuration-dependent skip and three mock-pipeline timeouts before the required
 `bun run build:mock`; the targeted pipeline rerun then passed all three (29 passes
@@ -137,3 +137,16 @@ trusted receipt evidence was manufactured, and no unverified real fill was enabl
 - [Convex Clerk integration](https://docs.convex.dev/auth/clerk): issuer and `convex` audience validation.
 - [Convex system environment variables](https://docs.convex.dev/production/environment-variables#system-environment-variables): deployment origin binding.
 - [Earlier transport research](domain-free-auth-feasibility.md) and [Gmail receipt investigation](connected-gmail-feasibility.md) remain historical evidence; this owner-approved independent-session prototype supersedes their unapproved-account-model wording only.
+
+Google sign-in was requested during owner testing. Clerk documents native Google ID-token
+exchange, whereas Chrome identity returns OAuth access tokens; the existing Gmail adapter
+is not a validated Clerk Google sign-in adapter. No Google button or redirect flow was
+added without credential-URL/transport acceptance. The dev instance also has CAPTCHA
+enabled and a 15-character minimum password. CAPTCHA errors map to a fixed explanatory
+status and remain unsupported; those provider policies were not weakened. Exact native
+Authorization-header roundtrip succeeded, with no Bearer prefix in the returned credential
+and no provider CAPTCHA bypass flag.
+
+Sources: [Clerk native ID-token auth](https://clerk.com/docs/android/reference/native-mobile/auth),
+[Chrome identity access tokens](https://developer.chrome.com/docs/extensions/reference/api/identity),
+[documented provider errors](https://clerk.com/docs/guides/development/errors/frontend-api).

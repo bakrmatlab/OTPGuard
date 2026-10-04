@@ -33,6 +33,8 @@ const descriptions: Record<string, string> = {
   CODE_REJECTED: 'That code was not accepted. Check it and try again.',
   PROVIDER_REJECTED:
     'Clerk could not complete this step. Check your details and try again.',
+  CAPTCHA_REQUIRED:
+    'Clerk requires a CAPTCHA that this native prototype does not support. Account creation cannot continue here.',
   UNSUPPORTED_FACTOR:
     'Clerk requires a verification method this prototype does not support. Start over to try again.',
   AUTH_UNAVAILABLE:

@@ -218,6 +218,7 @@ try {
       'PASSWORD_TOO_SHORT',
       'PASSWORD_REJECTED',
       'CODE_REJECTED',
+      'CAPTCHA_REQUIRED',
     ]);
     let last = '';
     for (let i = 0; i < 600; i++) {
