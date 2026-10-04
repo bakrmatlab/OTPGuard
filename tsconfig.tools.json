@@ -17,6 +17,7 @@
     "tests/**/*.ts",
     "playwright.config.ts",
     "vitest.config.ts",
-    "development/**/*.ts"
+    "development/**/*.ts",
+    "scripts/build-core-1.ts"
   ]
 }

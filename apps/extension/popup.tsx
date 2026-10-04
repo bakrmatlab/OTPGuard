@@ -5,6 +5,7 @@ import type { MailboxStatus } from './gmail/lifecycle';
 import { configuredGmail } from './gmail/config';
 import { useEffect, useRef, useState } from 'react';
 import { configuredAccount } from './account/config';
+import { createConnectionQueue } from './account/connection-queue';
 type Status = { state: string; userId?: string; label?: string };
 const unavailableMailbox = (): MailboxStatus => ({
   state: configuredGmail() ? 'RECONNECT_REQUIRED' : 'UNCONFIGURED',
@@ -86,13 +87,23 @@ export default function Popup() {
     }
   };
   const [busy, setBusy] = useState(false);
+  const [connectionQueue] = useState(createConnectionQueue);
   const mailboxAction = async (type: string) => {
+    if (
+      type === 'gmail-disconnect' &&
+      !window.confirm(
+        'Google revocation removes this account’s grants for all OAuth clients in the OTPGuard Google project. The old Gmail extension and future Google sign-in may need consent again. Disconnect and revoke?',
+      )
+    )
+      return;
     setBusy(true);
     if (type === 'gmail-connect') setMailbox({ state: 'CONNECTING' });
     if (type === 'gmail-disconnect') setMailbox({ state: 'DISCONNECTING' });
     try {
       setMailbox(
-        (await chrome.runtime.sendMessage({ type })) ?? unavailableMailbox(),
+        (await connectionQueue.run(() =>
+          chrome.runtime.sendMessage({ type }),
+        )) ?? unavailableMailbox(),
       );
     } catch {
       setMailbox(unavailableMailbox());
@@ -104,13 +115,23 @@ export default function Popup() {
   useEffect(() => {
     let active = true;
     const refresh = () => {
-      void chrome.runtime
-        .sendMessage({ type: 'account-status' })
-        .then((value: Status) => {
-          if (active) setStatus(value ?? { state: 'SIGN_IN_REQUIRED' });
+      if (connectionQueue.busy()) return;
+      void connectionQueue
+        .run(async () => ({
+          account: await chrome.runtime.sendMessage({ type: 'account-status' }),
+          mailbox: await chrome.runtime.sendMessage({ type: 'gmail-status' }),
+        }))
+        .then((value: { account: Status; mailbox: MailboxStatus }) => {
+          if (active) {
+            setStatus(value.account ?? { state: 'SIGN_IN_REQUIRED' });
+            setMailbox(value.mailbox ?? unavailableMailbox());
+          }
         })
         .catch(() => {
-          if (active) setStatus({ state: 'SIGN_IN_REQUIRED' });
+          if (active) {
+            setStatus({ state: 'SIGN_IN_REQUIRED' });
+            setMailbox(unavailableMailbox());
+          }
         });
     };
     refresh();
@@ -130,25 +151,18 @@ export default function Popup() {
       .catch(() => {
         if (active) setSettings({ state: 'UNAVAILABLE' });
       });
-    void chrome.runtime
-      .sendMessage({ type: 'gmail-status' })
-      .then((value: MailboxStatus) => {
-        if (active) setMailbox(value ?? unavailableMailbox());
-      })
-      .catch(() => {
-        if (active) setMailbox(unavailableMailbox());
-      });
     const timer = setInterval(refresh, 15_000);
     return () => {
       active = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [connectionQueue]);
   return (
     <main>
       <header>
-        <p className="eyebrow">Local connection prototype</p>
+        <p className="eyebrow">Core 1 · controlled connection</p>
         <h1>OTPGuard</h1>
+        <p className="muted">Extension ID: {chrome.runtime.id}</p>
         <p>Connect your mailbox and manage local protection preferences.</p>
       </header>
       <section aria-labelledby="protection-title" className="protection">
@@ -251,6 +265,7 @@ export default function Popup() {
               probeGeneration.current++;
               setProbe('');
               setStatus({ state: 'CHECKING' });
+              setMailbox({ state: 'SIGN_IN_REQUIRED' });
               void chrome.runtime
                 .sendMessage({ type: 'account-sign-out' })
                 .then((value: Status | undefined) =>
@@ -267,8 +282,10 @@ export default function Popup() {
             onClick={() => {
               const generation = ++probeGeneration.current;
               setProbe('Checking cloud identity…');
-              void chrome.runtime
-                .sendMessage({ type: 'account-probe' })
+              void connectionQueue
+                .run(() =>
+                  chrome.runtime.sendMessage({ type: 'account-probe' }),
+                )
                 .then((value) => {
                   if (probeGeneration.current !== generation) return;
                   setProbe(
@@ -317,13 +334,16 @@ export default function Popup() {
             <p>
               Connect requests read-only access to all Gmail mail. Chrome
               chooses a Google account from this browser profile; confirm the
-              mailbox shown below before using it.
+              mailbox shown below before using it. Google may reuse an existing
+              project grant without showing new consent.
             </p>
             <button
               disabled={
                 busy ||
                 mailbox.state === 'CHECKING' ||
-                mailbox.state === 'CONNECTED'
+                mailbox.state === 'CONNECTED' ||
+                mailbox.state === 'ACCOUNT_CHANGED' ||
+                status.state !== 'SIGNED_IN'
               }
               onClick={() => void mailboxAction('gmail-connect')}
             >
@@ -332,6 +352,11 @@ export default function Popup() {
                 ? 'Reconnect Gmail'
                 : 'Connect Gmail'}
             </button>
+            <p className="muted">
+              Disconnect attempts project-wide Google revocation for this
+              mailbox, including other OTPGuard clients. It also clears this
+              extension’s Chrome token cache.
+            </p>
             <button
               disabled={busy || mailbox.state === 'CHECKING'}
               onClick={() => void mailboxAction('gmail-status')}
@@ -522,6 +547,10 @@ export default function Popup() {
 }
 
 const mailboxText: Record<MailboxStatus['state'], string> = {
+  SIGN_IN_REQUIRED:
+    'Sign in to OTPGuard before connecting or checking Gmail. Disconnect remains available.',
+  ACCOUNT_CHANGED:
+    'The OTPGuard session changed. Disconnect Gmail first, then connect explicitly for this session.',
   UNCONFIGURED:
     'Gmail connection is unconfigured. Register a Google Chrome extension OAuth client and stable extension ID first.',
   DISCONNECTED: 'No mailbox connected.',

@@ -53,6 +53,15 @@ minimum scopes; start provider-policy clarification early rather than waiting fo
 Deliverable: one installed controlled artifact and reproducible connect/disconnect steps,
 with live results separate from synthetic tests. Depends on completed basic Google login.
 
+Core 1 local implementation, October 4: one same-ID combined extension connects the
+owner-confirmed mailbox after explicit Connect and passes fresh Convex identity. Google
+reused project authorization without a new consent screen. Session-bound controller,
+regressions and isolated builder are implemented. Project-wide revocation is disclosed
+and live revoke/disconnect deferred to preserve the old grant. Fresh consent/denial
+and broader live lifecycle/privacy checks remain unverified. See
+[Core 1 acceptance](core-1-acceptance.md); owner approved merge and push on October 4
+with these live limits, Core 2 not started.
+
 ### Core 2 — Validate one real service and its mail trust boundary
 
 Title: `feat(security): validate the first real email-code flow`.

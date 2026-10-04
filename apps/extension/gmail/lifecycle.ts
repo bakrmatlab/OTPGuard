@@ -1,6 +1,8 @@
 import { GMAIL_SCOPE } from './config';
 export type MailboxStatus = {
   state:
+    | 'SIGN_IN_REQUIRED'
+    | 'ACCOUNT_CHANGED'
     | 'UNCONFIGURED'
     | 'DISCONNECTED'
     | 'CONNECTING'

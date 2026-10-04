@@ -1,0 +1,8 @@
+{
+  "projectId": "otpguard-20261003",
+  "clientId": "258500494856-veuqutd3v0ib5hohg08sh5utshb70o80.apps.googleusercontent.com",
+  "extensionId": "jfncecbkgdnhdppgpblbokkceflpmgif",
+  "scope": "https://www.googleapis.com/auth/gmail.readonly",
+  "distribution": "controlled-pilot",
+  "audience": "testing"
+}

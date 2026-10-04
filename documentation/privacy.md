@@ -64,3 +64,19 @@ compares it locally and exposes only a fixed acceptance state to the popup. Prov
 cookies remain browser-owned; no application credential cache is added. Website UI
 and public configuration contain no secrets. Google social login stays separately
 unverified, including its callback URL behavior. See [domain auth plan](domain-auth.md).
+
+## Core 1 connection revision
+
+The controlled combined extension requires a fresh Clerk session for explicit Gmail
+Connect and connection checks. Its volatile mailbox binding belongs to that selected
+Clerk user/session; a session change requires disconnect before another session can
+inherit it. Gmail and Clerk addresses remain independently displayed and may differ.
+Restart clears the local binding and requires explicit Connect; Chrome/Google may
+reuse an existing project authorization without another consent screen.
+
+The old Gmail client, new combined-extension client and social-login client currently
+share one Google project. Google revocation removes this account's project grants
+across clients/scopes. Disconnect warns and confirms that breadth before attempting
+revocation, then clears this extension's Chrome cache. Live revoke/disconnect was not
+performed in Core 1, to preserve the old grant. No promise of per-client remote grant
+isolation is made. See [acceptance and policy status](core-1-acceptance.md).

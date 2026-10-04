@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 vi.mock('../apps/extension/gmail/worker', () => ({ gmailLifecycle: {} }));
 vi.mock('../apps/extension/account/worker', () => ({
+  accountGate: { subscribe: () => () => {} },
   accountStatus: async () => ({ state: 'UNCONFIGURED' }),
   signOutAccount: async () => {},
 }));

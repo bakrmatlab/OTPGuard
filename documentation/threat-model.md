@@ -82,3 +82,21 @@ real latency races and full credential URL/storage/network acceptance remain unv
 The [production plan](production-readiness-plan.md) separates those gates from mock
 coverage and defines required end-to-end release evidence. No real fill/sender trust
 or cloud transport is enabled by these authentication results.
+
+## Core 1 authenticated mailbox boundary
+
+Popup Gmail Connect/Check now require fresh worker-owned Clerk authorization and a
+post-Google binding recheck. Logout/expiry/cookie invalidation cancels pending Gmail
+work; a selected user/session replacement cannot inherit the remembered mailbox.
+Disconnect remains available for cleanup without Clerk availability. Fresh workers
+never restore a cached Google grant implicitly. Tokens and both identity bindings
+remain worker/Chrome-owned; no new backend, content or persistent token path is added.
+
+The same-project provider grant is not isolated by creating a new client ID. Google
+may reuse existing authorization, and revoke invalidates all project clients/scopes
+for that Google account. Popup disclosure and confirmation prevent an unexplained
+cross-client disconnect; live revocation is intentionally unverified because the old
+grant must be preserved. A future isolated-project decision needs separate approval.
+Synthetic controller/adapter checks and basic actual Chrome connection evidence are
+separate from the remaining live privacy/denial/revoke/switch/expiry acceptance.
+See [ADR0017](adr/0017-authenticated-gmail-connection.md).

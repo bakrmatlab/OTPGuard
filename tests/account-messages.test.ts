@@ -1,5 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
 const gmail = vi.hoisted(() => ({
+  snapshot: vi.fn<() => { state: string; mailbox?: string }>(() => ({
+    state: 'DISCONNECTED',
+  })),
+  invalidate: vi.fn(),
   check: vi.fn(async () => ({ state: 'DISCONNECTED' })),
   connect: vi.fn(async () => ({
     state: 'CONNECTED',
@@ -19,6 +23,15 @@ const account = vi.hoisted(() => ({
 vi.mock('../apps/extension/account/worker', () => ({
   accountStatus: account.status,
   signOutAccount: account.signOut,
+  accountGate: {
+    subscribe: vi.fn(),
+    refresh: async () => ({
+      userId: 'synthetic-user',
+      sessionId: 'session',
+      generation: 0,
+    }),
+    current: async () => true,
+  },
 }));
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -69,18 +82,23 @@ it('accepts only closed account UI requests from the exact owned popup', async (
     userId: 'synthetic-user',
     label: 'Synthetic',
   });
+  gmail.snapshot.mockReturnValueOnce({ state: 'DISCONNECTED' });
+  gmail.snapshot.mockReturnValueOnce({
+    state: 'CONNECTED',
+    mailbox: 'mailbox@fixture.invalid',
+  });
   expect(listener({ type: 'gmail-connect' }, sender, respond)).toBe(true);
-  for (let i = 0; i < 5; i++) await Promise.resolve();
+  for (let i = 0; i < 20; i++) await Promise.resolve();
   expect(respond).toHaveBeenCalledWith({
     state: 'CONNECTED',
     mailbox: 'mailbox@fixture.invalid',
   });
   account.signOut.mockRejectedValueOnce(new Error('synthetic signout failure'));
   expect(listener({ type: 'account-sign-out' }, sender, respond)).toBe(true);
-  for (let i = 0; i < 5; i++) await Promise.resolve();
+  for (let i = 0; i < 20; i++) await Promise.resolve();
   expect(respond).toHaveBeenCalledWith({ state: 'SIGN_OUT_FAILED' });
   gmail.check.mockRejectedValueOnce(new Error('synthetic worker failure'));
   expect(listener({ type: 'gmail-status' }, sender, respond)).toBe(true);
-  for (let i = 0; i < 5; i++) await Promise.resolve();
+  for (let i = 0; i < 20; i++) await Promise.resolve();
   expect(respond).toHaveBeenLastCalledWith({ state: 'RECONNECT_REQUIRED' });
 });

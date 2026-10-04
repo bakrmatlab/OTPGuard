@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "displayName": "OTPGuard",
-  "description": "OTPGuard foundation. Gmail and autofill are not yet supported.",
+  "description": "Controlled Gmail connection prototype. Real retrieval and autofill remain disabled.",
   "scripts": {
     "dev": "bun ../../scripts/dev-extension.ts",
     "build": "bun ../../scripts/build-extension.ts",

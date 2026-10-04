@@ -100,3 +100,21 @@ The stable authentication public key/ID is separate from Gmail registration. Opt
 probe configuration adds only the exact Convex host; metadata sync remains inactive.
 No native experiment transport/build source or development issuer exception was ported.
 The [deployment plan](domain-auth.md) is review material, not production readiness.
+
+## Core 1 authenticated connection
+
+Production popup Gmail messages enter `gmail/authenticated.ts` before the existing
+Chrome lifecycle. A fresh Clerk user/session binding is checked before Google and
+again after completion; account invalidation cancels mailbox work. A switched session
+requires explicit disconnect, while different Clerk/Gmail emails remain valid.
+Popup freshness checks, mailbox actions and cloud identity probes are serialized to
+avoid superseding each other; timer polls skip active work. Logout still cancels
+immediately outside that queue. Cleanup can run without Clerk. No binding survives worker restart and no token reaches
+popup/content/backend. The reviewed stable-ID artifact requests only Gmail readonly,
+uses profile/revoke endpoints and has no site content entry or retrieval registration.
+
+Public configuration and `scripts/build-core-1.ts` reproduce a new isolated controlled
+export without copying owner env files. Old Gmail artifacts/clients remain distinct,
+but Google project grants are shared: revocation affects other project clients and
+requires an explained confirmation. [ADR0017](adr/0017-authenticated-gmail-connection.md)
+and [Core 1 acceptance](core-1-acceptance.md) record actual evidence and remaining limits.

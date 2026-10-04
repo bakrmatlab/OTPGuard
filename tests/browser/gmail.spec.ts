@@ -3,7 +3,10 @@ import { resolve } from 'node:path';
 import { configuredGmail } from '../../apps/extension/gmail/config';
 for (const phase of ['startup', 'action'] as const) {
   test(`popup survives absent Gmail worker response during ${phase}`, async () => {
-    const extension = resolve('apps/extension/build/chrome-mv3-prod');
+    const extension = resolve(
+      process.env.OTPGUARD_TEST_EXTENSION ??
+        'apps/extension/build/chrome-mv3-prod',
+    );
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium',
       headless: true,
@@ -23,6 +26,11 @@ for (const phase of ['startup', 'action'] as const) {
         const send = chrome.runtime.sendMessage.bind(chrome.runtime);
         let initial = true;
         chrome.runtime.sendMessage = ((message: { type: string }) => {
+          if (message.type === 'account-status')
+            return Promise.resolve({
+              state: 'SIGNED_IN',
+              label: 'Synthetic account',
+            });
           if (!message.type.startsWith('gmail-')) return send(message);
           if (phase === 'action' && initial) {
             initial = false;
@@ -70,7 +78,10 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
     !configuredGmail(),
     'Requires artifact-only public configuration build; never live OAuth',
   );
-  const extension = resolve('apps/extension/build/chrome-mv3-prod');
+  const extension = resolve(
+    process.env.OTPGUARD_TEST_EXTENSION ??
+      'apps/extension/build/chrome-mv3-prod',
+  );
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
     headless: true,
@@ -89,29 +100,43 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
       context.serviceWorkers()[0] ??
       (await context.waitForEvent('serviceworker'));
     expect(new URL(worker.url()).host).toBe(configuredGmail()!.extensionId);
-    await worker.evaluate(() => {
-      let deny = true;
-      chrome.identity.getAuthToken = async () => {
-        if (deny) {
-          deny = false;
-          throw new Error('Synthetic denial');
-        }
-        return {
-          token: 'synthetic-browser-credential',
-          grantedScopes: ['https://www.googleapis.com/auth/gmail.readonly'],
-        };
-      };
-      chrome.identity.removeCachedAuthToken = async () => {};
-      chrome.identity.clearAllCachedAuthTokens = async () => {};
-      globalThis.fetch = async (url) =>
-        new Response(
-          String(url).includes('/profile')
-            ? JSON.stringify({ emailAddress: 'mailbox@fixture.invalid' })
-            : '',
-          { status: 200 },
-        );
-    });
     const popup = await context.newPage();
+    let declineDisconnect = true;
+    popup.on('dialog', (dialog) => {
+      expect(dialog.message()).toContain('all OAuth clients');
+      if (declineDisconnect) {
+        declineDisconnect = false;
+        void dialog.dismiss();
+      } else void dialog.accept();
+    });
+    // UI-only synthetic states. Actual worker authorization is covered separately.
+    await popup.addInitScript(() => {
+      const send = chrome.runtime.sendMessage.bind(chrome.runtime);
+      const connections = [
+        { state: 'CONNECT_FAILED' },
+        { state: 'CONNECTED', mailbox: 'mailbox@fixture.invalid' },
+        { state: 'CONNECTED', mailbox: 'other@fixture.invalid' },
+      ];
+      const checks = [{ state: 'DISCONNECTED' }, { state: 'MAILBOX_CHANGED' }];
+      const disconnects = [
+        { state: 'DISCONNECTED_REVOCATION_UNCONFIRMED' },
+        { state: 'DISCONNECTED' },
+      ];
+      chrome.runtime.sendMessage = ((message: { type: string }) => {
+        if (message.type === 'account-status')
+          return Promise.resolve({
+            state: 'SIGNED_IN',
+            label: 'Synthetic account',
+          });
+        if (message.type === 'gmail-connect')
+          return Promise.resolve(connections.shift());
+        if (message.type === 'gmail-status')
+          return Promise.resolve(checks.shift());
+        if (message.type === 'gmail-disconnect')
+          return Promise.resolve(disconnects.shift());
+        return send(message);
+      }) as typeof chrome.runtime.sendMessage;
+    });
     await popup.goto(
       `chrome-extension://${new URL(worker.url()).host}/popup.html`,
     );
@@ -127,24 +152,16 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
       popup.getByText('Mailbox: mailbox@fixture.invalid'),
     ).toBeVisible();
     await expect(
-      popup.getByText('Account authentication is unconfigured.'),
+      popup.getByText('Synthetic account', { exact: true }),
     ).toBeVisible();
-    await worker.evaluate(() => {
-      globalThis.fetch = async () =>
-        new Response(
-          JSON.stringify({ emailAddress: 'other@fixture.invalid' }),
-          { status: 200 },
-        );
-    });
     await popup.getByRole('button', { name: 'Check Gmail connection' }).click();
     await expect(
       popup.getByText('Google returned a different mailbox.', { exact: false }),
     ).toBeVisible();
-    await worker.evaluate(() => {
-      globalThis.fetch = async () => {
-        throw new Error('Synthetic offline');
-      };
-    });
+    await popup.getByRole('button', { name: 'Disconnect Gmail' }).click();
+    await expect(
+      popup.getByText('Google returned a different mailbox.', { exact: false }),
+    ).toBeVisible();
     await popup.getByRole('button', { name: 'Disconnect Gmail' }).click();
     await expect(
       popup.getByText(
@@ -153,15 +170,6 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
       ),
     ).toBeVisible();
     await expect(popup.getByText('Mailbox:', { exact: false })).toHaveCount(0);
-    await worker.evaluate(() => {
-      globalThis.fetch = async (url) =>
-        new Response(
-          String(url).includes('/profile')
-            ? JSON.stringify({ emailAddress: 'other@fixture.invalid' })
-            : '',
-          { status: 200 },
-        );
-    });
     await popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }).click();
     await expect(
       popup.getByText('Mailbox: other@fixture.invalid'),
