@@ -15,6 +15,12 @@ loopback field -> worker browser context -> fabricated mail -> pure parser/polic
               -> bound prepare/recheck -> document-targeted release -> live empty field
 ```
 
+The extension is built with explicit Bun browser entries: background worker and React
+popup. Only the seven legacy `PLASMO_PUBLIC_*` settings are embedded, preserving existing
+public configuration and registered IDs. No generic env serialization or SDK asset-tree
+copying occurs. The builder refuses a nonempty production content entry; site registration
+requires a separately reviewed change.
+
 ## Ownership and trust boundaries
 
 The background worker owns provider credentials and authorizes connected requests.

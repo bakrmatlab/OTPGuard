@@ -32,13 +32,12 @@ not a guarantee that no vulnerabilities exist.
   and streamed overflow now cancel/reject above 16KiB before parsing.
 - **Earlier medium lifecycle:** settings sync disposal is terminal; stale reads/re-enable
   cannot resurrect a transport after teardown.
-- **Open dependency gate:** PR15 audit recorded 19 advisories: 8 high, 10 moderate, 1 low.
-  Affected tool families include Parcel dev server, braces, browserslist, CSP parser, esbuild,
-  fflate, HTTP cache semantics, msgpackr, sharp, Svelte and tsup. Reachability review found
-  primarily build/tooling paths, which is not proof of runtime safety. Next image dependency
-  resolution also needs verification before deployment/image processing. No compatible
-  automatic fix was established. Raw `plasmo dev` bypasses the disabled entry and is unsafe.
-  [Parcel advisory](https://github.com/advisories/GHSA-qm9p-f9j5-w83w) documents source exposure.
+- **Dependency remediation:** PR15 recorded 19 advisories. Removing Plasmo/Parcel and its
+  dependency tree now yields a zero-advisory locked audit and a 2.56 MB explicit Bun MV3
+  artifact. No dev server is supplied; use build/reload. The worker retains the supported
+  Clerk client and strict account gates. Next resolves sharp 0.35.5. Audit results are a
+  time-specific dependency check, not proof of runtime or live-provider security.
+  [Validation and residual limits](toolchain-remediation.md).
 
 Reproduce with `bun run check`, `bun run check:convex` and `bun run test:browser` after builds,
 plus `bun audit --json` for current vendor status. Tests use fabricated responses and local

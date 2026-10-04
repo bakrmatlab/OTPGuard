@@ -18,7 +18,7 @@ From a fresh clone with no provider environment files or exported provider varia
 
 ```sh
 bun install --frozen-lockfile
-NEXT_TELEMETRY_DISABLED=1 PLASMO_TELEMETRY_DISABLED=1 bun run build
+NEXT_TELEMETRY_DISABLED=1 bun run build
 bun run build:mock
 bun run check
 bun x --no-install playwright install chromium
@@ -52,17 +52,21 @@ Email OTPs are not phishing-resistant; any page receiving an input value can rea
 - [Architecture and security decisions](documentation/architecture.md)
 - [Privacy and data handling](documentation/privacy.md)
 - [Threat model and audit disposition](documentation/threat-model.md)
+- [Completed local release fixes and validation](documentation/local-release-readiness.md)
 - [Packaging and release gates](documentation/release-readiness.md)
 - [Screenshot provenance](documentation/images/README.md)
 
-The dependency audit remains failed: PR15 recorded **19 advisories (8 high, 10 moderate,
-1 low)**. Supported extension hot reload is disabled; use production build/reload only.
+The extension now uses an explicit Bun MV3 builder. Removing Plasmo/Parcel reduced the
+default artifact from 312 MB to 2.56 MB; the current locked dependency audit reports **zero
+advisories**. Extension hot reload is unavailable; use production build/reload only.
 Google restricted-scope verification, assessment applicability and Chrome Web Store review
 are unresolved. [Release readiness](documentation/release-readiness.md) distinguishes local
 packaging from approval to publish. No deployment or store release is supplied.
 
-Source layout: `apps/extension` (Plasmo/React 18), `apps/web` (Next.js/React 19),
+Source layout: `apps/extension` (Bun MV3/React 18), `apps/web` (Next.js/React 19),
 `packages/otp` and `packages/security` (pure logic), `packages/shared` (closed contracts),
 `convex` (offline-tested backend), `development/mock-extension` and `tests/fixtures`
 (synthetic only). Existing [CI](.github/workflows/ci.yml) installs the lockfile, builds,
-checks and runs isolated Chromium tests without credentials.
+checks, audits dependencies and verifies extracted review packages in isolated Chromium without credentials.
+After the setup checks, run `bun run package:review` and `bun run check:packages` with
+`zip`/`unzip` installed and port 3201 free.

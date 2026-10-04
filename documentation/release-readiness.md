@@ -11,35 +11,31 @@ a preserved local build can predate security repairs. Record the source commit a
 state alongside validation, without env contents, tokens or personal data.
 
 ```sh
-NEXT_TELEMETRY_DISABLED=1 PLASMO_TELEMETRY_DISABLED=1 bun run build
+NEXT_TELEMETRY_DISABLED=1 bun run build
 bun run build:mock
 bun run check
 bun run test:browser
 bun run check:convex
 ```
 
-For production-extension local review, archive **only** the finalized
-`apps/extension/build/chrome-mv3-prod` directory after inspecting its manifest and bundle.
-On a machine with `zip`, run from repository root:
+Create and verify the default extension and web archives with:
 
 ```sh
-mkdir -p /tmp/otpguard-local-review
-(cd apps/extension/build/chrome-mv3-prod && zip -qr /tmp/otpguard-local-review/otpguard-unconfigured.zip .)
-unzip -l /tmp/otpguard-local-review/otpguard-unconfigured.zip
+bun run package:review
+bun run check:packages
 ```
 
-`manifest.json` must be at the archive root. Extract into a fresh temporary directory and
-load it unpacked in a disposable profile. Confirm popup unavailable states and no site access,
-injection, mail read, fill or submission. Default manifest: MV3, storage only, no OAuth/key/
-hosts/content scripts/WAR/external messaging, self scripts, object none, connect none.
-Keep the synthetic build separate; never include `development`, `.env*`, source maps containing
-sensitive local material, provider files, test artifacts or personal data in a release package.
-The archive here is a **local review artifact**, not approved for upload/distribution.
+Use `zip`/`unzip` and a free port 3201. Packaging refuses provider files/variables and
+configured artifacts. Outputs are ignored `dist/review/extension.zip`, `web.zip` and
+`provenance.json`. The record describes packaging context and hashes; it does not attest
+source build origin. Build fresh on the target platform before packaging.
 
-The PR16 default build measured 312,399,128 bytes unpacked and 59,173,611 bytes
-compressed (75 ZIP entries), largely installed Clerk SDK chunks. Package size, unused
-code and load/update cost need a separately reviewed SDK/bundling investigation before
-distribution. Local load success is not a store-size or performance acceptance claim.
+The extension ZIP has `manifest.json` at root. The default artifact is 2.56 MB unpacked
+(about 830 KB ZIP), compared with 312 MB before remediation, with a 25 MiB test budget.
+Extracted worker/popup checks pass in disposable Chromium. Store acceptance, actual toolbar
+operation and field performance on supported real sites remain unverified. Keep the synthetic
+build separate. These are local review artifacts, not approved for distribution.
+See [local release validation](local-release-readiness.md) for evidence and remaining gates.
 
 Configured Google builds must preserve the registered public key/client/ID and use matching
 env for artifact checks. They add identity, restricted readonly OAuth, exact Gmail/revoke hosts
@@ -47,10 +43,10 @@ and minimum Chrome 116; they still have no site injection/fill. Configured synth
 tests replace identity/fetch and are not live acceptance. Existing public config is intentionally
 local; obtain your own separately authorized registration rather than borrowing the owner's.
 
-Web packaging is `apps/web/.next` plus the matching application/runtime dependencies from
-a normal Next build; local `start --port 3100` is verified, not a deployment procedure.
-No portable standalone output or hosted integration has been accepted. Do not publish build
-traces/configuration or claim production hosting readiness from a local dashboard build.
+Web packaging uses Next standalone output, including traced runtime dependencies and static
+assets. The extracted server passes local browser checks without repository dependencies.
+Archives require fresh builds for the target OS/architecture; macOS validation does not
+establish Linux or hosted acceptance. No hosted integration or deployment is accepted.
 
 ## Gates before a public release
 
@@ -62,7 +58,7 @@ traces/configuration or claim production hosting readiness from a local dashboar
 | Clerk account           | Development instance only; supported URL-free authoritative development transport not established; pk_test refused. Production/owned domain discussed but not authorized/activated; live session/logout/switch/CSP checks unverified |
 | Convex                  | Development config exists locally, backend push failed missing issuer; no successful deployment or active client transport. Need reviewed JWT transport and live ownership/two-device/network/scheduler acceptance                   |
 | Cloud activity          | Client/server policy false; derived-data eligibility, assessment, informed consent, retention/deletion/backups and processor controls unresolved                                                                                     |
-| Dependencies            | Last PR15 audit failed 19 advisories (8 high/10 moderate/1 low). Hot reload disabled; coherent upgrade/removal and artifact/dev-origin regression validation required                                                                |
+| Dependencies            | Current locked tree passes with zero advisories after Plasmo/Parcel removal; hot reload unavailable. Rerun audit at release and review future changes                                                                                |
 | Chrome Web Store        | No submission/review approval established. Need final permission purpose, accurate listing, reviewed hosted privacy policy and matching dashboard disclosures, support/deletion contact and release assets                           |
 | Release operations      | Version/license decision, clean dependency review, compatibility matrix, artifact provenance, rollback/update plan and publication authorization still required; substantial automation separately scoped                            |
 
@@ -80,7 +76,7 @@ Existing credential-free CI remains appropriate; it does not publish or certify 
 Hosted CI has not been triggered by this local work. Resolve each gate in separately authorized
 work and revalidate the final artifact; do not remove gates to improve the portfolio demo.
 
-## Local PR16 validation
+## Historical local PR16 validation
 
 On macOS arm64 with Node 22.19.0/Bun 1.4.2, current-source web/default-extension and
 separate mock builds passed. Workspace types/lint/format and 283 tests across 19 files

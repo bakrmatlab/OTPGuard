@@ -23,7 +23,9 @@
     "test": "vitest run",
     "test:browser": "playwright test",
     "check": "bun run typecheck && bun run lint && bun run format:check && bun run test",
-    "build:mock": "bun scripts/build-mock-extension.ts"
+    "build:mock": "bun scripts/build-mock-extension.ts",
+    "package:review": "bun scripts/package-review.ts",
+    "check:packages": "node scripts/check-review-packages.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -45,9 +47,7 @@
   ],
   "trustedDependencies": [
     "esbuild",
-    "sharp",
-    "lmdb",
-    "msgpackr-extract"
+    "sharp"
   ],
   "dependencies": {
     "convex": "1.46.0"

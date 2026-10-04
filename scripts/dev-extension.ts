@@ -1,6 +1,5 @@
-// Parcel's pinned development server exposes project source to arbitrary browser
-// origins, including on loopback. Keep this entry unavailable until repaired.
+// No source-serving extension dev server. Use explicit production build/reload.
 console.error(
-  'Extension hot reload is disabled pending Parcel advisory GHSA-qm9p-f9j5-w83w repair. Run bun run build from the repository root and reload the unpacked production extension.',
+  'Extension hot reload is unavailable. Run bun run build from the repository root and reload the unpacked production extension.',
 );
 process.exit(1);

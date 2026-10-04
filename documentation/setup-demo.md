@@ -15,7 +15,7 @@ Never overwrite a registered extension public key: changing it changes the exten
 
 ```sh
 bun install --frozen-lockfile
-NEXT_TELEMETRY_DISABLED=1 PLASMO_TELEMETRY_DISABLED=1 bun run build
+NEXT_TELEMETRY_DISABLED=1 bun run build
 bun run build:mock
 bun run check
 bun x --no-install playwright install chromium
@@ -28,6 +28,12 @@ On Linux replace the browser-install command with
 production build. Browser tests use ports 3100/3001 and isolated Chromium profiles, with
 trace/video/failure screenshots off. One default-suite configured-Gmail case is skipped;
 that is not live-provider acceptance. Tests never require your personal Chrome profile.
+
+For default local release archives, install `zip`/`unzip`, leave port 3201 free, then run
+`bun run package:review` and `bun run check:packages`. The commands refuse provider
+configuration, produce ignored `dist/review` archives and verify their extracted web and
+extension behavior. Build fresh on the target OS/architecture. See
+[local release validation](local-release-readiness.md) for provenance limits and results.
 
 For another developer's configured Gmail artifact, explicitly load the same ignored public
 configuration for both build and checks. From `apps/extension`:
@@ -77,15 +83,15 @@ bun audit --json
 
 Convex tests exercise actual functions/schema offline, not deployed JWT verification.
 CLI readiness reports versions/config presence, not successful provider integration.
-`bun audit --json` is expected to fail while documented advisories remain; do not treat
-that failure as a clean audit or use blind incompatible upgrades.
+The current locked tree passes `bun audit --json`; rerun it for current advisory status.
+Do not treat a failed audit as clean or use blind incompatible upgrades.
 
 If manifest tests fail, rebuild with the configuration used by the test. If ports 3100/3001
 are occupied, stop your own server or choose another time; Playwright refuses reuse.
 If the mock stays empty on the safe page, verify the development artifact, loopback URL,
 foreground/focused window and fresh navigation; opening its popup during the delay can cancel.
-If Chromium is missing, run the browser-install step. If hot reload exits with an advisory,
-that is deliberate containment: `dev:extension` and direct `plasmo dev` are not safe demo paths.
+If Chromium is missing, run the browser-install step. Hot reload is unavailable:
+`dev:extension` explains the production build/reload workflow.
 
 ## Optional provider work is separate
 

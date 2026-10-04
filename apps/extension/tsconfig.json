@@ -5,7 +5,6 @@
     "types": ["chrome", "node"]
   },
   "include": [
-    ".plasmo/index.d.ts",
     "*.ts",
     "*.tsx",
     "detection/**/*.ts",

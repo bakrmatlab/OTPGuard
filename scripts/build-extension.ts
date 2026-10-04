@@ -3,7 +3,7 @@ import {
   gmailConfig,
   connectionManifest,
 } from '../apps/extension/gmail/config';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, rm, mkdir, copyFile } from 'node:fs/promises';
 import { accountConfig } from '../apps/extension/account/config';
 const config = accountConfig({
   key: process.env.PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY,
@@ -26,20 +26,56 @@ if (gmail) {
     throw new Error('Manifest key does not match registered extension ID');
 }
 const finalized = connectionManifest(config, gmail);
-const child = Bun.spawn(['bun', 'x', '--no-install', 'plasmo', 'build'], {
-  stdout: 'inherit',
-  stderr: 'inherit',
+// Explicit entries only: never infer content registration or copy SDK asset trees.
+if ((await readFile('content.ts')).length !== 0)
+  throw new Error('Production content registration requires a separate review');
+const outdir = 'build/chrome-mv3-prod';
+await rm(outdir, { recursive: true, force: true });
+await mkdir(outdir, { recursive: true });
+// Preserve legacy public configuration names. No generic env serialization.
+const define: Record<string, string> = {
+  'process.env.NODE_ENV': JSON.stringify('production'),
+};
+for (const name of [
+  'PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY',
+  'PLASMO_PUBLIC_CLERK_SYNC_HOST',
+  'PLASMO_PUBLIC_CLERK_FRONTEND_API',
+  'PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN',
+  'PLASMO_PUBLIC_GOOGLE_CLIENT_ID',
+  'PLASMO_PUBLIC_EXTENSION_KEY',
+  'PLASMO_PUBLIC_EXTENSION_ID',
+])
+  define[`process.env.${name}`] = JSON.stringify(process.env[name] ?? '');
+const result = await Bun.build({
+  entrypoints: ['background.ts', 'popup-entry.tsx'],
+  target: 'browser',
+  format: 'esm',
+  outdir,
+  minify: true,
+  splitting: false,
+  define,
 });
-if ((await child.exited) !== 0) throw new Error('Plasmo build failed');
-const path = 'build/chrome-mv3-prod/manifest.json';
-const manifest = JSON.parse(await readFile(path, 'utf8'));
-if (
-  (manifest.content_scripts ?? []).length ||
-  (manifest.web_accessible_resources ?? []).length ||
-  manifest.externally_connectable
-)
-  throw new Error('Unexpected extension page access');
+if (!result.success) throw new Error('Extension build failed');
+await copyFile('assets/icon.png', `${outdir}/icon.png`);
 await writeFile(
-  path,
-  JSON.stringify({ ...manifest, ...finalized }, null, 2) + '\n',
+  `${outdir}/popup.html`,
+  '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OTPGuard</title><link rel="stylesheet" href="popup-entry.css"></head><body><div id="root"></div><script type="module" src="popup-entry.js"></script></body></html>\n',
+);
+const metadata = JSON.parse(await readFile('package.json', 'utf8'));
+await writeFile(
+  `${outdir}/manifest.json`,
+  JSON.stringify(
+    {
+      manifest_version: 3,
+      name: metadata.displayName,
+      version: metadata.version,
+      description: metadata.description,
+      icons: { '128': 'icon.png' },
+      action: { default_popup: 'popup.html', default_icon: 'icon.png' },
+      background: { service_worker: 'background.js', type: 'module' },
+      ...finalized,
+    },
+    null,
+    2,
+  ) + '\n',
 );

@@ -7,7 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NEXT_TELEMETRY_DISABLED: '1'
-      PLASMO_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -17,8 +16,11 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: bun install --frozen-lockfile
+      - run: bun audit
       - run: bun run build
       - run: bun run build:mock
       - run: bun run check
       - run: bun x --no-install playwright install --with-deps chromium
       - run: bun run test:browser
+      - run: bun run package:review
+      - run: bun run check:packages

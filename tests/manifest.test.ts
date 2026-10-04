@@ -3,10 +3,21 @@ import {
   configuredGmail,
 } from '../apps/extension/gmail/config';
 import { configuredAccount } from '../apps/extension/account/config';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('production extension permission boundary', () => {
+  it('keeps the distributable artifact below the reviewed 25 MiB budget', () => {
+    const root = 'apps/extension/build/chrome-mv3-prod';
+    const bytes = readdirSync(root, { recursive: true }).reduce(
+      (total, file) => {
+        const stat = statSync(`${root}/${String(file)}`);
+        return total + (stat.isFile() ? stat.size : 0);
+      },
+      0,
+    );
+    expect(bytes).toBeLessThan(25 * 1024 * 1024);
+  });
   it('ships MV3 popup and worker without site access or content injection', () => {
     const manifest = JSON.parse(
       readFileSync(

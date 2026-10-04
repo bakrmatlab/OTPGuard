@@ -7,6 +7,7 @@ export default tseslint.config(
       '**/.next/**',
       '**/.plasmo/**',
       '**/build/**',
+      '**/dist/**',
       '**/next-env.d.ts',
       'playwright-report/**',
       'test-results/**',

@@ -1,4 +1,4 @@
-// Separate opt-in artifact. Never modifies or overlays Plasmo production output.
+// Separate opt-in artifact. Never modifies or overlays production output.
 const outdir = 'development/mock-extension/build';
 const result = await Bun.build({
   entrypoints: [
