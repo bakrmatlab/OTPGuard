@@ -77,7 +77,8 @@ export async function signOutAccount() {
       storageCache,
     });
     const sessionId = clerk.session?.id;
-    if (sessionId) await clerk.signOut({ sessionId });
+    // Clerk otherwise navigates after revocation; a service worker has no window.
+    if (sessionId) await clerk.signOut(() => {}, { sessionId });
     logoutUnconfirmed = false;
   } catch {
     logoutUnconfirmed = true;

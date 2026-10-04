@@ -146,3 +146,27 @@ The live test requires the owner to sign in directly in the dedicated Chromium
 window. Provider DNS/HTTPS/backend setup success does not establish shared-session
 acceptance. Existing offline 301-test and 29-browser-check results remain valid for
 unchanged application code. Production deployment is independent of merging this PR.
+
+## Owner-controlled live account check and logout correction
+
+Owner completed email verification and signed in using regular Chrome Guest mode;
+website signed-in state was observed. The initial CAPTCHA loading error was not
+reproduced in Guest mode. Shared extension testing requires a regular profile,
+because Guest mode cannot load extensions. No bot-protection setting was weakened.
+
+After the owner signed into regular Chrome and approved installation at action time,
+the auth-only extension was loaded alongside the preserved older Gmail-configured
+extension. Its ID and exact Clerk/Convex site permissions were verified. The extension
+recognized the website's same account, and its production cloud identity check
+reported success. No JWT, verification code or response subject was printed or saved.
+
+The first extension logout revoked the shared session: website reload showed signed
+out. However, the extension reported SIGN_OUT_FAILED. Installed Clerk 6.37.0 invokes
+browser navigation after server revocation when no sign-out callback is supplied;
+a background worker has no window. The adapter now supplies an empty callback plus
+the exact sessionId, preserving remote logout/error handling while avoiding navigation.
+The boundary regression assertion failed before this change and passed afterward;
+12 account worker/message/probe tests, all workspace/tool/backend typechecks and
+changed-file lint/format checks passed. Production auth-only build passed and the
+installed extension was reloaded. Corrected live logout and reverse website logout
+still await owner-controlled reauthentication; do not infer their acceptance.

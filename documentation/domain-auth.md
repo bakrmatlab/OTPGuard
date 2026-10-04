@@ -201,3 +201,11 @@ Google production credentials are absent, so its unusable sign-in button was dis
 Owner-controlled email/password login in dedicated Chromium is the next acceptance
 prerequisite. Authenticated probe, shared-session lifecycle and credential-URL audit
 remain unverified. See the updated [acceptance report](domain-auth-acceptance.md).
+
+Live follow-up: email signup/verification and regular-profile website-to-extension
+session sharing were observed, and the fresh production Convex identity probe passed.
+First extension logout revoked the website session but exposed an SDK post-logout
+navigation failure in the worker. The adapter now supplies Clerk's supported callback
+form to omit navigation while preserving exact-session remote logout and failure
+suspension. Synthetic regression passed; corrected live/logout-direction checks are
+pending reauthentication. See the acceptance report for partial results.
