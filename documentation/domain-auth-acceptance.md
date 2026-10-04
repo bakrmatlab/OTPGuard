@@ -181,3 +181,25 @@ session removal; it failed against the callback implementation, then passed with
 Session method. Twelve worker/message/probe tests, workspace/tool/backend typechecks,
 changed-file lint/format and production extension build passed. Final live retest is
 pending owner sign-in; this update does not claim it passed.
+
+Final live extension logout retest PASSED in the owner's regular Chrome profile:
+selected Session.remove() completed, the popup showed signed out without failure,
+website reload showed signed out, and reopening/reloading the extension remained
+signed out. Earlier signed-in identity checks had passed twice. Reverse website
+logout is pending one final owner sign-in. No raw identity values or credentials
+are included in this report.
+
+Reverse live logout PASSED: owner reauthenticated in regular Chrome; extension
+recognized signed-in state before logout. Website UserButton sign-out completed,
+then reopened/reloaded extension showed SIGN_IN_REQUIRED with no cloud identity
+check available. Basic live acceptance is now achieved for owner email verification,
+website-to-extension account sharing, fresh production Convex identity, extension
+logout, website logout and signed-out reopen refusal. The test account is preserved;
+the regular-profile shared session ended. Guest-profile sessions are independent
+browser profiles and were not targeted.
+
+Remote admin revocation, account switching, natural expiry, worker restart under an
+active session, race/cancellation under real provider latency and full credential-URL/
+cookie/storage audit remain unverified live; their synthetic checks remain passing.
+Google production sign-in is disabled pending OAuth configuration. This is not full
+release/distribution acceptance. No merge or next feature was started.

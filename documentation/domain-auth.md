@@ -214,3 +214,10 @@ Correction: live callback-form logout still failed after revocation. The final a
 uses the documented selected `Session.remove()` operation, avoiding the entire browser
 logout lifecycle. The earlier callback hypothesis was incomplete; final live retest
 is pending. The session removal rejection still suspends local authority until retry.
+
+Final basic live acceptance: the selected Session.remove() implementation completed
+without a failure message. Extension logout signed out the website on reload and
+stayed signed out after reopening. Reverse website logout also made the reopened
+extension require sign-in and removed its cloud probe. The account is preserved.
+Further live revocation/switch/expiry/race/transport audit and Google acceptance remain
+separate outstanding checks; no full release-readiness claim is made.

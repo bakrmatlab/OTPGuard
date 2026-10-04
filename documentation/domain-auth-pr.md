@@ -32,8 +32,10 @@ Retain the native failure evidence without porting its custom transport.
   identity probes. Actual browser renders the Clerk sign-in form. Owner email verification, website-to-extension account sharing and production
   identity check passed. First logout revoked the website session but exposed worker
   navigation failure; callback retest also failed. Final selected Session.remove() implementation and
-  revised regression pass, live retest pending. Reverse
-  logout, revocation/switch/expiry and URL audit remain unverified.
+  revised regression pass. Final live extension logout, website signed-out observation
+  and reopened-extension refusal passed. Reverse website logout also passed: the
+  reopened extension requires sign-in and cannot probe. Remote revocation/switch/expiry
+  and full URL/cookie/storage audit remain unverified.
   Google is disabled until production OAuth credentials are configured.
 - [Commands and acceptance](domain-auth-acceptance.md), [deployment plan](domain-auth.md),
   [ADR0016](adr/0016-domain-hosted-shared-auth.md).
