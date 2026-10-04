@@ -4,6 +4,15 @@ Status as of October 3, 2026: **local portfolio prototype; public distribution b
 A buildable archive is not OAuth approval, store approval or a validated connected product.
 No release version, license, store listing, public deployment or signed release is supplied.
 
+## October 4 production reassessment
+
+The October 3 tables below are historical. Production account hosting and Convex
+identity are now deployed; basic owner email/shared-session/both-logout checks passed
+and merged main CI passed. Full Gmail/fill/cloud functionality remains gated.
+Use the [current production plan](production-readiness-plan.md) for actual evidence,
+R1–R11 scope, deployment drift, acceptance matrix and release gates. The old provider
+absence and unexecuted hosted-CI statements do not describe the current baseline.
+
 ## Reproducible local review package
 
 Use the credential-free [setup](setup-demo.md) in a fresh clone. Build from current source;

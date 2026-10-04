@@ -71,3 +71,14 @@ login/logout and URL audit are unverified. The SDK's production header path alon
 not prove the earlier Origin/Authorization blocker resolved. Domain verification,
 Google callback behavior and live Convex issuer/JWT validation need the approved setup
 in [domain-auth.md](domain-auth.md). Sender/receipt/real-fill gates remain mandatory.
+
+## October 4 acceptance update
+
+Basic owner email verification, shared website/extension identity, fresh production
+Convex subject, extension logout and reverse website logout passed in regular Chrome;
+see [final live report](domain-auth-acceptance.md). Earlier unverified login/deployment
+statements above are historical. Remote revoke/switch/natural expiry/active restart,
+real latency races and full credential URL/storage/network acceptance remain unverified.
+The [production plan](production-readiness-plan.md) separates those gates from mock
+coverage and defines required end-to-end release evidence. No real fill/sender trust
+or cloud transport is enabled by these authentication results.

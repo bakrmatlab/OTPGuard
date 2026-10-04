@@ -9,7 +9,7 @@ store privacy policy or proof of provider review. The default demo needs no acco
 | Local history         | Version plus service ID/null, FILL action, result/reason enums, timestamp and installation UUID; at most 500 records, seven-day logical visibility; normal production history empty because fill is disabled |
 | Gmail token           | Optional worker operation locals and Chrome-managed cache; no application refresh-token/token persistence; Google profile Authorization header or revoke POST body only                                      |
 | Mailbox identity      | Optional worker memory and popup display; not stored as application data, exported or uploaded; lost on worker restart                                                                                       |
-| Clerk session         | Currently unconfigured; compatible adapter uses worker-only probes and no application cache; browser-owned provider cookies remain separate                                                                  |
+| Clerk session         | Production shared-session auth now configured and basic live checks passed; worker-only probes and no application cache; browser-owned provider cookies remain separate                                      |
 | Email/OTP             | No active production message retrieval/fill; reusable processing keeps objects transient; only fabricated demo codes are used in fixtures/assets                                                             |
 | Future cloud metadata | Inactive account-scoped boolean settings, installation status/time and separate six-field history contract; no current app transport/upload                                                                  |
 
