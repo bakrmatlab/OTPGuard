@@ -10,7 +10,8 @@ The October 3 tables below are historical. Production account hosting and Convex
 identity are now deployed; basic owner email/shared-session/both-logout checks passed
 and merged main CI passed. Full Gmail/fill/cloud functionality remains gated.
 Use the [current production plan](production-readiness-plan.md) for actual evidence,
-R1–R11 scope, deployment drift, acceptance matrix and release gates. The old provider
+deployment drift, acceptance matrix and release gates. The
+[core-first plan](core-implementation-plan.md) now defines execution order. The old provider
 absence and unexecuted hosted-CI statements do not describe the current baseline.
 
 ## Reproducible local review package

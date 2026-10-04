@@ -6,6 +6,16 @@ Status: proposed for owner review; no implementation, provider mutation, publica
 merge or deployment is authorized by this plan. Historical PR numbers 1–16 remain
 historical milestones; use R1–R11 below for new plan scopes, not GitHub issue numbers.
 
+## Superseded execution sequence — October 4 owner revision
+
+The owner selected **core first, polish afterward**. Use
+[the current core PR plan](core-implementation-plan.md) for execution: Core 1–4,
+then polish/release. R1–R11 below is preserved as historical audit decomposition;
+it is not the active backlog. The evidence ledger and detailed acceptance matrix
+remain reference material. Basic production Google login/shared extension/Convex
+acceptance now passed; see [Google report](google-login-acceptance.md). Earlier
+Google-disabled statements describe the assessment baseline.
+
 ## Decision and production definition
 
 OTPGuard is a deployed account-authentication prototype with a separately demonstrable
