@@ -1,5 +1,7 @@
 # Domain-hosted authentication completion report
 
+Initial local completion snapshot (superseded by the authorized deployment follow-up below).
+
 October 4, 2026. Local branch codex/domain-clerk-auth, based on verified remote main
 0576669d77f3447acda0d7c613cdfd88376e93ae. One review scope; no remote PR was opened,
 no merge occurred and no provider/DNS/hosting/backend configuration was mutated.
@@ -111,3 +113,36 @@ The owner subsequently explicitly approved credential transfer. Both Clerk varia
 were securely configured in the exact OTPGuard Vercel project for production only;
 metadata readback verified encrypted publishable-key storage and sensitive secret-key
 storage. No values were printed or committed, and no deployment was created.
+
+## Authorized production deployment — October 4, 2026
+
+The owner reviewed the change and authorized the proposed production setup, website
+and backend deployment, live acceptance and PR publication. No merge is implied.
+
+- Clerk domain status: complete. All five CNAMEs, both authentication-host TLS
+  certificates and mail DNS are verified by Clerk.
+- Vercel deployment `dpl_FWAXBdMAAmNvt9qPF5pjgyAra7aN`: READY, production,
+  source commit `5edffca`, Next.js 16.3.8, Node 22. Remote frozen install/build passed
+  (Vercel selected Bun 1.4.1; earlier local checks used pinned 1.4.2).
+- Explicit alias assignment and certificate issuance completed for https://otpguard.net.
+  Public `/`, `/sign-in`, `/sign-up`: HTTP 200 over HTTPS. Actual browser rendered
+  Clerk email/password sign-in and signup link.
+- Convex production `grand-buffalo-545`: issuer set to https://clerk.otpguard.net;
+  dry run succeeded with no deleted indexes; production typecheck/schema/deployment
+  passed. The public read-only identity query rejects anonymous requests with
+  AUTH_REQUIRED. No metadata-sync client or cloud-history policy was activated.
+- Google configuration readback found enabled sign-in with empty client credentials.
+  Disabled that unusable provider through the documented config API. Production
+  Google OAuth client configuration and Google browser acceptance remain outstanding.
+- Auth-only extension rebuilt in the temporary validation export with the actual
+  public production key, exact hosts and production probe origin; secret excluded.
+  Dedicated Chromium opened with verified stable extension ID. Owner credential
+  entry is pending; authenticated identity, shared logout, reverse logout, remote
+  revocation, account switch, expiry and credential-URL audit remain unverified.
+- No live passwords, codes, tokens, private keys, mail, traces or screenshots were
+  recorded. Existing local owner configuration/build was preserved.
+
+The live test requires the owner to sign in directly in the dedicated Chromium
+window. Provider DNS/HTTPS/backend setup success does not establish shared-session
+acceptance. Existing offline 301-test and 29-browser-check results remain valid for
+unchanged application code. Production deployment is independent of merging this PR.

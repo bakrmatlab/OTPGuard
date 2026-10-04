@@ -184,3 +184,20 @@ their names, production scope and storage types were read back without displayin
 values. The secret uses Vercel sensitive storage. Production deployment,
 Google OAuth configuration, Convex production setup and live end-to-end acceptance
 remain outstanding; earlier offline validation results still apply to unchanged code.
+
+
+## Authorized deployment follow-up
+
+The owner authorized production setup/deployment and PR publication after reviewing
+this scope. Clerk domain DNS, TLS and mail verification are now complete. Vercel
+production deployment `dpl_FWAXBdMAAmNvt9qPF5pjgyAra7aN` is READY and explicitly
+aliased to https://otpguard.net with its issued certificate. All three website routes
+return HTTP 200 over HTTPS. Convex production is https://grand-buffalo-545.convex.cloud,
+with the production Clerk issuer and current reviewed backend functions deployed;
+its auth probe rejects anonymous traffic. Cloud-history policy remains disabled,
+and no sync client has been enabled.
+
+Google production credentials are absent, so its unusable sign-in button was disabled.
+Owner-controlled email/password login in dedicated Chromium is the next acceptance
+prerequisite. Authenticated probe, shared-session lifecycle and credential-URL audit
+remain unverified. See the updated [acceptance report](domain-auth-acceptance.md).
