@@ -1,0 +1,103 @@
+:root {
+  color-scheme: light;
+  font:
+    16px/1.5 system-ui,
+    sans-serif;
+  color: #172b29;
+  background: #f4f7f6;
+}
+body {
+  margin: 0;
+  padding: 48px 20px;
+}
+main {
+  max-width: 440px;
+  margin: auto;
+  background: white;
+  border: 1px solid #d9e2df;
+  border-radius: 16px;
+  padding: 32px;
+}
+.eyebrow {
+  font-size: 13px;
+  color: #536e64;
+}
+h1 {
+  font-size: 28px;
+  line-height: 1.2;
+  margin: 16px 0;
+}
+nav {
+  display: flex;
+  gap: 8px;
+  margin: 24px 0;
+}
+button {
+  font: inherit;
+  padding: 11px 16px;
+  border: 1px solid #a5b8b0;
+  border-radius: 8px;
+  background: white;
+  color: #172b29;
+  cursor: pointer;
+}
+button[aria-pressed='true'] {
+  background: #e1eee8;
+  border-color: #396b55;
+}
+.primary {
+  background: #176644;
+  border-color: #176644;
+  color: white;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+label {
+  display: block;
+  margin: 18px 0 6px;
+  font-weight: 600;
+}
+input {
+  box-sizing: border-box;
+  width: 100%;
+  font: inherit;
+  padding: 11px 12px;
+  border: 1px solid #829b8f;
+  border-radius: 8px;
+}
+form button,
+section button {
+  margin-top: 18px;
+  width: 100%;
+}
+output {
+  display: block;
+  margin-top: 22px;
+}
+footer {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e7e3;
+  color: #50655c;
+  font-size: 13px;
+}
+#back {
+  margin-top: 14px;
+}
+[hidden] {
+  display: none !important;
+}
+:focus-visible {
+  outline: 3px solid #238e65;
+  outline-offset: 3px;
+}
+@media (max-width: 500px) {
+  body {
+    padding: 20px 12px;
+  }
+  main {
+    padding: 24px;
+  }
+}

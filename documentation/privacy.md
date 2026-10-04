@@ -48,3 +48,11 @@ String cleanup is best effort, not secure memory erasure. A page can read an ins
 split insertion may be partial if the page interferes, and the page may submit on its own.
 OTPGuard itself never initiates submission. Browser/device/mailbox compromise and malicious
 approved-site scripts remain outside this protection. See [threat model](threat-model.md).
+
+The separate [native authentication prototype](native-auth-prototype.md) sends owner-entered
+registration/login credentials only from its exact extension-owned page to its worker and
+then to Clerk in HTTPS request bodies. Native client JWTs and Convex-template JWTs remain
+in worker memory and Authorization headers. Its read-only Convex probe checks authenticated
+identity only. Dashboard sessions are independent; this artifact has no Gmail/content/storage
+permissions and does not upload mail, OTPs or activity. Cancel clears local authority; only
+successful extension sign-out confirms remote session end. Worker restart requires sign-in.

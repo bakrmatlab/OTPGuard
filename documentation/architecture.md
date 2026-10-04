@@ -10,10 +10,18 @@ Production popup -> exact worker actions -> Chrome local settings/history
 Production web -> unconfigured account/security dashboard
 Convex functions/schema -> offline ownership/retention tests (no active app transport)
 
+Separate native auth development prototype:
+extension-owned page -> memory-only worker -> Clerk native FAPI header transport
+                     -> fresh convex-template token -> read-only Convex identity probe
+
 Separate synthetic extension:
 loopback field -> worker browser context -> fabricated mail -> pure parser/policy
               -> bound prepare/recheck -> document-targeted release -> live empty field
 ```
+
+The owner-approved independent-session model and explicitly deployed development backend
+are described in [the native auth scope](native-auth-prototype.md). This separate artifact
+does not activate production/dashboard sync, Gmail retrieval or real autofill.
 
 The extension is built with explicit Bun browser entries: background worker and React
 popup. Only the seven legacy `PLASMO_PUBLIC_*` settings are embedded, preserving existing

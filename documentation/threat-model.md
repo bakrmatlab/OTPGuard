@@ -47,3 +47,14 @@ not live OAuth, sender trust, JWT verification or public-release acceptance.
 No supported-service claim, verification override, token bridge, empty issuer or cloud-policy
 bypass is an acceptable demo repair. Preserve disabled gates until separately reviewed proof.
 [Release readiness](release-readiness.md) enumerates the remaining work.
+
+The isolated [native auth experiment](native-auth-prototype.md) avoids development browser
+JWT URLs by using its own native client. Exact extension-page sender checks prevent content
+or external callers initiating login/token operations. Header rotation, authoritative client
+selection/session/expiry checks, synchronous logout invalidation, generation checks, request
+timeouts, decoded FAPI limits and redirect refusal protect its memory-only authority.
+Synthetic tests cover revocation, user selection changes, missing registration requirements,
+MFA, worker restart, cancellation and late Convex results. Native bootstrap and anonymous
+Convex rejection have live Chromium evidence; authenticated owner acceptance is separate.
+Unsupported auth policies stop safely. Production gates, trusted SMTP receipt requirements,
+empty sender registry and real-fill disablement are unchanged.

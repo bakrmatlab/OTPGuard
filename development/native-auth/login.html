@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>OTPGuard account</title>
+    <link rel="stylesheet" href="login.css" />
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">OTPGuard · development prototype</p>
+      <h1 id="heading">Create your account</h1>
+      <p id="description">
+        Use your email and a password of at least 15 characters.
+      </p>
+      <nav id="modes" aria-label="Account action">
+        <button type="button" id="create-mode" aria-pressed="true">
+          Create account
+        </button>
+        <button type="button" id="login-mode" aria-pressed="false">
+          Sign in
+        </button>
+      </nav>
+      <form id="account-form" autocomplete="off">
+        <div id="email-field">
+          <label for="identifier">Email</label
+          ><input
+            id="identifier"
+            type="email"
+            maxlength="254"
+            autocomplete="off"
+            required
+          />
+        </div>
+        <div id="password-field">
+          <label for="password">New password</label
+          ><input
+            id="password"
+            type="password"
+            minlength="15"
+            maxlength="1024"
+            autocomplete="off"
+          />
+        </div>
+        <div id="factor-field" hidden>
+          <label id="secret-label" for="secret">Verification code</label
+          ><input
+            id="secret"
+            type="password"
+            maxlength="1024"
+            autocomplete="off"
+          />
+        </div>
+        <button id="continue" type="submit" class="primary">
+          Create account
+        </button>
+        <button id="use-email" type="button" hidden>
+          Use an email code instead
+        </button>
+        <button id="use-backup" type="button" hidden>
+          Use a backup code instead
+        </button>
+      </form>
+      <section id="connected" hidden aria-label="Connected account">
+        <p>You are signed in to the extension.</p>
+        <button id="convex" type="button" class="primary">
+          Check cloud connection
+        </button>
+        <button id="logout" type="button">Sign out</button>
+      </section>
+      <output id="status" data-state="SIGN_IN_REQUIRED" aria-live="polite"
+        >Ready to create your account.</output
+      >
+      <button id="back" type="button" hidden>Start over</button>
+      <footer>
+        This extension session is separate from the dashboard. Dashboard logout
+        does not end it. Worker restart requires sign-in. Gmail retrieval and
+        autofill remain disabled.
+      </footer>
+    </main>
+    <script type="module" src="page.js"></script>
+  </body>
+</html>

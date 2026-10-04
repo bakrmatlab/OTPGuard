@@ -50,6 +50,7 @@ Email OTPs are not phishing-resistant; any page receiving an input value can rea
 ## Engineering and distribution
 
 - [Architecture and security decisions](documentation/architecture.md)
+- [Independent native auth development prototype](documentation/native-auth-prototype.md)
 - [Privacy and data handling](documentation/privacy.md)
 - [Threat model and audit disposition](documentation/threat-model.md)
 - [Completed local release fixes and validation](documentation/local-release-readiness.md)
