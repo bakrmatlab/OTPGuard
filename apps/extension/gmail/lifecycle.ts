@@ -231,17 +231,16 @@ export function createGmailLifecycle(
       let revoked = false;
       let cleared = false;
       try {
-        const grant = await adapter.token(false);
-        if (grant.token) {
+        // A restarted/never-connected worker has no authority to revoke the
+        // currently selected Google account. Still clear the local Chrome cache.
+        const grant = expectedMailbox ? await adapter.token(false) : {};
+        if (grant.token && expectedMailbox) {
           // Never claim revocation of the old mailbox using a newly selected account's token.
           const selected = await adapter.profile(
             grant.token,
             new AbortController().signal,
           );
-          if (
-            !expectedMailbox ||
-            selected.toLowerCase() === expectedMailbox.toLowerCase()
-          )
+          if (selected.toLowerCase() === expectedMailbox.toLowerCase())
             revoked = await adapter.revoke(grant.token);
         }
       } catch {

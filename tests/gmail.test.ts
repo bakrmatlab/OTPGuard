@@ -111,7 +111,10 @@ it('disconnect aborts profile work immediately and stale completion cannot recon
   expect(lifecycle.snapshot()).toEqual({ state: 'DISCONNECTING' });
   finish('mailbox@fixture.invalid');
   await pending;
-  expect(await disconnect).toEqual({ state: 'DISCONNECTED' });
+  expect(await disconnect).toEqual({
+    state: 'DISCONNECTED_REVOCATION_UNCONFIRMED',
+  });
+  expect(adapter.revoke).not.toHaveBeenCalled();
 });
 it('Google sign-in changes cancel bindings and stale grants cannot restore state', async () => {
   const { adapter, lifecycle } = setup();
@@ -253,3 +256,41 @@ it('limits configured Gmail permissions, hosts, scope and CSP independently of a
     "script-src 'self'; object-src 'none'; connect-src https://gmail.googleapis.com https://oauth2.googleapis.com;",
   );
 });
+
+it.each(['restart', 'failed-connect', 'pending-connect'] as const)(
+  'never revokes an unbound selected mailbox after %s',
+  async (kind) => {
+    const { adapter, lifecycle } = setup();
+    let pending: Promise<unknown> | undefined;
+    let finish: (() => void) | undefined;
+    if (kind === 'failed-connect') {
+      vi.mocked(adapter.profile).mockRejectedValueOnce(new Error('offline'));
+      await lifecycle.connect();
+    }
+    if (kind === 'pending-connect') {
+      vi.mocked(adapter.token).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = () =>
+              resolve({
+                token: 'synthetic-credential',
+                grantedScopes: [GMAIL_SCOPE],
+              });
+          }),
+      );
+      pending = lifecycle.connect();
+    }
+    const disconnect = lifecycle.disconnect();
+    finish?.();
+    await pending;
+    expect(await disconnect).toEqual({
+      state: 'DISCONNECTED_REVOCATION_UNCONFIRMED',
+    });
+    expect(adapter.revoke).not.toHaveBeenCalled();
+    expect(adapter.clear).toHaveBeenCalledOnce();
+    expect(adapter.token).toHaveBeenCalledTimes(kind === 'restart' ? 0 : 1);
+    expect(adapter.profile).toHaveBeenCalledTimes(
+      kind === 'failed-connect' ? 1 : 0,
+    );
+  },
+);

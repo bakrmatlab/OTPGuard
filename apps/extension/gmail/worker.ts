@@ -1,5 +1,6 @@
 import { configuredGmail } from './config';
 import { createGmailLifecycle, GmailUnauthorized } from './lifecycle';
+import { boundedJson } from './transport';
 const config = configuredGmail();
 const configured = !!config && config.extensionId === chrome.runtime.id;
 const request = (url: string, init: RequestInit) =>
@@ -30,7 +31,7 @@ export const gmailLifecycle = createGmailLifecycle(
       );
       if (response.status === 401) throw new GmailUnauthorized();
       if (!response.ok) throw new Error('Gmail profile unavailable');
-      const body: unknown = await response.json();
+      const body = await boundedJson(response, 16 * 1024);
       if (
         !body ||
         typeof body !== 'object' ||

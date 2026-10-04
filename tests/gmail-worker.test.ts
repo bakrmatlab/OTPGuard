@@ -62,3 +62,52 @@ it('uses only direct Google header/body credentials, no storage, and closed mail
   expect(clear).toHaveBeenCalled();
   expect(JSON.stringify(gmailLifecycle.snapshot())).not.toContain(token);
 });
+
+it.each(['declared', 'streamed'] as const)(
+  'rejects %s oversized profile responses before connecting and cancels the stream',
+  async (kind) => {
+    const cancel = vi.fn();
+    const remove = vi.fn(async () => {});
+    const token = vi.fn(async () => ({
+      token: 'synthetic-worker-credential',
+      grantedScopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+    }));
+    const fetcher = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(' '.repeat(16 * 1024 + 1)),
+              );
+            },
+            cancel,
+          }),
+          {
+            headers:
+              kind === 'declared'
+                ? { 'content-length': String(16 * 1024 + 1) }
+                : {},
+          },
+        ),
+    );
+    vi.stubGlobal('fetch', fetcher);
+    vi.stubGlobal('chrome', {
+      runtime: { id: 'synthetic-id' },
+      identity: {
+        getAuthToken: token,
+        removeCachedAuthToken: remove,
+        clearAllCachedAuthTokens: vi.fn(async () => {}),
+        onSignInChanged: { addListener: vi.fn() },
+      },
+    });
+    const { gmailLifecycle } = await import('../apps/extension/gmail/worker');
+    expect(await gmailLifecycle.connect()).toEqual({ state: 'CONNECT_FAILED' });
+    expect(token).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(remove).toHaveBeenCalledWith({
+      token: 'synthetic-worker-credential',
+    });
+    expect(cancel).toHaveBeenCalledOnce();
+  },
+);

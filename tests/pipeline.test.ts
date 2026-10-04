@@ -548,3 +548,34 @@ it('actual recorder and failed cloud delivery preserve local history and connect
     account.invalidate();
   }
 });
+
+it('disposed coordinator refuses future work before reading context', async () => {
+  const { adapter } = setup();
+  adapter.context = vi.fn(adapter.context);
+  adapter.retrieve = vi.fn(adapter.retrieve);
+  const unsubscribe = vi.fn();
+  adapter.subscribeSettings = () => unsubscribe;
+  const coordinator = createCoordinator(adapter);
+  coordinator.dispose();
+  coordinator.dispose();
+  expect(await coordinator.handle(detect, {})).toEqual({ state: 'CANCELLED' });
+  expect(adapter.context).not.toHaveBeenCalled();
+  expect(adapter.retrieve).not.toHaveBeenCalled();
+  expect(unsubscribe).toHaveBeenCalledOnce();
+});
+it('dispose while browser context is pending cannot start retrieval or release', async () => {
+  const { adapter, context, sends } = setup();
+  let finish!: (value: Context) => void;
+  adapter.context = () =>
+    new Promise((resolve) => {
+      finish = resolve;
+    });
+  adapter.retrieve = vi.fn(adapter.retrieve);
+  const coordinator = createCoordinator(adapter);
+  const pending = coordinator.handle(detect, {});
+  coordinator.dispose();
+  finish(context);
+  expect(await pending).toEqual({ state: 'CANCELLED' });
+  expect(adapter.retrieve).not.toHaveBeenCalled();
+  expect(sends).toEqual([]);
+});

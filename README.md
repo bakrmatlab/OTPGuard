@@ -473,7 +473,10 @@ and perform external setup; this implementation provisions nothing:
    unavailable. Changing browser profile is the supported setup approach for another mailbox.
 8. Click **Disconnect Gmail**: mailbox state disappears immediately, pending profile work aborts,
    and consent already in progress is drained before clearing Chrome's cache. The selected mailbox is rechecked before revocation; a different account cannot be used
-   to claim the old mailbox was revoked. Google revocation
+   to claim the old mailbox was revoked. Without a previously connected mailbox (including
+   after worker restart), disconnect only clears the local cache and reports remote
+   revocation unconfirmed; it never revokes an arbitrary selected Google account.
+   Google revocation
    is attempted with a token in a POST body, never a URL. Test with networking offline: expect
    local disconnect plus unconfirmed remote revocation, with instructions to remove access in
    Google account permissions. Cache cleanup failures have a separate explicit warning. Reconnect

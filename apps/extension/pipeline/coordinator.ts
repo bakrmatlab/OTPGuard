@@ -79,6 +79,7 @@ const same = (a: Context, b: Context) =>
 export function createCoordinator(adapter: Adapter) {
   const requests = new Map<string, Request>();
   const used = new Set<string>();
+  let disposed = false;
   let status: LocalStatus = { state: 'IDLE' };
   const cancel = (request: Request) => {
     request.abort.abort();
@@ -108,9 +109,11 @@ export function createCoordinator(adapter: Adapter) {
       value: unknown,
       sender: chrome.runtime.MessageSender,
     ): Promise<LocalStatus> {
+      if (disposed) return { state: 'CANCELLED' };
       const message = parseClient(value);
       if (!message) return { state: 'UNKNOWN', reason: 'request' };
       const context = await adapter.context(sender);
+      if (disposed) return { state: 'CANCELLED' };
       if (!context) return { state: 'UNKNOWN', reason: 'request' };
       if (message.type === 'cancel') {
         const request = requests.get(message.requestId);
@@ -275,6 +278,8 @@ export function createCoordinator(adapter: Adapter) {
   return {
     ...coordinator,
     dispose() {
+      if (disposed) return;
+      disposed = true;
       unsubscribe?.();
       coordinator.cancelAll();
     },
