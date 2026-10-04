@@ -1,0 +1,41 @@
+{
+  "domain": "otpguard.net",
+  "source": "Exact OTPGuard Clerk production domain API, October 4, 2026",
+  "records": [
+    {
+      "type": "CNAME",
+      "name": "clerk.otpguard.net",
+      "content": "frontend-api.clerk.services",
+      "proxied": false,
+      "ttl": 1
+    },
+    {
+      "type": "CNAME",
+      "name": "accounts.otpguard.net",
+      "content": "accounts.clerk.services",
+      "proxied": false,
+      "ttl": 1
+    },
+    {
+      "type": "CNAME",
+      "name": "clkmail.otpguard.net",
+      "content": "mail.gh0dpuds48sg.clerk.services",
+      "proxied": false,
+      "ttl": 1
+    },
+    {
+      "type": "CNAME",
+      "name": "clk._domainkey.otpguard.net",
+      "content": "dkim1.gh0dpuds48sg.clerk.services",
+      "proxied": false,
+      "ttl": 1
+    },
+    {
+      "type": "CNAME",
+      "name": "clk2._domainkey.otpguard.net",
+      "content": "dkim2.gh0dpuds48sg.clerk.services",
+      "proxied": false,
+      "ttl": 1
+    }
+  ]
+}

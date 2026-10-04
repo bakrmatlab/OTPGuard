@@ -153,3 +153,31 @@ ADR0016 carry the same plan/session amendment in the review diff.
 - [Vercel monorepos](https://vercel.com/docs/monorepos/monorepo-faq): root-directory
   workspace access, [project configuration](https://vercel.com/docs/project-configuration):
   build/install commands and [Git deployment control](https://vercel.com/docs/project-configuration/git-configuration).
+
+## Authorized provider setup follow-up — October 4, 2026
+
+The owner selected shared website/extension sign-in and sign-out and authorized CLI
+provider setup. Clerk production instance `ins_3KDZW9i3G68e3oq47k6MXYAKiQ1` now exists
+for `otpguard.net`; Native API is enabled, the `convex` JWT template has audience
+`convex`, and the exact stable extension origin is registered and read back.
+The five provider-issued DNS-only CNAME records in
+[the public DNS inventory](../configuration/clerk-production-dns.json) were added
+and read back in Cloudflare zone `8e7d826ad210c0ac81dad1d3ff4386fe`.
+Clerk's DNS check was started; its last response was `in_progress`, with certificate
+issuance still `not_started`. Cloudflare readback does not prove Clerk readiness.
+
+Vercel project `prj_ueLebYg0kSSwC3tIcWeSi0vilKli` (`otpguard`) is Git-linked with root
+`apps/web`, Next.js, Node 22, and monorepo install/build commands. Automatic Git builds
+are skipped using `commandForIgnoringBuildStep: "exit 0"`; automatic custom-domain
+assignment is disabled. The domain is attached. Vercel's authenticated domain-config
+API supplied rank-1 CNAME `4386528aa52094ed.vercel-dns-017.com`; that exact apex
+DNS-only CNAME was added and read back in Cloudflare, which flattens apex CNAMEs.
+No deployment was created, so domain assignment and DNS do not establish website
+availability or HTTPS acceptance.
+
+Production keys were generated into an owner-local restricted temporary file and
+were not printed or committed. Automatic approval review rejected transferring the
+Clerk secret key to Vercel without explicit authorization for that destination.
+Vercel environment variables therefore remain unconfigured. Production deployment,
+Google OAuth configuration, Convex production setup and live end-to-end acceptance
+remain outstanding; earlier offline validation results still apply to unchanged code.

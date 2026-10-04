@@ -95,3 +95,14 @@ branch/draft PR requires owner authorization. Provider production setup and depl
 require their own explicit authorization after reviewing those concrete actions.
 No live credentials belong in chat. No next PR, store publication, Gmail activation,
 real sender claim or real autofill is authorized by these results.
+
+## Provider setup follow-up — October 4, 2026
+
+Clerk production instance and exact extension origin were created/verified. Five
+Clerk DNS-only CNAMEs and Vercel's provider-issued project-specific apex CNAME were
+added and read back in the exact Cloudflare zone. Vercel project/domain configuration
+is prepared, with automatic Git deployment disabled and no deployment created.
+Clerk DNS verification was requested and last reported in progress; TLS issuance
+had not started. Secret transfer to Vercel was rejected by automatic approval review
+pending explicit destination authorization. Live authentication acceptance remains
+unverified. No production website, Convex deployment, merge or push was performed.
