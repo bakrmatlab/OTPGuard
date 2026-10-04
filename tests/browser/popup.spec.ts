@@ -19,19 +19,34 @@ test('popup loading and storage errors fail closed without enabling unsupported 
     const errors: string[] = [];
     popup.on('pageerror', (error) => errors.push(error.name));
     await popup.addInitScript(() => {
+      let failed = false;
+      const pending = new Set<() => void>();
+      Object.defineProperty(window, 'failWorkerRequests', {
+        value() {
+          failed = true;
+          for (const reject of pending) reject();
+          pending.clear();
+        },
+      });
       chrome.runtime.sendMessage = (() =>
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error('Synthetic worker unavailable')),
-            800,
-          ),
-        )) as typeof chrome.runtime.sendMessage;
+        new Promise((_, reject) => {
+          const fail = () => reject(new Error('Synthetic worker unavailable'));
+          if (failed) fail();
+          else pending.add(fail);
+        })) as typeof chrome.runtime.sendMessage;
     });
     await popup.goto(
       `chrome-extension://${new URL(worker.url()).host}/popup.html`,
     );
     await expect(popup.getByText('Checking Gmail connection…')).toBeVisible();
     await expect(popup.getByRole('checkbox')).toBeDisabled();
+    // Hold loading until its assertions finish, regardless of CI scheduling.
+    await popup.evaluate(() => {
+      const fail = Reflect.get(window, 'failWorkerRequests');
+      if (typeof fail !== 'function')
+        throw new Error('Missing synthetic failure gate');
+      fail();
+    });
     await expect(
       popup.getByText(
         'Local settings unavailable. Automatic fill stays disabled.',
