@@ -70,3 +70,8 @@ Source layout: `apps/extension` (Bun MV3/React 18), `apps/web` (Next.js/React 19
 checks, audits dependencies and verifies extracted review packages in isolated Chromium without credentials.
 After the setup checks, run `bun run package:review` and `bun run check:packages` with
 `zip`/`unzip` installed and port 3201 free.
+
+The owner-requested [otpguard.net authentication revision](documentation/domain-auth.md)
+prepares supported production Clerk website/extension shared sessions for review.
+Provider setup and live authentication remain unverified; it does not enable Gmail
+retrieval, real autofill or cloud history.

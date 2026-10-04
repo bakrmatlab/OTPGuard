@@ -16,7 +16,7 @@ loopback field -> worker browser context -> fabricated mail -> pure parser/polic
 ```
 
 The extension is built with explicit Bun browser entries: background worker and React
-popup. Only the seven legacy `PLASMO_PUBLIC_*` settings are embedded, preserving existing
+popup. Only explicitly allowlisted public `PLASMO_PUBLIC_*` settings are embedded, preserving existing
 public configuration and registered IDs. No generic env serialization or SDK asset-tree
 copying occurs. The builder refuses a nonempty production content entry; site registration
 requires a separately reviewed change.
@@ -85,3 +85,18 @@ live JWT/two-device/scheduler/network acceptance remains unverified.
 The dashboard cannot read extension storage and has no Convex endpoint. Local activity remains
 in the popup. [Privacy](privacy.md) and [threat model](threat-model.md) describe persistent
 fields, residual risk and audit repairs; [release gates](release-readiness.md) govern activation.
+
+## Domain-hosted authentication revision
+
+[ADR0016](adr/0016-domain-hosted-shared-auth.md) records the owner-approved shared
+website/extension session. Standard website SignIn/SignUp runs at otpguard.net after
+approved setup; worker-only production Clerk Sync Host reads the exact Frontend API
+cookie and reloads the active session. Fresh identity and generation checks surround
+the bounded read-only Convex subject probe; logout/cookie events cancel authority and
+late replies. Failed remote logout locally suspends this worker until successful retry.
+Browser/provider cookies remain persistent; the SDK application JWT cache is disabled.
+
+The stable authentication public key/ID is separate from Gmail registration. Optional
+probe configuration adds only the exact Convex host; metadata sync remains inactive.
+No native experiment transport/build source or development issuer exception was ported.
+The [deployment plan](domain-auth.md) is review material, not production readiness.

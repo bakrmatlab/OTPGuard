@@ -25,6 +25,14 @@ test('web entry point explains unavailable capabilities', async ({ page }) => {
     page.getByText('Account authentication is unconfigured.'),
   ).toBeVisible();
   await expect(page.locator('input')).toHaveCount(0);
+  await page.goto('http://127.0.0.1:3100/sign-up');
+  await expect(
+    page.getByRole('heading', { name: 'Create your OTPGuard account' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Account authentication is unconfigured.'),
+  ).toBeVisible();
+  await expect(page.locator('input')).toHaveCount(0);
 });
 
 test('unpacked extension worker and popup load without page access', async () => {

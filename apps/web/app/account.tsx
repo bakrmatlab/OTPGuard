@@ -8,6 +8,9 @@ export function Account() {
       <h2>OTPGuard account</h2>
       <p>{user.primaryEmailAddress?.emailAddress ?? user.id}</p>
       <p>Account ID: {user.id}</p>
+      <p>
+        Sign-out also signs out the OTPGuard extension in this browser profile.
+      </p>
       <UserButton />
     </section>
   ) : (

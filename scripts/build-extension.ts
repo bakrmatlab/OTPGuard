@@ -4,6 +4,8 @@ import {
   connectionManifest,
 } from '../apps/extension/gmail/config';
 import { readFile, writeFile, rm, mkdir, copyFile } from 'node:fs/promises';
+import { convexProbeOrigin } from '../apps/extension/account/probe';
+import domainAuth from '../configuration/domain-auth.json';
 import { accountConfig } from '../apps/extension/account/config';
 const config = accountConfig({
   key: process.env.PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY,
@@ -25,7 +27,27 @@ if (gmail) {
   if (id !== gmail.extensionId)
     throw new Error('Manifest key does not match registered extension ID');
 }
-const finalized = connectionManifest(config, gmail);
+if (config && gmail && gmail.extensionId !== domainAuth.extensionId)
+  throw new Error('Account and Gmail must use the same reviewed extension ID');
+const probeOrigin = convexProbeOrigin(
+  process.env.PLASMO_PUBLIC_AUTH_CONVEX_ORIGIN,
+);
+if (probeOrigin && !config)
+  throw new Error('Account configuration required for auth probe');
+const finalized = {
+  ...connectionManifest(config, gmail),
+  ...(config
+    ? { key: domainAuth.extensionPublicKey, minimum_chrome_version: '116' }
+    : {}),
+};
+if (probeOrigin) {
+  finalized.host_permissions.push(probeOrigin + '/*');
+  finalized.content_security_policy.extension_pages =
+    finalized.content_security_policy.extension_pages.replace(
+      /;$/,
+      ' ' + probeOrigin + ';',
+    );
+}
 // Explicit entries only: never infer content registration or copy SDK asset trees.
 if ((await readFile('content.ts')).length !== 0)
   throw new Error('Production content registration requires a separate review');
@@ -37,6 +59,7 @@ const define: Record<string, string> = {
   'process.env.NODE_ENV': JSON.stringify('production'),
 };
 for (const name of [
+  'PLASMO_PUBLIC_AUTH_CONVEX_ORIGIN',
   'PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY',
   'PLASMO_PUBLIC_CLERK_SYNC_HOST',
   'PLASMO_PUBLIC_CLERK_FRONTEND_API',
