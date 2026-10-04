@@ -106,3 +106,8 @@ Clerk DNS verification was requested and last reported in progress; TLS issuance
 had not started. Secret transfer to Vercel was rejected by automatic approval review
 pending explicit destination authorization. Live authentication acceptance remains
 unverified. No production website, Convex deployment, merge or push was performed.
+
+The owner subsequently explicitly approved credential transfer. Both Clerk variables
+were securely configured in the exact OTPGuard Vercel project for production only;
+metadata readback verified encrypted publishable-key storage and sensitive secret-key
+storage. No values were printed or committed, and no deployment was created.

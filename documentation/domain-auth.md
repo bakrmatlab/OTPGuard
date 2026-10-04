@@ -178,6 +178,9 @@ availability or HTTPS acceptance.
 Production keys were generated into an owner-local restricted temporary file and
 were not printed or committed. Automatic approval review rejected transferring the
 Clerk secret key to Vercel without explicit authorization for that destination.
-Vercel environment variables therefore remain unconfigured. Production deployment,
+The owner subsequently explicitly authorized the transfer. Both production variables
+(`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`) are now configured and
+their names, production scope and storage types were read back without displaying
+values. The secret uses Vercel sensitive storage. Production deployment,
 Google OAuth configuration, Convex production setup and live end-to-end acceptance
 remain outstanding; earlier offline validation results still apply to unchanged code.
