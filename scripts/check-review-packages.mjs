@@ -152,9 +152,7 @@ try {
   await expect(
     popup.getByText('Gmail connection is unconfigured.', { exact: false }),
   ).toBeVisible();
-  await expect(
-    popup.getByRole('button', { name: 'Fill verified code' }),
-  ).toBeDisabled();
+  await expect(popup.getByRole('button', { name: 'Fill' })).toBeDisabled();
   console.log(
     'Extracted review packages passed: standalone routes/mobile/assets and MV3 worker/popup',
   );

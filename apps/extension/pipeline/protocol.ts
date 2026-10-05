@@ -5,6 +5,7 @@ export type DetectionMessage = {
   expectedLength: number;
   emailFlow: boolean;
   groupCount: number;
+  manual?: boolean;
 };
 export type ClientMessage =
   | DetectionMessage
@@ -24,7 +25,11 @@ export function parseClient(value: unknown): ClientMessage | null {
     return { type: 'cancel', requestId: value.requestId };
   if (
     value.type !== 'detect' ||
-    keys !== 'emailFlow,expectedLength,groupCount,groupId,type' ||
+    ![
+      'emailFlow,expectedLength,groupCount,groupId,type',
+      'emailFlow,expectedLength,groupCount,groupId,manual,type',
+    ].includes(keys) ||
+    (value.manual !== undefined && typeof value.manual !== 'boolean') ||
     !identifier(value.groupId) ||
     typeof value.emailFlow !== 'boolean' ||
     !Number.isInteger(value.expectedLength) ||

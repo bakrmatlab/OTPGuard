@@ -65,7 +65,9 @@ for (const phase of ['startup', 'action'] as const) {
         ).toHaveCount(0);
       }
       await expect(
-        popup.getByText('Real Gmail retrieval and autofill remain disabled.'),
+        popup.getByText('Every insertion requires your click.', {
+          exact: false,
+        }),
       ).toBeVisible();
       expect(errors).toEqual([]);
     } finally {

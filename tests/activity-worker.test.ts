@@ -1,4 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest';
+vi.mock('../apps/extension/pipeline/worker', () => ({
+  pagePipeline: { handle: vi.fn(async () => ({ state: 'UNKNOWN' })) },
+  pipelineStatus: () => ({ state: 'IDLE' }),
+  acceptFill: async () => false,
+  retryPage: async () => false,
+}));
 vi.mock('../apps/extension/gmail/worker', () => ({ gmailLifecycle: {} }));
 vi.mock('../apps/extension/account/worker', () => ({
   accountGate: { subscribe: () => () => {} },

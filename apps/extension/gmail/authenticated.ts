@@ -13,7 +13,7 @@ export function createAuthenticatedMailbox(
   });
   const run = async (connect: boolean): Promise<MailboxStatus> => {
     if (mailbox.snapshot().state === 'UNCONFIGURED') return mailbox.snapshot();
-    const bound = await account.refresh();
+    const bound = await account.refresh(true);
     if (!bound) return { state: 'SIGN_IN_REQUIRED' };
     if (
       owner &&

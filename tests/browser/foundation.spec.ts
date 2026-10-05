@@ -10,9 +10,12 @@ test('web entry point explains unavailable capabilities', async ({ page }) => {
     }),
   ).toBeVisible();
   await expect(
-    page.getByText('Real Gmail retrieval and autofill remain disabled.', {
-      exact: false,
-    }),
+    page.getByText(
+      'The owner-controlled Canva extension pilot supports user-clicked',
+      {
+        exact: false,
+      },
+    ),
   ).toBeVisible();
   await expect(
     page.getByText('Account authentication is unconfigured.'),
@@ -64,9 +67,7 @@ test('unpacked extension worker and popup load without page access', async () =>
     await expect(
       popup.getByRole('heading', { name: 'OTPGuard', exact: true }),
     ).toBeVisible();
-    await expect(popup.getByRole('status')).toHaveText(
-      'Real Gmail retrieval and autofill remain disabled.',
-    );
+    await expect(popup.getByRole('status')).toHaveText('Request status: IDLE');
     await expect(
       popup.getByText('Account authentication is unconfigured.'),
     ).toBeVisible();
@@ -82,7 +83,7 @@ test('unpacked extension worker and popup load without page access', async () =>
       popup.getByText('Cloud settings sync is unconfigured.', { exact: false }),
     ).toBeVisible();
     const automatic = popup.getByRole('checkbox', {
-      name: 'Enable automatic fill for verified requests',
+      name: 'Automatically find codes and show the Fill prompt',
     });
     await expect(automatic).toBeEnabled();
     await expect(automatic).not.toBeChecked();
@@ -163,19 +164,17 @@ test('unpacked extension worker and popup load without page access', async () =>
       await worker.evaluate(
         () => chrome.runtime.getManifest().host_permissions ?? [],
       ),
-    ).toEqual([]);
+    ).toEqual(['https://dns.google/*']);
+    await expect(popup.getByRole('button', { name: 'Fill' })).toBeDisabled();
     await expect(
-      popup.getByRole('button', { name: 'Fill verified code' }),
-    ).toBeDisabled();
-    await expect(
-      popup.getByRole('button', { name: 'Retry retrieval' }),
-    ).toBeDisabled();
+      popup.getByRole('button', { name: 'Find code / Retry' }),
+    ).toBeEnabled();
     await expect(
       popup.getByRole('button', { name: 'Open dashboard' }),
     ).toBeDisabled();
     await expect(
-      popup.getByRole('button', { name: 'Enable on this site' }),
-    ).toBeDisabled();
+      popup.getByRole('button', { name: 'Enable Canva' }),
+    ).toBeEnabled();
     await popup
       .getByText('Understand protection states', { exact: true })
       .focus();
@@ -189,8 +188,12 @@ test('unpacked extension worker and popup load without page access', async () =>
     await expect(
       popup.getByText('UNKNOWN — insufficient evidence'),
     ).toBeVisible();
-    await popup.keyboard.press('Tab');
+    await automatic.focus();
     await expect(automatic).toBeFocused();
+    await popup.keyboard.press('Space');
+    await expect(automatic).toBeChecked();
+    await popup.keyboard.press('Space');
+    await expect(automatic).not.toBeChecked();
     await expect(popup.getByText('No recorded fill action.')).toBeVisible();
     expect(
       await popup.locator('body').evaluate((body) => body.scrollWidth <= 380),

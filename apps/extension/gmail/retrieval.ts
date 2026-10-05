@@ -3,7 +3,12 @@ import type { AccountGate } from '../account/gate';
 import type { createGmailLifecycle } from './lifecycle';
 import { createMailboxCoordinator } from './connected';
 import { createGmailTransport, RetrievalFailure } from './transport';
-import { normalizeGmailMessage } from '../../../packages/otp';
+import {
+  normalizeRawEmail,
+  parseVerificationCode,
+} from '../../../packages/otp';
+import { verifyDkimContent } from '../../../packages/security/dkim';
+import { createDkimResolver } from './dns';
 import { supportedServices } from '../../../packages/security';
 
 const schedule = [0, 2000, 6000, 12000, 22000];
@@ -168,7 +173,7 @@ export function createRetrievalEngine(deps: {
   };
 }
 
-/** Integration seam only: no production listener/site access is registered. */
+/** Shared raw-mail pilot retrieval, entered through both account boundaries. */
 export function createGmailPageCoordinator(
   browser: Omit<Adapter, 'retrieve' | 'registry'>,
   account: AccountGate,
@@ -188,7 +193,7 @@ export function createGmailPageCoordinator(
     },
     async cycle(context, startedAt, signal) {
       const policy = supportedServices.find((p) => p.id === context.serviceId);
-      // Empty shipped registry refuses before Google I/O; evidence gates remain unresolved.
+      // Unsupported services refuse before Google I/O.
       if (
         !policy ||
         !context.accountSession ||
@@ -205,13 +210,105 @@ export function createGmailPageCoordinator(
             policy.senders.map((s) => s.address),
             startedAt,
             authorizedSignal,
+            'raw',
           ),
       );
       if (!raw || signal.aborted) return null;
-      for (const message of raw)
-        if (normalizeGmailMessage(message).status !== 'normalized') return null;
-      // No trusted receipt/sender envelope can be constructed from Gmail metadata (ADR0009).
-      return null;
+      const envelopes: Envelope[] = [];
+      for (const value of raw) {
+        const message = value as {
+          id?: string;
+          raw?: string;
+          internalDate?: string;
+        };
+        if (
+          !message.id ||
+          typeof message.raw !== 'string' ||
+          message.raw.length > 350000 ||
+          !/^[A-Za-z0-9_-]+={0,2}$/.test(message.raw) ||
+          !/^\d{1,16}$/.test(message.internalDate ?? '')
+        )
+          return null;
+        let bytes: Uint8Array;
+        try {
+          bytes = Uint8Array.from(
+            atob(message.raw.replace(/-/g, '+').replace(/_/g, '/')),
+            (c) => c.charCodeAt(0),
+          );
+        } catch {
+          return null;
+        }
+        const rule = policy.senders[0];
+        if (
+          !rule ||
+          !policy.selector ||
+          policy.evidenceContract !== 'signed-content-pilot'
+        )
+          return null;
+        const verified = await verifyDkimContent(
+          bytes,
+          {
+            signingDomain: rule.authenticatedDomain,
+            selector: policy.selector,
+            from: rule.address,
+            recipient: context.mailboxId,
+            now: browser.now(),
+            maxAgeSeconds: 300,
+          },
+          createDkimResolver(),
+        );
+        if (signal.aborted || verified.status !== 'content-authenticated')
+          return null;
+        const email = normalizeRawEmail(bytes);
+        if (
+          !email ||
+          !policy.emailTemplate ||
+          !policy.emailTemplate.subject.test(email.subject) ||
+          !policy.emailTemplate.instruction.test(email.text)
+        )
+          return null;
+        const candidate = parseVerificationCode(email);
+        if (
+          candidate.status !== 'candidate' ||
+          !email.text
+            .split(/\r?\n/)
+            .some((line) => line.trim() === candidate.candidate.code)
+        )
+          return null;
+        const head = Array.from(bytes, (c) => String.fromCharCode(c))
+          .join('')
+          .split('\r\n\r\n')[0]!;
+        const signatures = head
+          .replace(/\r\n[ \t]+/g, ' ')
+          .split('\r\n')
+          .filter((h) => /^dkim-signature:/i.test(h));
+        const signature = signatures.find(
+          (h) =>
+            h.includes('d=' + rule.authenticatedDomain + ';') &&
+            h.includes('s=' + policy.selector + ';'),
+        );
+        const signedAt =
+          Number(/(?:;|:)\s*t=(\d+)/.exec(signature ?? '')?.[1]) * 1000;
+        if (!Number.isSafeInteger(signedAt)) return null;
+        envelopes.push({
+          messageId: message.id,
+          mailboxId: context.mailboxId,
+          receivedAt: Number(message.internalDate),
+          email,
+          sender: {
+            status: 'authenticated',
+            messageId: message.id,
+            mailboxId: context.mailboxId,
+            address: rule.address,
+            authenticatedDomain: rule.authenticatedDomain,
+            boundaryId: rule.boundaryId,
+            method: rule.method,
+            delivery: 'unverified',
+            signedAt,
+          },
+        });
+      }
+      return envelopes;
     },
   });
   const coordinator = createMailboxCoordinator(

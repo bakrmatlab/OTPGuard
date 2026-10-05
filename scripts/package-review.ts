@@ -35,6 +35,7 @@ if (
 const extension = 'apps/extension/build/chrome-mv3-prod';
 const extensionFiles = [
   'background.js',
+  'content.js',
   'icon.png',
   'manifest.json',
   'popup-entry.css',
@@ -54,15 +55,20 @@ if (
   manifest.action?.default_popup !== 'popup.html' ||
   manifest.background?.service_worker !== 'background.js' ||
   manifest.background?.type !== 'module' ||
-  JSON.stringify(manifest.permissions) !== JSON.stringify(['storage']) ||
-  manifest.host_permissions?.length ||
+  JSON.stringify(manifest.permissions) !==
+    JSON.stringify(['storage', 'scripting', 'webNavigation']) ||
+  JSON.stringify(manifest.host_permissions) !==
+    JSON.stringify(['https://dns.google/*']) ||
+  JSON.stringify(manifest.optional_host_permissions) !==
+    JSON.stringify(['https://www.canva.com/*']) ||
+  manifest.minimum_chrome_version !== '127' ||
   manifest.content_scripts ||
   manifest.web_accessible_resources ||
   manifest.externally_connectable ||
   manifest.oauth2 ||
   manifest.key ||
   manifest.content_security_policy?.extension_pages !==
-    "script-src 'self'; object-src 'none'; connect-src 'none';"
+    "script-src 'self'; object-src 'none'; connect-src https://dns.google;"
 )
   throw new Error(
     'Review extension must retain the default unconfigured boundary',

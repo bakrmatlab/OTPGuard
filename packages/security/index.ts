@@ -15,12 +15,43 @@ export interface ServicePolicy {
   templates: readonly CodeCandidate['template'][];
   purposes: readonly Purpose[];
   codeLengths: readonly number[];
+  evidenceContract?: 'signed-content-pilot';
+  selector?: string;
+  emailTemplate?: { subject: RegExp; instruction: RegExp };
   maxAgeMs: number;
   provenance: string;
   validatedOn: string;
 }
-/** No real sender or service has been validated yet. */
-export const supportedServices: readonly ServicePolicy[] = Object.freeze([]);
+/** Owner-controlled pilot mapping. No direct-receipt claim. */
+export const supportedServices: readonly ServicePolicy[] = Object.freeze([
+  {
+    id: 'canva',
+    name: 'Canva',
+    origins: ['https://www.canva.com'],
+    senders: [
+      {
+        address: 'no-reply@account.canva.com',
+        authenticatedDomain: 'account.canva.com',
+        boundaryId: 'raw-dkim-google-doh-pilot',
+        method: 'aligned-dkim' as const,
+      },
+    ],
+    templates: ['inline' as const],
+    purposes: ['sign-in' as const],
+    codeLengths: [6],
+    evidenceContract: 'signed-content-pilot' as const,
+    selector: 'rsp6babxccyfzajomulkoj3m6cqtnhls',
+    emailTemplate: {
+      subject: /^Your login code is [0-9]{6}$/,
+      instruction:
+        /Enter this code within the next 10 minutes to log in to your Canva Account\./,
+    },
+    maxAgeMs: 300_000,
+    provenance:
+      'Owner controlled signed plain-text evidence; receipt/replay unproven; documentation/core-2-canva-evidence.md',
+    validatedOn: '2026-10-04',
+  },
+]);
 
 /** Produced only by a trusted adapter, never by interpreting page or raw header claims.
  * These types are a contract, not a cryptographic attestation. The future background
@@ -36,7 +67,8 @@ export type SenderEvidence =
       authenticatedDomain: string;
       boundaryId: string;
       method: 'aligned-dkim' | 'aligned-dmarc';
-      delivery: 'direct';
+      delivery: 'direct' | 'unverified';
+      signedAt?: number;
     };
 export interface MessageEvidence {
   messageId: string;
@@ -148,7 +180,13 @@ export function authorize(
   if (
     sender.messageId !== message.messageId ||
     sender.mailboxId !== message.mailboxId ||
-    sender.delivery !== 'direct'
+    (policy.evidenceContract === 'signed-content-pilot'
+      ? sender.delivery !== 'unverified' ||
+        !timestamp(sender.signedAt ?? -1) ||
+        sender.signedAt! > input.now ||
+        input.now - sender.signedAt! > 300_000 ||
+        sender.signedAt! < request.startedAt - 60_000
+      : sender.delivery !== 'direct')
   )
     return unknown('message-binding');
   if (

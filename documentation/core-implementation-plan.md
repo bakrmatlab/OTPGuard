@@ -60,7 +60,7 @@ regressions and isolated builder are implemented. Project-wide revocation is dis
 and live revoke/disconnect deferred to preserve the old grant. Fresh consent/denial
 and broader live lifecycle/privacy checks remain unverified. See
 [Core 1 acceptance](core-1-acceptance.md); owner approved merge and push on October 4
-with these live limits, Core 2 not started.
+with these live limits. Core 2 feasibility work is recorded below.
 
 ### Core 2 — Validate one real service and its mail trust boundary
 
@@ -83,9 +83,24 @@ deliver a concrete finding and owner-selectable product/architecture alternative
 PR, keep real fill disabled, and stop dependent activation. Do not invent sender trust
 or relax the existing privacy/security contract to make the demo work.
 
+Core 2 local finding, October 4: public Gmail receiver/receipt evidence remains
+insufficient under the current contract, including the evaluated ARC alternative.
+OpenAI remains a candidate; no real template/input acceptance or service registration.
+The permitted feasibility deliverable is proposed for owner review in
+[Core 2 acceptance](core-2-acceptance.md) and
+[ADR0018](adr/0018-core-2-mail-trust-feasibility.md). Real fill stays disabled;
+Core 3 activation requires resolving or explicitly revising this gate. The owner
+subsequently selected the local DKIM prototype route; see
+[prototype acceptance](core-2-dkim-prototype-acceptance.md) and
+[ADR0019](adr/0019-local-dkim-prototype.md). This proposes signer/content authentication
+with explicit receipt/replay limits; real service validation and release remain pending.
+
 ### Core 3 — Wire and demonstrate the real local OTP pipeline
 
 Title: `feat(extension): complete the real Gmail-to-fill journey`.
+
+Owner-selected scope, October 4: build one reusable retrieval, verification, MIME parsing, challenge detection and fill engine. Canva is the first integration; future services use small exact-origin/sender/template rules. Automatically show an extension-controlled prompt when an eligible code is available, with a **Fill** button. Insert only after the owner clicks Fill; do not submit. This supersedes automatic insertion for this pilot. Complete the remaining resolver, MIME/parser and fresh live-fill acceptance during Core 3. See [Canva evidence](core-2-canva-evidence.md). Historical cryptographic verification is not fresh login acceptance.
+
 Depends on accepted Core 1 and Core 2. Connect existing coordinator/retrieval/policy/
 insertion code to the production worker and a minimal content adapter. Add optional
 permission only for the validated site; derive tab/document/origin from the browser.
@@ -167,6 +182,6 @@ is required for documentation-only work. Owner enters credentials/CAPTCHA direct
 
 One selected PR at a time, report validation and acceptance, then stop for owner review.
 This plan authorizes no automatic feature start, new chats, merge, deployment or public
-submission. User-selected Core 1 is the next logical implementation scope. Publishing
+submission. Core 3 is the current owner-selected scope. Its bounded signer/content pilot is authorized; subsequent PRs remain unstarted. Publishing
 and provider actions follow explicit session authorization. Preserve failed native draft
 PR #3 as separate historical evidence; do not merge it as unfinished core work.

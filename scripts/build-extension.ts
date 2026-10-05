@@ -48,9 +48,17 @@ if (probeOrigin) {
       ' ' + probeOrigin + ';',
     );
 }
-// Explicit entries only: never infer content registration or copy SDK asset trees.
-if ((await readFile('content.ts')).length !== 0)
-  throw new Error('Production content registration requires a separate review');
+// Core 3: exact optional site access; extension-owned user-clicked prompt.
+finalized.permissions.push('scripting', 'webNavigation');
+finalized.host_permissions.push('https://dns.google/*');
+finalized.content_security_policy.extension_pages =
+  finalized.content_security_policy.extension_pages
+    .replace("connect-src 'none'", 'connect-src')
+    .replace(/;$/, ' https://dns.google;');
+const pilotManifest = {
+  optional_host_permissions: ['https://www.canva.com/*'],
+  minimum_chrome_version: '127',
+};
 const outdir = 'build/chrome-mv3-prod';
 await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
@@ -79,6 +87,15 @@ const result = await Bun.build({
   define,
 });
 if (!result.success) throw new Error('Extension build failed');
+const contentBuild = await Bun.build({
+  entrypoints: ['content.ts'],
+  target: 'browser',
+  format: 'iife',
+  outdir,
+  minify: true,
+  define,
+});
+if (!contentBuild.success) throw new Error('Content build failed');
 await copyFile('assets/icon.png', `${outdir}/icon.png`);
 await writeFile(
   `${outdir}/popup.html`,
@@ -97,6 +114,7 @@ await writeFile(
       action: { default_popup: 'popup.html', default_icon: 'icon.png' },
       background: { service_worker: 'background.js', type: 'module' },
       ...finalized,
+      ...pilotManifest,
     },
     null,
     2,

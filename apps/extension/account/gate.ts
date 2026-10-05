@@ -17,15 +17,17 @@ export function createAccountGate(
   let identity: AccountIdentity | null = null;
   let generation = 0;
   let latestRead = 0;
+  let sharedProbe: Promise<AccountBinding | null> | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const listeners = new Set<() => void>();
   const invalidate = () => {
     clearTimeout(timer);
+    sharedProbe = undefined;
     identity = null;
     generation++;
     for (const listener of listeners) listener();
   };
-  const refresh = async () => {
+  const readFresh = async () => {
     const before = generation;
     const readId = ++latestRead;
     let next: AccountIdentity | null;
@@ -52,6 +54,18 @@ export function createAccountGate(
     );
     return { userId: next.userId, sessionId: next.sessionId, generation };
   };
+  // Concurrent worker callers share one authoritative in-flight probe. Nothing
+  // is cached after it settles, and invalidation immediately detaches the probe.
+  const refresh = (share = false) => {
+    if (!share) return readFresh();
+    if (sharedProbe) return sharedProbe;
+    const probe = readFresh();
+    sharedProbe = probe;
+    void probe.finally(() => {
+      if (sharedProbe === probe) sharedProbe = undefined;
+    });
+    return probe;
+  };
   return {
     invalidate,
     subscribe(listener: () => void) {
@@ -64,7 +78,12 @@ export function createAccountGate(
     identity: () =>
       identity && identity.expiresAt > now() ? { ...identity } : null,
     async current(bound: AccountBinding) {
-      const fresh = await refresh();
+      let fresh = await refresh(true);
+      // A newer concurrent popup read can supersede this probe without changing
+      // authority. Retry once with another authoritative read; invalidation or a
+      // real identity/generation change must still refuse immediately.
+      if (!fresh && bound.generation === generation && identity)
+        fresh = await refresh(true);
       return (
         !!fresh &&
         fresh.userId === bound.userId &&

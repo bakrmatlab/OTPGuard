@@ -5,7 +5,7 @@ export async function checkAccountSubject(
   token: (userId: string, sessionId: string) => Promise<string | null>,
   query: (jwt: string, signal: AbortSignal) => Promise<string>,
 ) {
-  const bound = await gate.refresh();
+  const bound = await gate.refresh(true);
   if (!bound) return { state: 'SIGN_IN_REQUIRED' as const };
   const abort = new AbortController();
   const unsubscribe = gate.subscribe(() => abort.abort());

@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 const script = resolve('scripts/package-review.ts');
 const names = [
   'background.js',
+  'content.js',
   'icon.png',
   'manifest.json',
   'popup-entry.css',
@@ -24,11 +25,13 @@ const manifest = {
   manifest_version: 3,
   action: { default_popup: 'popup.html' },
   background: { service_worker: 'background.js', type: 'module' },
-  permissions: ['storage'],
-  host_permissions: [],
+  permissions: ['storage', 'scripting', 'webNavigation'],
+  host_permissions: ['https://dns.google/*'],
+  optional_host_permissions: ['https://www.canva.com/*'],
+  minimum_chrome_version: '127',
   content_security_policy: {
     extension_pages:
-      "script-src 'self'; object-src 'none'; connect-src 'none';",
+      "script-src 'self'; object-src 'none'; connect-src https://dns.google;",
   },
 };
 

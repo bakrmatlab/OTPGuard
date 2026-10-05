@@ -55,7 +55,7 @@ if (config) {
 export async function accountStatus() {
   if (!config) return { state: 'UNCONFIGURED' as const };
   if (logoutUnconfirmed) return { state: 'SIGN_OUT_FAILED' as const };
-  await accountGate.refresh();
+  await accountGate.refresh(true);
   const identity = accountGate.identity();
   return identity
     ? {

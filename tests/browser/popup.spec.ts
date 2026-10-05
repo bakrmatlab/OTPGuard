@@ -63,12 +63,10 @@ test('popup loading and storage errors fail closed without enabling unsupported 
     await expect(
       popup.getByRole('button', { name: 'Delete local history' }),
     ).toBeEnabled();
+    await expect(popup.getByRole('button', { name: 'Fill' })).toBeDisabled();
     await expect(
-      popup.getByRole('button', { name: 'Fill verified code' }),
-    ).toBeDisabled();
-    await expect(
-      popup.getByRole('button', { name: 'Retry retrieval' }),
-    ).toBeDisabled();
+      popup.getByRole('button', { name: 'Find code / Retry' }),
+    ).toBeEnabled();
     expect(errors).toEqual([]);
   } finally {
     await context.close();

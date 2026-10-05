@@ -23,7 +23,8 @@ const MAX_NODES = 2000;
 const MAX_TEXT = 4000;
 const otp =
   /\b(otp|one[ -]?time|verification|security|confirmation)\b.*\b(code|password)\b|\b(otp|verification code)\b/i;
-const email = /\b(email|e-mail|inbox)\b/i;
+const email =
+  /\b(email|e-mail|inbox)\b|\bcode (?:we (?:have )?sent|sent) to [^\s@]{1,128}@/i;
 const authenticator =
   /\b(authenticator|totp|authentication app|backup|recovery)\b/i;
 const sensitive =
@@ -65,7 +66,10 @@ function contextText(root: Element): { text: string; limited: boolean } {
       continue;
     text += ` ${node.textContent?.slice(0, MAX_TEXT - text.length) ?? ''}`;
   }
-  return { text, limited: text.length >= MAX_TEXT || count > MAX_NODES };
+  return {
+    text: text.replace(/\s+/g, ' ').trim(),
+    limited: text.length >= MAX_TEXT || count > MAX_NODES,
+  };
 }
 
 export function createDetector(document: Document): {
@@ -117,7 +121,23 @@ export function createDetector(document: Document): {
           )
           .join(' ')
           .slice(0, MAX_TEXT);
-        const contextResult = contextText(container);
+        let contextResult = contextText(container);
+        // Email challenge instructions can sit immediately outside the form.
+        // Inspect a bounded nearby ancestor, never send that text to the worker.
+        let nearby = container.parentElement;
+        for (
+          let level = 0;
+          level < 3 &&
+          nearby &&
+          nearby !== document.body &&
+          nearby !== document.documentElement &&
+          !email.test(contextResult.text);
+          level++, nearby = nearby.parentElement
+        ) {
+          const candidate = contextText(nearby);
+          if (candidate.limited) break;
+          contextResult = candidate;
+        }
         const context = contextResult.text;
         const evidence: Evidence[] = [];
         if (contextResult.limited || hints.length >= MAX_TEXT)

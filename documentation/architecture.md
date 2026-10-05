@@ -118,3 +118,28 @@ export without copying owner env files. Old Gmail artifacts/clients remain disti
 but Google project grants are shared: revocation affects other project clients and
 requires an explained confirmation. [ADR0017](adr/0017-authenticated-gmail-connection.md)
 and [Core 1 acceptance](core-1-acceptance.md) record actual evidence and remaining limits.
+
+## Core 2 local DKIM prototype
+
+The owner-selected development-only raw DKIM experiment authenticates covered
+content against an explicit signer/sender/recipient rule, with signed freshness.
+It provides no direct receipt or replay-exclusion claim and cannot produce production
+VERIFIED evidence. Raw bytes and keys are in memory; no persistence, logging, live
+resolver, Gmail reader or permission expansion is added. Synthetic key resolution
+receives only an approved selector/domain query. Production registry, sender UNKNOWN,
+receipt unverified and real fill disabled remain unchanged. A copied recent valid
+signature can verify again; future release needs reviewed real-service evidence and
+crash/dedup handling, with unseen replay still a residual risk.
+[ADR0019](adr/0019-local-dkim-prototype.md) and
+[acceptance](core-2-dkim-prototype-acceptance.md) describe scope and remaining gates.
+
+## Core 3 owner-controlled pilot
+
+Core 3 supersedes the preceding prototype-only state: the shared production raw Gmail
+pipeline is wired for one exact Canva origin with optional access. DKIM authenticates
+signer/covered content, not direct receipt. The extension popup is the Fill prompt;
+only a user click can precede release. Manual retrieval shares the policy. Related/
+alternative MIME uses bounded authoritative plain text without HTML rendering.
+A trusted-local write-ahead hashed message/account ledger prevents uncertain resend.
+[ADR0020](adr/0020-core-3-signed-content-clicked-fill.md) and
+[acceptance](core-3-acceptance.md) describe implementation and live limits.

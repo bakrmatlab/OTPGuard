@@ -38,7 +38,7 @@ const quoted =
   /(^|\n)\s*(>|on .+wrote:|[- ]*(?:original|forwarded) message|begin forwarded message:|from:)|["“”«»]/i;
 
 /** Accepts only ASCII numeric lengths 4–8 in explicitly supported English templates.
- * Every occurrence counts toward ambiguity, even repeated identical values.
+ * Repeated identical codes agree; distinct values remain ambiguous.
  * Callers must retain the rejection/ambiguity state and apply independent policy.
  */
 export function parseVerificationCode(email: NormalizedEmail): ParseResult {
@@ -89,10 +89,27 @@ export function parseVerificationCode(email: NormalizedEmail): ParseResult {
   // Extra digit runs can represent another challenge or an unsupported template.
   // Do not silently resolve them by ranking or by selecting the newest/highest score.
   const numbers = combined.match(/[0-9]+/g) ?? [];
-  if (candidates.length > 1) return { status: 'ambiguous', candidates };
-  if (candidates.length !== 1 || numbers.length !== 1)
+  const distinct = [...new Map(candidates.map((c) => [c.code, c])).values()];
+  if (distinct.length > 1) return { status: 'ambiguous', candidates: distinct };
+  const otherNumbers = numbers.filter(
+    (n) => !distinct.some((c) => c.code === n),
+  );
+  const subjectCode = prose.exec(email.subject.trim())?.[1];
+  const instructed =
+    /enter this code within the next (?:[1-9]|10) minutes to log in/i.test(
+      email.text,
+    );
+  const footerOnly =
+    subjectCode && instructed && otherNumbers.every((n) => n.length < 6);
+  const expiryOnly = otherNumbers.every((n) =>
+    new RegExp(
+      `\\b(?:within(?: the next)?|expires? in|valid for) ${n} (?:minutes?|seconds?)\\b`,
+      'i',
+    ).test(combined),
+  );
+  if (distinct.length !== 1 || !(expiryOnly || footerOnly))
     return { status: 'rejected', reason: 'unsupported-template' };
-  return { status: 'candidate', candidate: candidates[0]! };
+  return { status: 'candidate', candidate: distinct[0]! };
 }
 
 export { normalizeGmailMessage, gmailNormalizationLimits } from './gmail';
@@ -101,3 +118,5 @@ export type {
   NormalizedGmailMessage,
   GmailNormalizationResult,
 } from './gmail';
+
+export { normalizeRawEmail } from './raw';

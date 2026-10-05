@@ -100,3 +100,30 @@ grant must be preserved. A future isolated-project decision needs separate appro
 Synthetic controller/adapter checks and basic actual Chrome connection evidence are
 separate from the remaining live privacy/denial/revoke/switch/expiry acceptance.
 See [ADR0017](adr/0017-authenticated-gmail-connection.md).
+
+## Core 2 local DKIM prototype
+
+The owner-selected development-only raw DKIM experiment authenticates covered
+content against an explicit signer/sender/recipient rule, with signed freshness.
+It provides no direct receipt or replay-exclusion claim and cannot produce production
+VERIFIED evidence. Raw bytes and keys are in memory; no persistence, logging, live
+resolver, Gmail reader or permission expansion is added. Synthetic key resolution
+receives only an approved selector/domain query. Production registry, sender UNKNOWN,
+receipt unverified and real fill disabled remain unchanged. A copied recent valid
+signature can verify again; future release needs reviewed real-service evidence and
+crash/dedup handling, with unseen replay still a residual risk.
+[ADR0019](adr/0019-local-dkim-prototype.md) and
+[acceptance](core-2-dkim-prototype-acceptance.md) describe scope and remaining gates.
+
+## Core 3 revised pilot contract
+
+The owner selected signer/content authentication and user-clicked release. Production
+Canva pilot evidence carries delivery=unverified; it does not fabricate direct receipt.
+Google HTTPS DNS/upstream resolution is now an explicit key trust dependency; current
+AD=false is not called DNSSEC authentication. Forged receiver headers still grant no
+trust. Signed time, exact recipient/sender, auxiliary internalDate and current request
+windows bound freshness. Write-ahead local hashed message bindings refuse uncertain
+send/ack replay; unseen intact copies/different message IDs/installations remain a
+residual risk. Plain text is authoritative; HTML-only messages are unsupported.
+[ADR0020](adr/0020-core-3-signed-content-clicked-fill.md) details these limits. Fresh real
+fill/login and live crash/permission/privacy acceptance remain unverified.

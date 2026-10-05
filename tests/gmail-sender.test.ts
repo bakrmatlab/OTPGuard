@@ -163,5 +163,9 @@ it('does not treat inserted/imported mail with fresh timestamps and copied heade
     throw new Error('Synthetic fixture rejected');
   expect(assessGmailSender(result.message).receipt.status).toBe('unverified');
   expect(assessGmailSender(result.message).sender.status).toBe('unknown');
-  expect(supportedServices).toEqual([]);
+  expect(
+    supportedServices.every(
+      (s) => s.evidenceContract === 'signed-content-pilot',
+    ),
+  ).toBe(true);
 });

@@ -579,3 +579,182 @@ it('dispose while browser context is pending cannot start retrieval or release',
   expect(adapter.retrieve).not.toHaveBeenCalled();
   expect(sends).toEqual([]);
 });
+
+it('pilot waits for extension Fill confirmation and reserves before release', async () => {
+  const t = setup();
+  let click!: (v: boolean) => void;
+  t.adapter.confirm = vi.fn(
+    () =>
+      new Promise<boolean>((resolve) => {
+        click = resolve;
+      }),
+  );
+  const order: string[] = [];
+  t.adapter.reserve = vi.fn(async () => {
+    order.push('reserve');
+    return true;
+  });
+  t.adapter.send = async (_, m) => {
+    order.push(m.type);
+    return true;
+  };
+  const run = t.coordinator.handle(detect, {});
+  await vi.waitFor(() => expect(t.adapter.confirm).toHaveBeenCalled());
+  expect(order).toEqual([]);
+  click(true);
+  expect((await run).state).toBe('FILLED');
+  expect(order).toEqual(['prepare', 'reserve', 'release']);
+});
+it('pilot rechecks navigation and replay reservation after a Fill click', async () => {
+  for (const failure of ['navigation', 'replay']) {
+    const t = setup();
+    t.adapter.confirm = async () => {
+      if (failure === 'navigation') t.invalidate();
+      return true;
+    };
+    t.adapter.reserve = async () => false;
+    expect((await t.coordinator.handle(detect, {})).state).not.toBe('FILLED');
+    expect(t.sends).not.toContain('release');
+  }
+});
+it('manual pilot retrieval uses policy while automatic prompting is off', async () => {
+  const t = setup();
+  t.adapter.settings = () => ({ autofillEnabled: false, blockedOrigins: [] });
+  t.adapter.confirm = async () => true;
+  expect(
+    (await t.coordinator.handle({ ...detect, manual: true }, {})).state,
+  ).toBe('FILLED');
+  const blocked = setup();
+  blocked.adapter.settings = () => ({
+    autofillEnabled: false,
+    blockedOrigins: [blocked.context.origin],
+  });
+  expect(
+    (await blocked.coordinator.handle({ ...detect, manual: true }, {})).state,
+  ).toBe('BLOCKED');
+  expect(blocked.sends).toEqual([]);
+});
+
+it('keeps a pending clicked-fill request current when popup refresh overlaps the same account read', async () => {
+  const { createConnectedCoordinator } =
+    await import('../apps/extension/account/connected');
+  const t = setup();
+  const identity = {
+    userId: 'account',
+    sessionId: 'session',
+    label: 'Synthetic',
+    expiresAt: 1000000,
+  };
+  let overlap = false;
+  const reads: ((v: typeof identity) => void)[] = [];
+  const gate = createAccountGate(
+    () =>
+      overlap
+        ? new Promise((resolve) => reads.push(resolve))
+        : Promise.resolve(identity),
+    t.adapter.now,
+  );
+  const bound = await gate.refresh();
+  expect(bound).not.toBeNull();
+  overlap = true;
+  const activeCheck = gate.current(bound!);
+  const popupRead = gate.refresh();
+  expect(reads).toHaveLength(2);
+  reads[0]!(identity);
+  reads[1]!(identity);
+  overlap = false;
+  expect(await popupRead).toMatchObject({
+    userId: 'account',
+    sessionId: 'session',
+  });
+  const current = await activeCheck;
+  overlap = false;
+  t.adapter.current = async () => current;
+  t.adapter.confirm = async () => true;
+  const coordinator = createConnectedCoordinator(t.adapter, gate);
+  const result = await coordinator.handle(detect, {});
+  expect(result.state).toBe('FILLED');
+  coordinator.dispose();
+});
+
+it('admits a clicked-fill request when the popup starts a concurrent account status read', async () => {
+  const { createConnectedCoordinator } =
+    await import('../apps/extension/account/connected');
+  const t = setup();
+  const identity = {
+    userId: 'account',
+    sessionId: 'session',
+    label: 'Synthetic',
+    expiresAt: 1000000,
+  };
+  let deferred = true;
+  const reads: ((v: typeof identity) => void)[] = [];
+  const gate = createAccountGate(
+    () =>
+      deferred
+        ? new Promise((resolve) => reads.push(resolve))
+        : Promise.resolve(identity),
+    t.adapter.now,
+  );
+  t.adapter.confirm = async () => true;
+  const coordinator = createConnectedCoordinator(t.adapter, gate);
+  const request = coordinator.handle({ ...detect, manual: true }, {});
+  const popup = gate.refresh(true);
+  expect(reads).toHaveLength(1);
+  reads.forEach((resolve) => resolve(identity));
+  deferred = false;
+  await popup;
+  expect((await request).state).toBe('FILLED');
+  coordinator.dispose();
+  gate.invalidate();
+});
+
+it('reports automatic request admission failure to the trusted prompt adapter', async () => {
+  const t = setup();
+  t.adapter.context = async () => null;
+  const unavailable = vi.fn(async () => {});
+  Object.assign(t.adapter, { unavailable });
+  await t.coordinator.handle(detect, {});
+  expect(unavailable).toHaveBeenCalledWith({}, true);
+  unavailable.mockClear();
+  await t.coordinator.handle({ ...detect, manual: true }, {});
+  expect(unavailable).toHaveBeenCalledWith({}, false);
+  expect(t.sends).toEqual([]);
+});
+
+it('keeps a foreground request after focus recheck and preserves the cause when it later becomes stale', async () => {
+  const t = setup();
+  let finish!: (mail: readonly Envelope[]) => void;
+  let retrieving = false;
+  t.adapter.retrieve = async () => {
+    retrieving = true;
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  };
+  const cancelled = vi.fn();
+  t.adapter.cancelled = cancelled;
+  const run = t.coordinator.handle(detect, {});
+  await vi.waitFor(() => expect(retrieving).toBe(true));
+  await t.coordinator.recheckAll('focus-changed');
+  expect(cancelled).not.toHaveBeenCalled();
+  t.invalidate();
+  await t.coordinator.recheckAll('focus-changed');
+  finish([]);
+  expect((await run).state).toBe('CANCELLED');
+  expect(cancelled).toHaveBeenLastCalledWith('focus-changed');
+  expect(t.sends).toEqual([]);
+});
+
+it('reports page preparation refusal without reserving or releasing a code', async () => {
+  const t = setup();
+  const cancelled = vi.fn();
+  const reserve = vi.fn(async () => true);
+  t.adapter.cancelled = cancelled;
+  t.adapter.reserve = reserve;
+  t.adapter.confirm = async () => true;
+  t.adapter.send = async () => false;
+  expect((await t.coordinator.handle(detect, {})).state).toBe('CANCELLED');
+  expect(cancelled).toHaveBeenLastCalledWith('prepare-refused');
+  expect(reserve).not.toHaveBeenCalled();
+});

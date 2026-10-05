@@ -103,6 +103,7 @@ export function createGmailTransport(
       senders: readonly string[],
       startedAt: number,
       signal: AbortSignal,
+      format: 'full' | 'raw' = 'full',
     ) {
       if (
         !senders.length ||
@@ -147,7 +148,7 @@ export function createGmailTransport(
       for (const id of ids) {
         if (signal.aborted) throw new RetrievalFailure('network');
         const get = new URL(base + '/' + id);
-        get.searchParams.set('format', 'full');
+        get.searchParams.set('format', format);
         const message = await read(get, token, signal, 512 * 1024);
         if (
           !message ||

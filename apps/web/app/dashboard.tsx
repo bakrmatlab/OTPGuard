@@ -212,8 +212,8 @@ export function Dashboard({ account }: { account?: ReactNode }) {
             <div>
               <strong>Connected features are not active</strong>
               <p>
-                Real Gmail retrieval and autofill remain disabled. Cloud
-                metadata transport is unconfigured in this setup.
+                The owner-controlled Canva extension pilot supports user-clicked
+                fill. Cloud metadata transport is unconfigured in this setup.
               </p>
             </div>
           </div>
@@ -225,8 +225,8 @@ export function Dashboard({ account }: { account?: ReactNode }) {
             </div>
             <div className="summary-card">
               <p>Supported services</p>
-              <strong>{supportedServices.length} validated</strong>
-              <span>Real fill remains disabled</span>
+              <strong>{supportedServices.length} pilot service</strong>
+              <span>Owner-controlled extension pilot</span>
             </div>
             <div className="summary-card">
               <p>Activity visibility</p>

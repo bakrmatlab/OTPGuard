@@ -37,7 +37,7 @@ for (const width of [1440, 768, 380]) {
       }),
     ).toBeVisible();
     await expect(
-      page.getByText('No real services validated yet'),
+      page.getByText('1 pilot service', { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByText(

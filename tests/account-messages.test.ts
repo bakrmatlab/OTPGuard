@@ -1,4 +1,20 @@
 import { afterEach, expect, it, vi } from 'vitest';
+const retry = vi.hoisted(() => vi.fn(async () => true));
+const preferences = vi.hoisted(() => ({ available: true, automatic: false }));
+vi.mock('../apps/extension/settings/worker', () => ({
+  localSettings: {
+    available: () => preferences.available,
+    snapshot: () => ({ autofillEnabled: preferences.automatic }),
+  },
+  parseSettingsAction: () => null,
+  settingsAction: async () => null,
+}));
+vi.mock('../apps/extension/pipeline/worker', () => ({
+  pagePipeline: { handle: vi.fn(async () => ({ state: 'UNKNOWN' })) },
+  pipelineStatus: () => ({ state: 'IDLE' }),
+  acceptFill: async () => false,
+  retryPage: retry,
+}));
 const gmail = vi.hoisted(() => ({
   snapshot: vi.fn<() => { state: string; mailbox?: string }>(() => ({
     state: 'DISCONNECTED',
@@ -101,4 +117,42 @@ it('accepts only closed account UI requests from the exact owned popup', async (
   expect(listener({ type: 'gmail-status' }, sender, respond)).toBe(true);
   for (let i = 0; i < 20; i++) await Promise.resolve();
   expect(respond).toHaveBeenLastCalledWith({ state: 'RECONNECT_REQUIRED' });
+});
+
+it('rescans after explicit Gmail connection only when automatic prompting is available and enabled', async () => {
+  for (const [available, automatic, expected] of [
+    [true, true, 1],
+    [true, false, 0],
+    [false, true, 0],
+  ] as const) {
+    preferences.available = available;
+    preferences.automatic = automatic;
+    retry.mockClear();
+    const addListener = vi.fn();
+    const url = 'chrome-extension://synthetic-id/popup.html';
+    vi.stubGlobal('chrome', {
+      runtime: {
+        id: 'synthetic-id',
+        getURL: () => url,
+        onMessage: { addListener },
+      },
+    });
+    vi.resetModules();
+    await import('../apps/extension/background');
+    gmail.snapshot.mockReturnValue({
+      state: 'CONNECTED',
+      mailbox: 'mailbox@fixture.invalid',
+    });
+    const respond = vi.fn();
+    const listener = addListener.mock.calls[0]![0];
+    expect(
+      listener({ type: 'gmail-connect' }, { id: 'synthetic-id', url }, respond),
+    ).toBe(true);
+    for (let i = 0; i < 30; i++) await Promise.resolve();
+    expect(respond).toHaveBeenCalledWith({
+      state: 'CONNECTED',
+      mailbox: 'mailbox@fixture.invalid',
+    });
+    expect(retry).toHaveBeenCalledTimes(expected);
+  }
 });

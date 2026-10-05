@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "displayName": "OTPGuard",
-  "description": "Controlled Gmail connection prototype. Real retrieval and autofill remain disabled.",
+  "description": "Owner-controlled Canva email-code pilot. Fill only after a user click.",
   "scripts": {
     "dev": "bun ../../scripts/dev-extension.ts",
     "build": "bun ../../scripts/build-extension.ts",

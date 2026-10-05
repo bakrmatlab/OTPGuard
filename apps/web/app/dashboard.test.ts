@@ -70,7 +70,7 @@ describe('dashboard presentation without live transport', () => {
   });
   it('ships no editable trust, storage bridge or active cloud controls', () => {
     const html = renderToStaticMarkup(createElement(Dashboard));
-    expect(html).toContain('No real services validated yet');
+    expect(html).toContain('Canva');
     expect(html).toContain(
       'cannot read unsynchronized extension-local activity',
     );

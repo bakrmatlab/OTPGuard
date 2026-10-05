@@ -15,7 +15,10 @@ export function createMailboxCoordinator(
       async context(sender) {
         const before = generation;
         const status = await mailbox.check();
-        if (status.state !== 'CONNECTED') return null;
+        if (status.state !== 'CONNECTED') {
+          adapter.contextFailure?.('mailbox');
+          return null;
+        }
         const context = await adapter.context(sender);
         return before === generation && context?.mailboxId === status.mailbox
           ? context
@@ -47,7 +50,7 @@ export function createMailboxCoordinator(
   );
   const unsubscribe = mailbox.subscribe(() => {
     generation++;
-    coordinator.cancelAll();
+    coordinator.cancelAll('mailbox-changed');
   });
   return {
     ...coordinator,

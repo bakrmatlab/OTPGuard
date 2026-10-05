@@ -80,3 +80,28 @@ across clients/scopes. Disconnect warns and confirms that breadth before attempt
 revocation, then clears this extension's Chrome cache. Live revoke/disconnect was not
 performed in Core 1, to preserve the old grant. No promise of per-client remote grant
 isolation is made. See [acceptance and policy status](core-1-acceptance.md).
+
+## Core 2 local DKIM prototype
+
+The owner-selected development-only raw DKIM experiment authenticates covered
+content against an explicit signer/sender/recipient rule, with signed freshness.
+It provides no direct receipt or replay-exclusion claim and cannot produce production
+VERIFIED evidence. Raw bytes and keys are in memory; no persistence, logging, live
+resolver, Gmail reader or permission expansion is added. Synthetic key resolution
+receives only an approved selector/domain query. Production registry, sender UNKNOWN,
+receipt unverified and real fill disabled remain unchanged. A copied recent valid
+signature can verify again; future release needs reviewed real-service evidence and
+crash/dedup handling, with unseen replay still a residual risk.
+[ADR0019](adr/0019-local-dkim-prototype.md) and
+[acceptance](core-2-dkim-prototype-acceptance.md) describe scope and remaining gates.
+
+## Core 3 pilot data flow
+
+For a current supported request, the worker now reads bounded recent Canva raw Gmail
+messages in memory. Public DKIM key queries go to Google's HTTPS DNS resolver and
+contain only the signer/selector; no mail, mailbox, code or credential goes there.
+Codes leave the worker for the bound Canva field only after an extension-popup Fill
+click. Local release metadata contains a SHA-256 account/mailbox/message binding and
+expiry, never plaintext mailbox, mail or OTP/hash of an OTP. Cloud history remains off.
+See [ADR0020](adr/0020-core-3-signed-content-clicked-fill.md). Full live privacy acceptance
+remains unverified; source-level absence of persistence does not prove a browser audit.

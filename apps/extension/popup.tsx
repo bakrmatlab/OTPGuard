@@ -1,4 +1,5 @@
 import './popup.css';
+import type { CancellationReason } from './pipeline/coordinator';
 import type { ActivityEvent } from '../../packages/shared';
 import { canonicalBlock } from './settings/local';
 import type { MailboxStatus } from './gmail/lifecycle';
@@ -6,11 +7,64 @@ import { configuredGmail } from './gmail/config';
 import { useEffect, useRef, useState } from 'react';
 import { configuredAccount } from './account/config';
 import { createConnectionQueue } from './account/connection-queue';
+const cancellationMessages: Record<CancellationReason, string> = {
+  deadline: 'the search time limit was reached.',
+  confirmation: 'Fill was not confirmed before the prompt closed or expired.',
+  'binding-expired': 'the Fill approval expired.',
+  'current-changed': 'the current account, mailbox, or page check failed.',
+  'prepare-refused': 'the page did not accept preparation for filling.',
+  'release-refused': 'the page did not acknowledge insertion.',
+  'automatic-disabled': 'automatic prompting was turned off.',
+  'account-changed': 'the account session was invalidated.',
+  'mailbox-changed': 'the mailbox connection was invalidated.',
+  'settings-changed': 'protection settings changed.',
+  navigation: 'the page navigated or closed.',
+  'tab-changed': 'the active tab changed.',
+  'focus-changed':
+    'a current account or page check failed after focus changed.',
+  'permissions-changed': 'site permissions changed.',
+  'page-cancelled': 'the page cancelled its current handoff.',
+  invalidated: 'the request was invalidated.',
+};
 type Status = { state: string; userId?: string; label?: string };
 const unavailableMailbox = (): MailboxStatus => ({
   state: configuredGmail() ? 'RECONNECT_REQUIRED' : 'UNCONFIGURED',
 });
+chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
+  if (
+    sender.id === chrome.runtime.id &&
+    !sender.tab &&
+    message &&
+    typeof message === 'object' &&
+    Object.keys(message).length === 1 &&
+    'type' in message &&
+    message.type === 'popup-focus-check'
+  )
+    reply(document.hasFocus());
+});
 export default function Popup() {
+  const [pipeline, setPipeline] = useState<{
+    state: string;
+    requestId?: string;
+    cancellation?: CancellationReason;
+  }>({ state: 'IDLE' });
+  const [permission, setPermission] = useState('');
+  useEffect(() => {
+    let active = true;
+    const read = () =>
+      void chrome.runtime
+        .sendMessage({ type: 'pipeline-status' })
+        .then((v) => {
+          if (active && v) setPipeline(v);
+        })
+        .catch(() => {});
+    read();
+    const timer = setInterval(read, 500);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
   const [status, setStatus] = useState<Status>({ state: 'CHECKING' });
   const [probe, setProbe] = useState('');
   const probeGeneration = useRef(0);
@@ -160,42 +214,65 @@ export default function Popup() {
   return (
     <main>
       <header>
-        <p className="eyebrow">Core 1 · controlled connection</p>
+        <p className="eyebrow">Core 3 · controlled Canva pilot</p>
         <h1>OTPGuard</h1>
         <p className="muted">Extension ID: {chrome.runtime.id}</p>
         <p>Connect your mailbox and manage local protection preferences.</p>
       </header>
       <section aria-labelledby="protection-title" className="protection">
         <h2 id="protection-title">Protection &amp; retrieval</h2>
-        <p role="status">Real Gmail retrieval and autofill remain disabled.</p>
-        <p>
-          No supported real services are available. Sender verification is
-          unresolved, so connecting Gmail or enabling a preference cannot start
-          retrieval or fill.
+        <p role="status">
+          {pipeline.state === 'READY'
+            ? 'Canva code verified. Click Fill to insert it.'
+            : pipeline.state === 'SEARCHING'
+              ? 'Searching recent Canva mail…'
+              : pipeline.state === 'FILLED'
+                ? 'Code inserted. Complete login on Canva.'
+                : pipeline.state === 'CANCELLED' && pipeline.cancellation
+                  ? `Request cancelled: ${cancellationMessages[pipeline.cancellation]}`
+                  : `Request status: ${pipeline.state}`}
         </p>
         <p>
-          Security checks are mandatory. OTPGuard never reveals or copies a
-          code, overrides verification, or submits a form. A site may submit
-          when its input is filled.
+          Canva pilot: signed sender and content are checked locally. Direct
+          delivery and intact-copy replay are not proven. Every insertion
+          requires your click.
         </p>
+        <p>OTPGuard never submits. Canva may react to input events.</p>
         <div className="actions">
-          <button disabled aria-describedby="fill-limit">
-            Fill verified code
+          <button
+            disabled={pipeline.state !== 'READY'}
+            onClick={() =>
+              void chrome.runtime
+                .sendMessage({
+                  type: 'pipeline-fill',
+                  requestId: pipeline.requestId,
+                })
+                .then(() => setPipeline({ state: 'SEARCHING' }))
+                .catch(() => setPipeline({ state: 'ERROR' }))
+            }
+          >
+            Fill
           </button>
-          <button disabled aria-describedby="fill-limit">
-            Retry retrieval
+          <button
+            onClick={() =>
+              void chrome.runtime
+                .sendMessage({ type: 'pipeline-retry' })
+                .then((v) =>
+                  setPipeline({ state: v ? 'SEARCHING' : 'UNAVAILABLE' }),
+                )
+                .catch(() => setPipeline({ state: 'ERROR' }))
+            }
+          >
+            Find code / Retry
           </button>
         </div>
-        <p id="fill-limit" className="muted">
-          Manual fill and retry are unsupported in this build.
-        </p>
         <details>
           <summary>Understand protection states</summary>
           <dl>
             <dt>VERIFIED — authorized request</dt>
             <dd>
               All checks pass. Only a current, worker-authorized request can
-              fill. No real service can reach this state in this build.
+              fill after your click.
             </dd>
             <dt>UNKNOWN — insufficient evidence</dt>
             <dd>
@@ -213,10 +290,7 @@ export default function Popup() {
               Removing a block still requires every verification check.
             </dd>
             <dt>SEARCHING — retrieval in progress</dt>
-            <dd>
-              A bounded search is underway. This operational state is
-              unavailable in this build.
-            </dd>
+            <dd>A bounded search is underway.</dd>
             <dt>NO_CODE — no eligible mail</dt>
             <dd>
               No eligible code arrived before the search ended. It is not a
@@ -224,8 +298,8 @@ export default function Popup() {
             </dd>
             <dt>RECONNECT_REQUIRED — mailbox access unavailable</dt>
             <dd>
-              Use the Gmail controls to reconnect. Reconnecting does not enable
-              unsupported retrieval.
+              Use the Gmail controls to reconnect. Only supported sites can
+              retrieve.
             </dd>
             <dt>ERROR — operation failed</dt>
             <dd>
@@ -376,14 +450,29 @@ export default function Popup() {
         <h2 id="permissions-title">Permissions</h2>
         <p>
           {configuredGmail()
-            ? 'Gmail read-only access is requested only when you connect. It permits reading all mail; this build uses the mailbox profile for connection status.'
+            ? 'Gmail read-only access is requested only when you connect. It permits reading all mail; only bounded recent supported-sender mail is retrieved for a current request.'
             : 'Local preferences use extension storage. Gmail permission is unconfigured.'}
         </p>
         <p>
-          Website access is unavailable. No site detection or injection runs in
-          this production build.
+          Optional access applies only to https://www.canva.com. Enable it, then
+          reload the Canva login page. DNS key lookup sends only the public
+          signer/selector to Google Public DNS.
         </p>
-        <button disabled>Enable on this site</button>
+        <button
+          onClick={() =>
+            void chrome.permissions
+              .request({ origins: ['https://www.canva.com/*'] })
+              .then((v) =>
+                setPermission(
+                  v ? 'Canva enabled. Reload its page.' : 'Permission denied.',
+                ),
+              )
+              .catch(() => setPermission('Permission unavailable.'))
+          }
+        >
+          Enable Canva
+        </button>
+        {permission && <p role="status">{permission}</p>}
       </section>
       <section aria-labelledby="settings-title" aria-busy={settingsBusy}>
         <h2 id="settings-title">Local settings</h2>
@@ -394,7 +483,7 @@ export default function Popup() {
             disabled={settingsBusy || settings.state !== 'LOCAL'}
             onChange={(event) => void changeAutofill(event.target.checked)}
           />
-          Enable automatic fill for verified requests
+          Automatically find codes and show the Fill prompt
         </label>
         <p aria-live="polite">
           {settingsBusy
@@ -406,8 +495,7 @@ export default function Popup() {
                 : 'Local settings unavailable.'}
         </p>
         <p className="muted">
-          This saves a preference for future supported requests. Real fill
-          remains disabled.
+          When off, use Find code / Retry. The same verification checks apply.
         </p>
         <form
           onSubmit={(event) => {
@@ -475,8 +563,8 @@ export default function Popup() {
         </p>
         <p>
           Records expire after seven days, with at most 500 records. This
-          browser profile holds its own history. No real fill activity is
-          available yet.
+          browser profile holds its own history. Fill acknowledgments do not
+          confirm login.
         </p>
         <p aria-live="polite">
           {history.state === 'LOCAL'

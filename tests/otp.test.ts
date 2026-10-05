@@ -101,19 +101,23 @@ describe('normalized email-code parser', () => {
       reason: 'quoted-or-forwarded',
     });
   });
-  it.each(['008417', '003719'])(
-    'retains ambiguity including repeated identical codes',
-    (second) => {
-      const result = parse(`Verification code: 003719\nLogin code:\n${second}`);
-      expect(result).toMatchObject({
-        status: 'ambiguous',
-        candidates: [
-          { code: '003719', score: 90 },
-          { code: second, score: 80 },
-        ],
-      });
-    },
-  );
+  it.each(['008417'])('retains distinct ambiguity', (second) => {
+    const result = parse(`Verification code: 003719\nLogin code:\n${second}`);
+    expect(result).toMatchObject({
+      status: 'ambiguous',
+      candidates: [
+        { code: '003719', score: 90 },
+        { code: second, score: 80 },
+      ],
+    });
+  });
+  it('accepts agreeing repeated labels and bounded expiry numbers', () => {
+    expect(
+      parse(
+        'Verification code: 003719\nLogin code: 003719\nExpires in 10 minutes',
+      ),
+    ).toMatchObject({ status: 'candidate', candidate: { code: '003719' } });
+  });
   it('fails closed on bounds without truncating into a valid candidate', () => {
     expect(parse('Verification code: 003719\n' + 'x'.repeat(32768))).toEqual({
       status: 'rejected',

@@ -211,3 +211,22 @@ describe('narrow auth configuration', () => {
     ).toThrow();
   });
 });
+
+it('detaches shared freshness probes on invalidation and refuses their late bindings', async () => {
+  const reads: ((value: AccountIdentity | null) => void)[] = [];
+  const gate = createAccountGate(
+    () => new Promise((resolve) => reads.push(resolve)),
+  );
+  const old = gate.refresh(true);
+  const same = gate.refresh(true);
+  expect(reads).toHaveLength(1);
+  gate.invalidate();
+  const fresh = gate.refresh(true);
+  expect(reads).toHaveLength(2);
+  reads[0]!(identity());
+  expect(await old).toBeNull();
+  expect(await same).toBeNull();
+  reads[1]!({ ...identity(), sessionId: 'synthetic-session-b' });
+  expect(await fresh).toMatchObject({ sessionId: 'synthetic-session-b' });
+  gate.invalidate();
+});
