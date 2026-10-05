@@ -52,7 +52,10 @@ export function createGmailLifecycle(
     if (!disconnecting)
       status = { state: configured ? 'RECONNECT_REQUIRED' : 'UNCONFIGURED' };
   };
-  const probe = async (interactive: boolean) => {
+  const probe = async (
+    interactive: boolean,
+    validate?: (mailbox: string) => Promise<boolean>,
+  ) => {
     const before = generation;
     const abort = new AbortController();
     controller = abort;
@@ -93,6 +96,14 @@ export function createGmailLifecycle(
       if (before !== generation) return snapshot();
       if (!/^[^\s@]+@[^\s@]+$/.test(next) || next.length > 254)
         throw new Error('Invalid profile');
+      if (validate && !(await validate(next))) {
+        if (before === generation) {
+          cancel();
+          status = { state: 'MAILBOX_CHANGED' };
+        }
+        return snapshot();
+      }
+      if (before !== generation) return snapshot();
       if (mailbox && mailbox.toLowerCase() !== next.toLowerCase()) {
         cancel();
         status = { state: 'MAILBOX_CHANGED' };
@@ -118,7 +129,10 @@ export function createGmailLifecycle(
     }
     return snapshot();
   };
-  const run = (interactive: boolean) => {
+  const run = (
+    interactive: boolean,
+    validate?: (mailbox: string) => Promise<boolean>,
+  ) => {
     if (
       !configured ||
       disconnecting ||
@@ -128,7 +142,7 @@ export function createGmailLifecycle(
     )
       return operation ?? Promise.resolve(snapshot());
     if (interactive) status = { state: 'CONNECTING' };
-    const pending = probe(interactive);
+    const pending = probe(interactive, validate);
     operation = pending;
     void pending.finally(() => {
       if (operation === pending) operation = undefined;
@@ -217,6 +231,10 @@ export function createGmailLifecycle(
       };
     },
     connect: () => run(true),
+    /** Restores only a prior explicit binding; never opens consent. Validation
+     * completes before CONNECTED is visible to any concurrent caller. */
+    restore: (validate: (mailbox: string) => Promise<boolean>) =>
+      run(false, validate),
     check: () =>
       status.state === 'CONNECTED' ? run(false) : Promise.resolve(snapshot()),
     async disconnect() {

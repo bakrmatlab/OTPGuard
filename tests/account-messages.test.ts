@@ -53,10 +53,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.resetModules();
 });
+const storage = () => ({
+  local: {
+    setAccessLevel: async () => {},
+    get: async () => ({}),
+    set: async () => {},
+    remove: async () => {},
+  },
+});
 it('accepts only closed account UI requests from the exact owned popup', async () => {
   const addListener = vi.fn();
   const url = 'chrome-extension://synthetic-id/popup.html';
   vi.stubGlobal('chrome', {
+    storage: storage(),
     runtime: {
       id: 'synthetic-id',
       getURL: () => url,
@@ -104,19 +113,25 @@ it('accepts only closed account UI requests from the exact owned popup', async (
     mailbox: 'mailbox@fixture.invalid',
   });
   expect(listener({ type: 'gmail-connect' }, sender, respond)).toBe(true);
-  for (let i = 0; i < 20; i++) await Promise.resolve();
-  expect(respond).toHaveBeenCalledWith({
-    state: 'CONNECTED',
-    mailbox: 'mailbox@fixture.invalid',
-  });
+  await vi.waitFor(() =>
+    expect(respond).toHaveBeenCalledWith({
+      state: 'CONNECTED',
+      mailbox: 'mailbox@fixture.invalid',
+    }),
+  );
   account.signOut.mockRejectedValueOnce(new Error('synthetic signout failure'));
   expect(listener({ type: 'account-sign-out' }, sender, respond)).toBe(true);
   for (let i = 0; i < 20; i++) await Promise.resolve();
   expect(respond).toHaveBeenCalledWith({ state: 'SIGN_OUT_FAILED' });
   gmail.check.mockRejectedValueOnce(new Error('synthetic worker failure'));
+  gmail.snapshot.mockReturnValue({
+    state: 'CONNECTED',
+    mailbox: 'mailbox@fixture.invalid',
+  });
   expect(listener({ type: 'gmail-status' }, sender, respond)).toBe(true);
-  for (let i = 0; i < 20; i++) await Promise.resolve();
-  expect(respond).toHaveBeenLastCalledWith({ state: 'RECONNECT_REQUIRED' });
+  await vi.waitFor(() =>
+    expect(respond).toHaveBeenLastCalledWith({ state: 'RECONNECT_REQUIRED' }),
+  );
 });
 
 it('rescans after explicit Gmail connection only when automatic prompting is available and enabled', async () => {
@@ -131,6 +146,7 @@ it('rescans after explicit Gmail connection only when automatic prompting is ava
     const addListener = vi.fn();
     const url = 'chrome-extension://synthetic-id/popup.html';
     vi.stubGlobal('chrome', {
+      storage: storage(),
       runtime: {
         id: 'synthetic-id',
         getURL: () => url,
@@ -148,11 +164,12 @@ it('rescans after explicit Gmail connection only when automatic prompting is ava
     expect(
       listener({ type: 'gmail-connect' }, { id: 'synthetic-id', url }, respond),
     ).toBe(true);
-    for (let i = 0; i < 30; i++) await Promise.resolve();
-    expect(respond).toHaveBeenCalledWith({
-      state: 'CONNECTED',
-      mailbox: 'mailbox@fixture.invalid',
-    });
+    await vi.waitFor(() =>
+      expect(respond).toHaveBeenCalledWith({
+        state: 'CONNECTED',
+        mailbox: 'mailbox@fixture.invalid',
+      }),
+    );
     expect(retry).toHaveBeenCalledTimes(expected);
   }
 });

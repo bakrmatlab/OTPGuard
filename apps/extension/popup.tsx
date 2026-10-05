@@ -10,6 +10,8 @@ import { createConnectionQueue } from './account/connection-queue';
 const cancellationMessages: Record<CancellationReason, string> = {
   deadline: 'the search time limit was reached.',
   confirmation: 'Fill was not confirmed before the prompt closed or expired.',
+  'confirmation-expired':
+    'the verified Fill prompt expired before confirmation.',
   'binding-expired': 'the Fill approval expired.',
   'current-changed': 'the current account, mailbox, or page check failed.',
   'prepare-refused': 'the page did not accept preparation for filling.',
@@ -47,6 +49,7 @@ export default function Popup() {
     state: string;
     requestId?: string;
     cancellation?: CancellationReason;
+    prompt?: 'requested' | 'unavailable' | 'manual';
   }>({ state: 'IDLE' });
   const [permission, setPermission] = useState('');
   useEffect(() => {
@@ -221,6 +224,12 @@ export default function Popup() {
       </header>
       <section aria-labelledby="protection-title" className="protection">
         <h2 id="protection-title">Protection &amp; retrieval</h2>
+        {pipeline.state === 'READY' && pipeline.prompt === 'unavailable' && (
+          <p role="status">
+            Chrome could not open the automatic prompt. Fill is still available
+            here until this approval expires.
+          </p>
+        )}
         <p role="status">
           {pipeline.state === 'READY'
             ? 'Canva code verified. Click Fill to insert it.'
@@ -409,7 +418,11 @@ export default function Popup() {
               Connect requests read-only access to all Gmail mail. Chrome
               chooses a Google account from this browser profile; confirm the
               mailbox shown below before using it. Google may reuse an existing
-              project grant without showing new consent.
+              project grant without showing new consent. After Connect, OTPGuard
+              remembers this account/mailbox binding and checks Chrome’s
+              existing grant after restart. It never opens consent
+              automatically; changed or unavailable authority requires
+              reconnection.
             </p>
             <button
               disabled={

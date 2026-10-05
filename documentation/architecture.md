@@ -109,8 +109,10 @@ again after completion; account invalidation cancels mailbox work. A switched se
 requires explicit disconnect, while different Clerk/Gmail emails remain valid.
 Popup freshness checks, mailbox actions and cloud identity probes are serialized to
 avoid superseding each other; timer polls skip active work. Logout still cancels
-immediately outside that queue. Cleanup can run without Clerk. No binding survives worker restart and no token reaches
-popup/content/backend. The reviewed stable-ID artifact requests only Gmail readonly,
+immediately outside that queue. Cleanup can run without Clerk. Requests and tokens do not survive worker restart. Core 4 now retains only two
+nonsecret connection-intent digests and restores the same selected session/mailbox
+through fresh authoritative checks without interactive OAuth. No token reaches
+popup/content/backend. See [ADR0021](adr/0021-core-4-remembered-mailbox-and-late-challenges.md). The reviewed stable-ID artifact requests only Gmail readonly,
 uses profile/revoke endpoints and has no site content entry or retrieval registration.
 
 Public configuration and `scripts/build-core-1.ts` reproduce a new isolated controlled

@@ -8,7 +8,7 @@ store privacy policy or proof of provider review. The default demo needs no acco
 | Local settings        | Trusted-context Chrome storage: version, random installation UUID, autofill preference and exact HTTPS blocked origins; profile-local, never synced today                                                    |
 | Local history         | Version plus service ID/null, FILL action, result/reason enums, timestamp and installation UUID; at most 500 records, seven-day logical visibility; normal production history empty because fill is disabled |
 | Gmail token           | Optional worker operation locals and Chrome-managed cache; no application refresh-token/token persistence; Google profile Authorization header or revoke POST body only                                      |
-| Mailbox identity      | Optional worker memory and popup display; not stored as application data, exported or uploaded; lost on worker restart                                                                                       |
+| Mailbox identity      | Optional worker memory and popup display; not stored as application data, exported or uploaded; revalidated after restart using only local connection-intent digests                                         |
 | Clerk session         | Production shared-session auth now configured and basic live checks passed; worker-only probes and no application cache; browser-owned provider cookies remain separate                                      |
 | Email/OTP             | No active production message retrieval/fill; reusable processing keeps objects transient; only fabricated demo codes are used in fixtures/assets                                                             |
 | Future cloud metadata | Inactive account-scoped boolean settings, installation status/time and separate six-field history contract; no current app transport/upload                                                                  |
@@ -71,8 +71,12 @@ The controlled combined extension requires a fresh Clerk session for explicit Gm
 Connect and connection checks. Its volatile mailbox binding belongs to that selected
 Clerk user/session; a session change requires disconnect before another session can
 inherit it. Gmail and Clerk addresses remain independently displayed and may differ.
-Restart clears the local binding and requires explicit Connect; Chrome/Google may
-reuse an existing project authorization without another consent screen.
+Core 4 now remembers explicit connection intent using two local SHA-256 account/session
+and mailbox-binding digests. After restart, fresh matching Clerk authority, existing
+noninteractive Chrome grant, readonly scope and Gmail profile are required before
+restoring a connection. No plaintext identity or token is persisted. Disconnect removes
+the intent first. A changed session or missing/revoked grant requires explicit Connect.
+See [ADR0021](adr/0021-core-4-remembered-mailbox-and-late-challenges.md).
 
 The old Gmail client, new combined-extension client and social-login client currently
 share one Google project. Google revocation removes this account's project grants
@@ -105,3 +109,7 @@ click. Local release metadata contains a SHA-256 account/mailbox/message binding
 expiry, never plaintext mailbox, mail or OTP/hash of an OTP. Cloud history remains off.
 See [ADR0020](adr/0020-core-3-signed-content-clicked-fill.md). Full live privacy acceptance
 remains unverified; source-level absence of persistence does not prove a browser audit.
+
+Core 4 connection intent is stored as version plus two digests in trusted-context local
+storage, without time-based retention; removal/replacement or uninstall clears it. It
+is not exported or uploaded. It cannot authorize a request without fresh provider checks.

@@ -88,7 +88,7 @@ chrome.runtime.onMessage.addListener((value: unknown, sender, reply) => {
       'filled',
   );
 });
-// Shared bounded observer supports a code field appearing after an SPA transition.
+// Each scan is bounded; a late SPA challenge must not depend on page-load age.
 const attempted = new WeakSet<HTMLInputElement>();
 function scan(manual = false) {
   if (approval || document.visibilityState !== 'visible') return false;
@@ -146,5 +146,39 @@ const timer = setInterval(() => {
   if (approval && !current()) cancel();
   scan();
 }, 500);
-addEventListener('pagehide', () => clearInterval(timer), { once: true });
+let mutationTimer: ReturnType<typeof setTimeout> | undefined;
+const mutations = new MutationObserver(() => {
+  if (mutationTimer !== undefined) return;
+  mutationTimer = setTimeout(() => {
+    mutationTimer = undefined;
+    if (approval && !current()) cancel();
+    scan();
+  }, 500);
+});
+mutations.observe(document.documentElement, {
+  childList: true,
+  subtree: true,
+  characterData: true,
+  attributes: true,
+  attributeFilter: [
+    'type',
+    'autocomplete',
+    'inputmode',
+    'maxlength',
+    'disabled',
+    'readonly',
+    'hidden',
+    'style',
+    'class',
+  ],
+});
+addEventListener(
+  'pagehide',
+  () => {
+    clearInterval(timer);
+    clearTimeout(mutationTimer);
+    mutations.disconnect();
+  },
+  { once: true },
+);
 scan();

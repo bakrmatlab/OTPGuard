@@ -33,6 +33,7 @@ export interface Envelope {
 export type CancellationReason =
   | 'deadline'
   | 'confirmation'
+  | 'confirmation-expired'
   | 'binding-expired'
   | 'current-changed'
   | 'prepare-refused'
@@ -72,7 +73,7 @@ export interface Adapter {
     binding: import('./protocol').Binding,
     signal: AbortSignal,
     automatic: boolean,
-  ): Promise<boolean>;
+  ): Promise<boolean | 'confirmation-expired'>;
   reserve?(context: Context, messageId: string): Promise<boolean>;
   now(): number;
   id(): string;
@@ -312,16 +313,19 @@ export function createCoordinator(adapter: Adapter) {
           expectedLength: request.length,
           expiresAt,
         };
-        if (
-          adapter.confirm &&
-          !(await adapter.confirm(
+        if (adapter.confirm) {
+          const confirmed = await adapter.confirm(
             context,
             binding,
             request.abort.signal,
             !message.manual,
-          ))
-        )
-          return stop(request, 'confirmation');
+          );
+          if (confirmed !== true)
+            return stop(
+              request,
+              confirmed === 'confirmation-expired' ? confirmed : 'confirmation',
+            );
+        }
         if (!(await alive(request))) return stop(request, 'current-changed');
         if (adapter.now() >= expiresAt) return stop(request, 'binding-expired');
         const ready = await adapter.send(context, {

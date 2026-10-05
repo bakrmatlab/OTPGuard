@@ -1,0 +1,158 @@
+{
+  "initialArtifact": {
+    "source": "eb9a503cba874ed83f18c6dd55938dc53818c250",
+    "branch": "codex/core-4-pilot-acceptance",
+    "date": "2026-10-04",
+    "timezone": "America/Toronto",
+    "runtime": "Bun 1.4.2",
+    "os": "macOS 27.0.1 (26A434)",
+    "chrome": "154.0.8037.93",
+    "extensionId": "jfncecbkgdnhdppgpblbokkceflpmgif",
+    "version": "0.0.0",
+    "artifact": "/tmp/otpguard-core-4-review-v1/apps/extension/build/chrome-mv3-prod",
+    "installedAcceptance": "Chrome UI confirmed same-ID load and exact path; fresh journey pending",
+    "publicConfig": {
+      "configuration/domain-auth.json": "412ceb5eb56fb365ee6a502553b067c367b94a85c7b04f260516b739c066c165",
+      "configuration/core-1-gmail.json": "6ef691e9dfccafea96b6f902b41deca18bf371dd1f2ca91d57604177304dcef1",
+      "scripts/build-core-3.ts": "3c9a3d02bf79c18b9e0a6367f46ae1ea8ba58b761edb742405c1117a2a68e0a8"
+    },
+    "files": {
+      "background.js": "353414c30d82faa9d9d884d209fd3c19791f85aa56a3317c6bb96b61929fde69",
+      "content.js": "18faab77a919d47de4dc5eaad7b2d465c239bbad27835331d2a378ad7ea739a8",
+      "icon.png": "ac4f841b295ba3dc52bf03edbc7bb8671dae55c53e835112a3eea7cee8f5f98c",
+      "manifest.json": "54561669b97c9c88bf9703cbb877a15b893a719f0e1bde50547e3905511c99cb",
+      "popup-entry.css": "aac50146b782838a882ef3398c5108cde750b686ff9e623dfa315dd9a1d72660",
+      "popup-entry.js": "f76cac836ba598e2b3ec3435ec0b2b658d3759cadb77ef5ab7801f1534e3248b",
+      "popup.html": "4ab59f872edfb2d6f3693f073aab832213baa4f6a85729081b085804a2e1d196"
+    }
+  },
+  "currentArtifact": {
+    "source": "eb9a503cba874ed83f18c6dd55938dc53818c250",
+    "branch": "codex/core-4-pilot-acceptance",
+    "date": "2026-10-04",
+    "timezone": "America/Toronto",
+    "runtime": "Bun 1.4.2",
+    "os": "macOS 27.0.1 (26A434)",
+    "chrome": "154.0.8037.93",
+    "extensionId": "jfncecbkgdnhdppgpblbokkceflpmgif",
+    "version": "0.0.0",
+    "artifact": "/tmp/otpguard-core-4-review-v5/apps/extension/build/chrome-mv3-prod",
+    "installedAcceptance": "Chrome UI confirmed same-ID v5 path; owner reported worked after fresh-run request; detailed completion and broader lifecycle checks remain limited",
+    "publicConfig": {
+      "configuration/domain-auth.json": "412ceb5eb56fb365ee6a502553b067c367b94a85c7b04f260516b739c066c165",
+      "configuration/core-1-gmail.json": "6ef691e9dfccafea96b6f902b41deca18bf371dd1f2ca91d57604177304dcef1",
+      "scripts/build-core-3.ts": "3c9a3d02bf79c18b9e0a6367f46ae1ea8ba58b761edb742405c1117a2a68e0a8"
+    },
+    "files": {
+      "background.js": "ead0fe2d7539ad44a3923c290da90ac4108406c2d283d311a556fb927020f9a1",
+      "content.js": "d1d9c98c23f8dac0111f88fa0457a5ed51ab51bad05d82fecb284d09cf524eed",
+      "icon.png": "ac4f841b295ba3dc52bf03edbc7bb8671dae55c53e835112a3eea7cee8f5f98c",
+      "manifest.json": "54561669b97c9c88bf9703cbb877a15b893a719f0e1bde50547e3905511c99cb",
+      "popup-entry.css": "aac50146b782838a882ef3398c5108cde750b686ff9e623dfa315dd9a1d72660",
+      "popup-entry.js": "d5eb6ab70c08d3f02b4c2cb342ad6abb0dea7728d16687d36c9348295df2de84",
+      "popup.html": "4ab59f872edfb2d6f3693f073aab832213baa4f6a85729081b085804a2e1d196"
+    },
+    "sourceState": "base commit plus recorded uncommitted Core 4 source hashes",
+    "sourceChanges": {
+      "apps/extension/account/connected.ts": "46b4eab31fcdcb4590937aa30d9f1ac2ca25c9276cc11e250317d6dabb674b8e",
+      "apps/extension/account/gate.ts": "45262caf1f66a417408d8a091eff6e94c3e5570c487abc4c82c3b504e86f2b92",
+      "apps/extension/background.ts": "a665e1cd7d0ee8932154c6a0a6336936adbfbb947db3789564e8ee477fd55570",
+      "apps/extension/content.ts": "dcf85a92efa91c49ae31cb6b1111bb26fe975fb5a8f5664ca8153424f3deb8a6",
+      "apps/extension/gmail/authenticated-worker.ts": "3362f997de49b626c4181cde3d92269154900922fa7ce8044010244db509710b",
+      "apps/extension/gmail/authenticated.ts": "2365da4fef68a80156deae28c8dfc4cf7b48c6621cfe20580b1b85c1b8ba98da",
+      "apps/extension/gmail/connected.ts": "fec280d11150eef8ef85d388e3f36c7884d504cc7909dbb3763d40596465c5e9",
+      "apps/extension/gmail/lifecycle.ts": "ad7b0ca8a4f6e88fedc234362242648fa2f607b4e72d8ab76b7f34246dc8c95c",
+      "apps/extension/gmail/remembered.ts": "32bf1220c4c74d8f20c4357320571301c1ac08cc129cc81552b80f2893046b64",
+      "apps/extension/gmail/retrieval.ts": "5cc3f1a158a95bb7b38dcc26a7f3f0eebfe12c2a0847c47974e288eb9d83beec",
+      "apps/extension/pipeline/worker.ts": "6eb6919845620b7ccb2be662eb49444822556170c1812fee5ea2c621ea487789",
+      "apps/extension/popup.tsx": "1a286ab87dbcdecdf1c5f127f53f33cfbd1d6b1aac1c9452f71294c90fd6f295",
+      "apps/extension/pipeline/coordinator.ts": "49a66b7be4849e604b8c195aab50726e6d8af3e38438a7138324b672f787fbca"
+    }
+  },
+  "previousArtifacts": [
+    {
+      "source": "eb9a503cba874ed83f18c6dd55938dc53818c250",
+      "branch": "codex/core-4-pilot-acceptance",
+      "date": "2026-10-04",
+      "timezone": "America/Toronto",
+      "runtime": "Bun 1.4.2",
+      "os": "macOS 27.0.1 (26A434)",
+      "chrome": "154.0.8037.93",
+      "extensionId": "jfncecbkgdnhdppgpblbokkceflpmgif",
+      "version": "0.0.0",
+      "artifact": "/tmp/otpguard-core-4-review-v3/apps/extension/build/chrome-mv3-prod",
+      "installedAcceptance": "same-ID v3 load verified; explicit Connect saved intent; extension reload restored connected mailbox without Connect/consent; fresh automatic journey pending",
+      "publicConfig": {
+        "configuration/domain-auth.json": "412ceb5eb56fb365ee6a502553b067c367b94a85c7b04f260516b739c066c165",
+        "configuration/core-1-gmail.json": "6ef691e9dfccafea96b6f902b41deca18bf371dd1f2ca91d57604177304dcef1",
+        "scripts/build-core-3.ts": "3c9a3d02bf79c18b9e0a6367f46ae1ea8ba58b761edb742405c1117a2a68e0a8"
+      },
+      "files": {
+        "background.js": "5ed5b312b97161cf4b062ea9e639b02e22ecb186c6c14cdc16f7e441798dbfc8",
+        "content.js": "d1d9c98c23f8dac0111f88fa0457a5ed51ab51bad05d82fecb284d09cf524eed",
+        "icon.png": "ac4f841b295ba3dc52bf03edbc7bb8671dae55c53e835112a3eea7cee8f5f98c",
+        "manifest.json": "54561669b97c9c88bf9703cbb877a15b893a719f0e1bde50547e3905511c99cb",
+        "popup-entry.css": "aac50146b782838a882ef3398c5108cde750b686ff9e623dfa315dd9a1d72660",
+        "popup-entry.js": "15d657b9e68c38337e89afeb1f6b61152a727f0f74ae5e43a7c6d9806639b6aa",
+        "popup.html": "4ab59f872edfb2d6f3693f073aab832213baa4f6a85729081b085804a2e1d196"
+      },
+      "sourceState": "base commit plus recorded uncommitted Core 4 source hashes",
+      "sourceChanges": {
+        "apps/extension/account/connected.ts": "46b4eab31fcdcb4590937aa30d9f1ac2ca25c9276cc11e250317d6dabb674b8e",
+        "apps/extension/account/gate.ts": "45262caf1f66a417408d8a091eff6e94c3e5570c487abc4c82c3b504e86f2b92",
+        "apps/extension/background.ts": "a665e1cd7d0ee8932154c6a0a6336936adbfbb947db3789564e8ee477fd55570",
+        "apps/extension/content.ts": "dcf85a92efa91c49ae31cb6b1111bb26fe975fb5a8f5664ca8153424f3deb8a6",
+        "apps/extension/gmail/authenticated-worker.ts": "3362f997de49b626c4181cde3d92269154900922fa7ce8044010244db509710b",
+        "apps/extension/gmail/authenticated.ts": "2365da4fef68a80156deae28c8dfc4cf7b48c6621cfe20580b1b85c1b8ba98da",
+        "apps/extension/gmail/connected.ts": "fec280d11150eef8ef85d388e3f36c7884d504cc7909dbb3763d40596465c5e9",
+        "apps/extension/gmail/lifecycle.ts": "ad7b0ca8a4f6e88fedc234362242648fa2f607b4e72d8ab76b7f34246dc8c95c",
+        "apps/extension/gmail/remembered.ts": "32bf1220c4c74d8f20c4357320571301c1ac08cc129cc81552b80f2893046b64",
+        "apps/extension/gmail/retrieval.ts": "450a47c5125a96b8b36cd5c546b140a0fcc5bd4d0cc8fd03e5115b969bd46232",
+        "apps/extension/pipeline/worker.ts": "d5e9c7d3927e915164daefdfd537f6443d325b8b047fe35c4dc5cd51e4f68e7e",
+        "apps/extension/popup.tsx": "979a4d6b9ac0178d38615746df6c931fe3895f8ad85c98aad9a594e3f1b1ea2c"
+      }
+    },
+    {
+      "source": "eb9a503cba874ed83f18c6dd55938dc53818c250",
+      "branch": "codex/core-4-pilot-acceptance",
+      "date": "2026-10-04",
+      "timezone": "America/Toronto",
+      "runtime": "Bun 1.4.2",
+      "os": "macOS 27.0.1 (26A434)",
+      "chrome": "154.0.8037.93",
+      "extensionId": "jfncecbkgdnhdppgpblbokkceflpmgif",
+      "version": "0.0.0",
+      "artifact": "/tmp/otpguard-core-4-review-v4/apps/extension/build/chrome-mv3-prod",
+      "installedAcceptance": "same-ID v4 load and exact source path verified; live automatic delayed-mail run pending",
+      "publicConfig": {
+        "configuration/domain-auth.json": "412ceb5eb56fb365ee6a502553b067c367b94a85c7b04f260516b739c066c165",
+        "configuration/core-1-gmail.json": "6ef691e9dfccafea96b6f902b41deca18bf371dd1f2ca91d57604177304dcef1",
+        "scripts/build-core-3.ts": "3c9a3d02bf79c18b9e0a6367f46ae1ea8ba58b761edb742405c1117a2a68e0a8"
+      },
+      "files": {
+        "background.js": "c21b96b0fe03b9357756aea9073e3ce42c3a0cfe662146268d30ddbe2d130689",
+        "content.js": "d1d9c98c23f8dac0111f88fa0457a5ed51ab51bad05d82fecb284d09cf524eed",
+        "icon.png": "ac4f841b295ba3dc52bf03edbc7bb8671dae55c53e835112a3eea7cee8f5f98c",
+        "manifest.json": "54561669b97c9c88bf9703cbb877a15b893a719f0e1bde50547e3905511c99cb",
+        "popup-entry.css": "aac50146b782838a882ef3398c5108cde750b686ff9e623dfa315dd9a1d72660",
+        "popup-entry.js": "15d657b9e68c38337e89afeb1f6b61152a727f0f74ae5e43a7c6d9806639b6aa",
+        "popup.html": "4ab59f872edfb2d6f3693f073aab832213baa4f6a85729081b085804a2e1d196"
+      },
+      "sourceState": "base commit plus recorded uncommitted Core 4 source hashes",
+      "sourceChanges": {
+        "apps/extension/account/connected.ts": "46b4eab31fcdcb4590937aa30d9f1ac2ca25c9276cc11e250317d6dabb674b8e",
+        "apps/extension/account/gate.ts": "45262caf1f66a417408d8a091eff6e94c3e5570c487abc4c82c3b504e86f2b92",
+        "apps/extension/background.ts": "a665e1cd7d0ee8932154c6a0a6336936adbfbb947db3789564e8ee477fd55570",
+        "apps/extension/content.ts": "dcf85a92efa91c49ae31cb6b1111bb26fe975fb5a8f5664ca8153424f3deb8a6",
+        "apps/extension/gmail/authenticated-worker.ts": "3362f997de49b626c4181cde3d92269154900922fa7ce8044010244db509710b",
+        "apps/extension/gmail/authenticated.ts": "2365da4fef68a80156deae28c8dfc4cf7b48c6621cfe20580b1b85c1b8ba98da",
+        "apps/extension/gmail/connected.ts": "fec280d11150eef8ef85d388e3f36c7884d504cc7909dbb3763d40596465c5e9",
+        "apps/extension/gmail/lifecycle.ts": "ad7b0ca8a4f6e88fedc234362242648fa2f607b4e72d8ab76b7f34246dc8c95c",
+        "apps/extension/gmail/remembered.ts": "32bf1220c4c74d8f20c4357320571301c1ac08cc129cc81552b80f2893046b64",
+        "apps/extension/gmail/retrieval.ts": "5cc3f1a158a95bb7b38dcc26a7f3f0eebfe12c2a0847c47974e288eb9d83beec",
+        "apps/extension/pipeline/worker.ts": "d5e9c7d3927e915164daefdfd537f6443d325b8b047fe35c4dc5cd51e4f68e7e",
+        "apps/extension/popup.tsx": "979a4d6b9ac0178d38615746df6c931fe3895f8ad85c98aad9a594e3f1b1ea2c"
+      }
+    }
+  ]
+}

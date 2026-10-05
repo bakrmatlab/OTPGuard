@@ -33,10 +33,7 @@ export function createConnectedCoordinator(
       return adapter.retrieve(context, signal);
     },
     async current(context) {
-      if (
-        !context.accountSession ||
-        !(await gate.current(context.accountSession))
-      )
+      if (!context.accountSession || !gate.matches(context.accountSession))
         return false;
       if (!(await adapter.current(context))) return false;
       return gate.current(context.accountSession);

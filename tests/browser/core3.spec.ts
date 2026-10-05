@@ -210,3 +210,46 @@ test('observer expiry does not invalidate a current manual Fill handoff', async 
   expect(ready).toEqual({ prepared: true, released: true });
   await expect(page.locator('input')).toHaveValue('003719');
 });
+
+test('automatically detects a fresh SPA challenge after more than one minute on the login page', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.route('https://www.canva.com/**', (r) =>
+    r.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><main><form><input type="email"></form></main>',
+    }),
+  );
+  await page.goto('https://www.canva.com/login/');
+  await page.evaluate(() => {
+    const messages: unknown[] = [];
+    Object.assign(window, {
+      __late: messages,
+      chrome: {
+        runtime: {
+          id: 'fixture',
+          sendMessage: async (v: unknown) => {
+            messages.push(v);
+          },
+          onMessage: { addListener: () => {} },
+        },
+      },
+    });
+  });
+  await page.addScriptTag({
+    content: readFileSync(artifact + '/content.js', 'utf8'),
+  });
+  await page.clock.runFor(90000);
+  await page.evaluate(() => {
+    document.querySelector('main')!.innerHTML =
+      '<div>Enter the code we sent to <strong>owner@example.test</strong><form><input autocomplete="one-time-code" inputmode="numeric" maxlength="6"></form></div>';
+  });
+  await page.clock.runFor(1000);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __late: unknown[] }).__late,
+    ),
+  ).toMatchObject([{ type: 'detect', manual: false, expectedLength: 6 }]);
+  await expect(page.locator('input')).toHaveValue('');
+});

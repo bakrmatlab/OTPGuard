@@ -758,3 +758,30 @@ it('reports page preparation refusal without reserving or releasing a code', asy
   expect(cancelled).toHaveBeenLastCalledWith('prepare-refused');
   expect(reserve).not.toHaveBeenCalled();
 });
+
+it('performs one fresh account probe per current check rather than two sequential remote reads', async () => {
+  const { createConnectedCoordinator } =
+    await import('../apps/extension/account/connected');
+  const t = setup();
+  let reads = 0;
+  let latency = 0;
+  const gate = createAccountGate(async () => {
+    reads++;
+    latency += 250;
+    return {
+      userId: 'account',
+      sessionId: 'session',
+      label: 'Synthetic',
+      expiresAt: 1000000,
+    };
+  }, t.adapter.now);
+  t.adapter.confirm = async () => true;
+  const coordinator = createConnectedCoordinator(t.adapter, gate);
+  try {
+    expect((await coordinator.handle(detect, {})).state).toBe('FILLED');
+    expect({ reads, latency }).toEqual({ reads: 7, latency: 1750 });
+  } finally {
+    coordinator.dispose();
+    gate.invalidate();
+  }
+});

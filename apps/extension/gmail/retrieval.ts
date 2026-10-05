@@ -11,7 +11,9 @@ import { verifyDkimContent } from '../../../packages/security/dkim';
 import { createDkimResolver } from './dns';
 import { supportedServices } from '../../../packages/security';
 
-const schedule = [0, 2000, 6000, 12000, 22000];
+// Mail delivery/indexing can lag the challenge. Keep looking within the same
+// bounded request window, leaving time for verification and the owner's click.
+const schedule = [0, 2000, 6000, 12000, 22000, 32000, 42000];
 function wait(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal.aborted) return reject(new RetrievalFailure('network'));
@@ -179,6 +181,7 @@ export function createGmailPageCoordinator(
   account: AccountGate,
   mailbox: ReturnType<typeof createGmailLifecycle>,
   transport = createGmailTransport(),
+  ensureMailbox = () => mailbox.check(),
 ) {
   const engine = createRetrievalEngine({
     now: browser.now,
@@ -322,6 +325,7 @@ export function createGmailPageCoordinator(
     },
     account,
     mailbox,
+    ensureMailbox,
   );
   const stopAccount = account.subscribe(engine.cancelAll);
   const stopMailbox = mailbox.subscribe(engine.cancelAll);

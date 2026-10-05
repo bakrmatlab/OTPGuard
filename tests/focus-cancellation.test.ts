@@ -10,6 +10,9 @@ vi.mock('../apps/extension/gmail/retrieval', () => ({
 }));
 vi.mock('../apps/extension/gmail/worker', () => ({ gmailLifecycle: {} }));
 vi.mock('../apps/extension/account/worker', () => ({ accountGate: {} }));
+vi.mock('../apps/extension/gmail/authenticated-worker', () => ({
+  authenticatedMailbox: { check: async () => ({ state: 'DISCONNECTED' }) },
+}));
 vi.mock('../apps/extension/settings/worker', () => ({
   localSettings: {
     snapshot: () => ({ installationId: 'fixture' }),

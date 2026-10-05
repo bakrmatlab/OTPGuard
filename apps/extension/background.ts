@@ -10,13 +10,7 @@ import {
   localSettings,
 } from './settings/worker';
 import { parseHistoryAction, historyAction } from './activity/worker';
-import { gmailLifecycle } from './gmail/worker';
-import { createAuthenticatedMailbox } from './gmail/authenticated';
-import { accountGate } from './account/worker';
-const authenticatedMailbox = createAuthenticatedMailbox(
-  accountGate,
-  gmailLifecycle,
-);
+import { authenticatedMailbox } from './gmail/authenticated-worker';
 import { accountStatus, accountProbe, signOutAccount } from './account/worker';
 // Exact popup only. No message retrieval or production fill adapter.
 chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {

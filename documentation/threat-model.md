@@ -127,3 +127,16 @@ send/ack replay; unseen intact copies/different message IDs/installations remain
 residual risk. Plain text is authoritative; HTML-only messages are unsupported.
 [ADR0020](adr/0020-core-3-signed-content-clicked-fill.md) details these limits. Fresh real
 fill/login and live crash/permission/privacy acceptance remain unverified.
+
+## Core 4 remembered connection and late challenges
+
+Stored connection-intent digests grant no authority by themselves. Restoration freshly
+checks the same Clerk user/session, noninteractive readonly Chrome grant and Gmail
+profile before CONNECTED is visible. Scope/grant/storage failure and account/mailbox
+changes refuse; Disconnect removes intent before cleanup and cancels pending restoration.
+No request/code/approval is restored, and write-ahead message replay limits are unchanged.
+DOM mutations can trigger throttled bounded detection after the original one-minute
+window; per-field deduplication, current context and policy remain mandatory. The final
+current-check still obtains a fresh authoritative account result after browser checks.
+Synthetic regressions passed; full owner-profile lifecycle/privacy coverage remains
+unverified. See [ADR0021](adr/0021-core-4-remembered-mailbox-and-late-challenges.md).

@@ -66,6 +66,12 @@ export function createAccountGate(
     });
     return probe;
   };
+  const matches = (bound: AccountBinding) =>
+    !!identity &&
+    identity.expiresAt > now() &&
+    identity.userId === bound.userId &&
+    identity.sessionId === bound.sessionId &&
+    generation === bound.generation;
   return {
     invalidate,
     subscribe(listener: () => void) {
@@ -75,6 +81,9 @@ export function createAccountGate(
       };
     },
     refresh,
+    /** Local cancellation/expiry guard only; never a substitute for current's
+     * authoritative provider probe at an authorization boundary. */
+    matches,
     identity: () =>
       identity && identity.expiresAt > now() ? { ...identity } : null,
     async current(bound: AccountBinding) {

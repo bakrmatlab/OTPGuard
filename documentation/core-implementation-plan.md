@@ -182,6 +182,17 @@ is required for documentation-only work. Owner enters credentials/CAPTCHA direct
 
 One selected PR at a time, report validation and acceptance, then stop for owner review.
 This plan authorizes no automatic feature start, new chats, merge, deployment or public
-submission. Core 3 is the current owner-selected scope. Its bounded signer/content pilot is authorized; subsequent PRs remain unstarted. Publishing
+submission. Core 4 is now the owner-selected scope, after owner-approved Core 2/3 merge and push as eb9a503. Its local acceptance and reproducible-failure repairs are authorized; subsequent scopes remain unstarted. Publishing
 and provider actions follow explicit session authorization. Preserve failed native draft
 PR #3 as separate historical evidence; do not merge it as unfinished core work.
+
+### Core 4 owner-selected connection revision
+
+After successful manual Canva login on the final Core 4 v1 artifact, the owner reported
+missing automatic retrieval, slow response and disruptive repeated Gmail Connect.
+The owner explicitly authorized remembering prior explicit connection and restoring it
+after restart through fresh matching account/mailbox checks, without interactive consent.
+[ADR0021](adr/0021-core-4-remembered-mailbox-and-late-challenges.md) supersedes ADR0017's
+per-restart explicit Connect rule for this pilot and records the reproduced late-SPA
+failure and synthetic account-probe overhead. Full live acceptance remains separate;
+see [Core 4 acceptance](core-4-acceptance.md). The owner subsequently reported the v5 attempt worked and authorized commit, merge and push of this Core 4 scope. Broader live acceptance remains partial; deployment and subsequent scopes remain unstarted.

@@ -158,10 +158,10 @@ it('polls at bounded elapsed times, coalesces identical windows and stops on suc
   });
   const a = engine.retrieve(context, new AbortController().signal);
   const b = engine.retrieve(context, new AbortController().signal);
-  await vi.advanceTimersByTimeAsync(22_000);
+  await vi.advanceTimersByTimeAsync(42_000);
   expect(await a).toEqual([]);
   expect(await b).toEqual([]);
-  expect(cycle).toHaveBeenCalledTimes(5);
+  expect(cycle).toHaveBeenCalledTimes(7);
 });
 it('cancelled subscribers cannot receive shared results and last cancellation aborts transport', async () => {
   vi.useFakeTimers();
@@ -263,9 +263,9 @@ it('settles a stalled cycle at deadline and retries network failure without exce
     cycle,
   });
   const result = offline.retrieve(context, new AbortController().signal);
-  await vi.advanceTimersByTimeAsync(22_000);
+  await vi.advanceTimersByTimeAsync(42_000);
   expect(await result).toBeNull();
-  expect(cycle).toHaveBeenCalledTimes(5);
+  expect(cycle).toHaveBeenCalledTimes(7);
 });
 
 it('production seam cannot bypass Clerk or the empty shipped service registry', async () => {
@@ -425,4 +425,28 @@ it('disconnect drains nonabortable mail grants before cache cleanup and stale wo
   expect((await disconnect).state).toBe('DISCONNECTED');
   expect(work).not.toHaveBeenCalled();
   expect(adapter.clear).toHaveBeenCalledTimes(1);
+});
+
+it('keeps polling an initially empty mailbox until a code arrives after thirty seconds', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(100_000);
+  const arrived = [
+    { messageId: 'synthetic-delayed' },
+  ] as unknown as import('../apps/extension/pipeline/coordinator').Envelope[];
+  const times: number[] = [];
+  const cycle = vi.fn(async () => {
+    times.push(Date.now() - 100_000);
+    return Date.now() >= 130_000 ? arrived : [];
+  });
+  const engine = createRetrievalEngine({
+    now: Date.now,
+    current: async () => true,
+    cycle,
+  });
+  const pending = engine.retrieve(context, new AbortController().signal);
+  await vi.advanceTimersByTimeAsync(35_000);
+  expect(await pending).toEqual(arrived);
+  expect(times).toEqual([0, 2000, 6000, 12000, 22000, 32000]);
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(cycle).toHaveBeenCalledTimes(6);
 });

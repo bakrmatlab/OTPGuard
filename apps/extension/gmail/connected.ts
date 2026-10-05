@@ -7,6 +7,7 @@ export function createMailboxCoordinator(
   adapter: Adapter,
   account: AccountGate,
   mailbox: ReturnType<typeof createGmailLifecycle>,
+  ensureMailbox = () => mailbox.check(),
 ) {
   let generation = 0;
   const coordinator = createConnectedCoordinator(
@@ -14,7 +15,7 @@ export function createMailboxCoordinator(
       ...adapter,
       async context(sender) {
         const before = generation;
-        const status = await mailbox.check();
+        const status = await ensureMailbox();
         if (status.state !== 'CONNECTED') {
           adapter.contextFailure?.('mailbox');
           return null;

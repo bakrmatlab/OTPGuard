@@ -1,5 +1,6 @@
 import { createGmailPageCoordinator } from '../gmail/retrieval';
 import { gmailLifecycle } from '../gmail/worker';
+import { authenticatedMailbox } from '../gmail/authenticated-worker';
 import { accountGate } from '../account/worker';
 import { localSettings } from '../settings/worker';
 import { supportedServices, normalizeOrigin } from '../../../packages/security';
@@ -17,6 +18,7 @@ let pending: {
   binding: Binding;
   context: Context;
   finish: (v: boolean) => void;
+  prompt: 'requested' | 'unavailable' | 'manual';
 } | null = null;
 const ledger = createReleaseLedger({
   async read() {
@@ -50,6 +52,20 @@ async function current(context: Context) {
     (await permitted(context.origin)) &&
     (await foreground(context.tabId))
   );
+}
+async function openBoundPopup(
+  context: Context,
+  valid: () => boolean = () => true,
+) {
+  const tab = await chrome.tabs.get(context.tabId);
+  if (
+    !tab.active ||
+    tab.windowId === undefined ||
+    !(await current(context)) ||
+    !valid()
+  )
+    throw new Error('Prompt context unavailable');
+  await chrome.action.openPopup({ windowId: tab.windowId });
 }
 export const pagePipeline = createGmailPageCoordinator(
   {
@@ -97,7 +113,7 @@ export const pagePipeline = createGmailPageCoordinator(
         serviceId: policy.id,
         foreground: true,
       };
-      if (await current(context)) await chrome.action.openPopup();
+      await openBoundPopup(context);
     },
     id: () => crypto.randomUUID(),
     settings: () =>
@@ -166,27 +182,47 @@ export const pagePipeline = createGmailPageCoordinator(
       ledger.reserve(context.accountId, context.mailboxId, id),
     confirm(context, binding, signal, automatic) {
       if (pending) return Promise.resolve(false);
-      return new Promise((resolve) => {
-        const finish = (v: boolean) => {
+      return new Promise<boolean | 'confirmation-expired'>((resolve) => {
+        let settled = false;
+        const finish = (v: boolean | 'confirmation-expired') => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
           signal.removeEventListener('abort', abort);
-          pending = null;
+          if (pending?.binding === binding) pending = null;
           resolve(v);
         };
         const abort = () => finish(false);
         const timer = setTimeout(
-          abort,
+          () => finish('confirmation-expired'),
           Math.max(0, binding.expiresAt - Date.now()),
         );
-        pending = { context, binding, finish };
+        pending = {
+          context,
+          binding,
+          finish,
+          prompt: automatic ? 'requested' : 'manual',
+        };
         signal.addEventListener('abort', abort, { once: true });
         if (signal.aborted) abort();
-        else if (automatic) void chrome.action.openPopup().catch(abort);
+        else if (automatic)
+          void openBoundPopup(
+            context,
+            () => !settled && pending?.binding === binding,
+          ).catch(() => {
+            if (!settled && pending?.binding === binding)
+              pending.prompt = 'unavailable';
+          });
       });
     },
   },
   accountGate,
   gmailLifecycle,
+  undefined,
+  () =>
+    gmailLifecycle.snapshot().state === 'CONNECTED'
+      ? gmailLifecycle.check()
+      : authenticatedMailbox.check(),
 );
 
 export function pipelineStatus() {
@@ -196,6 +232,7 @@ export function pipelineStatus() {
         requestId: pending.binding.requestId,
         service: 'Canva',
         expiresAt: pending.binding.expiresAt,
+        prompt: pending.prompt,
       }
     : retryFailure
       ? { state: retryFailure }
