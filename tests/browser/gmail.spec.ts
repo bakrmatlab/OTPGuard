@@ -70,9 +70,9 @@ for (const phase of ['startup', 'action'] as const) {
           popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }),
         ).toHaveCount(0);
       }
-      await popup.getByText('How protection works', { exact: true }).click();
+      await popup.getByText('How code matching works', { exact: true }).click();
       await expect(
-        popup.getByText('Every insertion requires your click.', {
+        popup.getByText('Every insertion requires your click', {
           exact: false,
         }),
       ).toBeVisible();

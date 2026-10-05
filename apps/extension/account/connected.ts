@@ -9,6 +9,7 @@ export function createConnectedCoordinator(
     ...adapter,
     async context(sender) {
       adapter.contextFailure?.(null);
+      adapter.progress?.('account');
       const bound = await gate.refresh(true);
       if (!bound) {
         adapter.contextFailure?.('account');

@@ -76,7 +76,7 @@ test('unpacked extension worker and popup load without page access', async () =>
       popup.getByRole('heading', { name: 'OTPGuard', exact: true }),
     ).toBeVisible();
     await expect(popup.getByRole('status')).toContainText(
-      'Open a supported email-code challenge',
+      'Open an email-code challenge',
     );
     await popup.evaluate(() => {
       for (const panel of document.querySelectorAll<HTMLDetailsElement>(
@@ -206,7 +206,7 @@ test('unpacked extension worker and popup load without page access', async () =>
       await worker.evaluate(
         () => chrome.runtime.getManifest().host_permissions ?? [],
       ),
-    ).toEqual(['https://dns.google/*']);
+    ).toEqual([]);
     await expect(popup.getByRole('button', { name: 'Fill' })).toBeDisabled();
     await expect(
       popup.getByRole('button', { name: 'Find code / Retry' }),
@@ -215,18 +215,14 @@ test('unpacked extension worker and popup load without page access', async () =>
       popup.getByRole('button', { name: 'Open dashboard' }),
     ).toBeDisabled();
     await expect(
-      popup.getByRole('button', { name: 'Enable Canva' }),
+      popup.getByRole('button', { name: 'Enable on websites' }).first(),
     ).toBeEnabled();
-    await popup.getByText('How protection works', { exact: true }).focus();
+    await popup.getByText('How code matching works', { exact: true }).focus();
     await popup.keyboard.press('Enter');
     await expect(
-      popup.getByText('Unrelated mail alone is not evidence of phishing.', {
+      popup.getByText('Sender identity and the email-to-website relationship', {
         exact: false,
       }),
-    ).toBeVisible();
-    await expect(popup.getByText('NO_CODE — no eligible mail')).toBeVisible();
-    await expect(
-      popup.getByText('UNKNOWN — insufficient evidence'),
     ).toBeVisible();
     await automatic.focus();
     await expect(automatic).toBeFocused();

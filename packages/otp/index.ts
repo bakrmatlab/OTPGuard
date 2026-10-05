@@ -120,3 +120,5 @@ export type {
 } from './gmail';
 
 export { normalizeRawEmail } from './raw';
+
+export { parseGenericCode } from './generic';

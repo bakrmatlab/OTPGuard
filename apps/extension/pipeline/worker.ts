@@ -1,9 +1,13 @@
-import { createGmailPageCoordinator } from '../gmail/retrieval';
+import { createProgress } from './progress';
+import {
+  createGmailPageCoordinator,
+  type RetrievalIssue,
+} from '../gmail/retrieval';
 import { gmailLifecycle } from '../gmail/worker';
 import { authenticatedMailbox } from '../gmail/authenticated-worker';
 import { accountGate } from '../account/worker';
 import { localSettings } from '../settings/worker';
-import { supportedServices, normalizeOrigin } from '../../../packages/security';
+import { normalizeOrigin } from '../../../packages/security';
 import { createReleaseLedger } from './replay';
 import { createActivityRecorder } from '../activity/record';
 import { localHistory } from '../activity/worker';
@@ -11,7 +15,17 @@ import type { Binding } from './protocol';
 import type { Context, CancellationReason } from './coordinator';
 import { isForeground as foreground } from './foreground';
 
+const progress = createProgress();
+let displayCurrent = true;
+let admitting = false;
+let displayTab: number | undefined;
+function clearDisplay() {
+  displayCurrent = false;
+  admitting = false;
+  progress.reset();
+}
 let cancellation: CancellationReason | undefined;
+let retrievalIssue: RetrievalIssue | undefined;
 let contextFailure: 'account' | 'mailbox' | 'page' | null = null;
 let retryFailure: 'NO_CHALLENGE' | 'CONTENT_UNAVAILABLE' | null = null;
 let pending: {
@@ -33,11 +47,13 @@ const ledger = createReleaseLedger({
     await chrome.storage.local.set({ 'otpguard.release.v1': v });
   },
 });
-const matches = supportedServices.flatMap((s) =>
-  s.origins.map((o) => o + '/*'),
-);
+const matches = ['https://*/*'];
 async function permitted(origin: string) {
-  return chrome.permissions.contains({ origins: [origin + '/*'] });
+  return (
+    !!normalizeOrigin(origin) &&
+    (await chrome.permissions.contains({ origins: matches })) &&
+    chrome.permissions.contains({ origins: [origin + '/*'] })
+  );
 }
 async function current(context: Context) {
   const frame = await chrome.webNavigation.getFrame({
@@ -46,6 +62,7 @@ async function current(context: Context) {
   });
   return !!(
     frame &&
+    localSettings.available() &&
     frame.documentId === context.documentId &&
     frame.url === context.browserUrl &&
     normalizeOrigin(frame.url) === context.origin &&
@@ -70,11 +87,31 @@ async function openBoundPopup(
 export const pagePipeline = createGmailPageCoordinator(
   {
     now: Date.now,
+    progress(stage) {
+      if (stage === 'polling') admitting = false;
+      progress.update(stage);
+    },
+    finished() {
+      admitting = false;
+      progress.freeze();
+    },
     cancelled(reason) {
       cancellation = reason;
+      admitting = false;
+      progress.freeze();
     },
     contextFailure(reason) {
-      if (reason === null) cancellation = undefined;
+      if (reason === null) {
+        displayCurrent = true;
+        admitting = true;
+        progress.reset();
+        cancellation = undefined;
+        retrievalIssue = undefined;
+      }
+      if (reason !== null) {
+        admitting = false;
+        progress.freeze();
+      }
       contextFailure = reason;
       retryFailure = null;
     },
@@ -93,13 +130,16 @@ export const pagePipeline = createGmailPageCoordinator(
       )
         return;
       const origin = normalizeOrigin(sender.url);
-      const policy = supportedServices.find((s) =>
-        s.origins.includes(origin ?? ''),
-      );
+      if (!origin || localSettings.snapshot().blockedOrigins.includes(origin))
+        return;
+      const frame = await chrome.webNavigation.getFrame({
+        tabId: sender.tab.id,
+        frameId: 0,
+      });
       if (
-        !origin ||
-        !policy ||
-        localSettings.snapshot().blockedOrigins.includes(origin)
+        !frame ||
+        frame.documentId !== sender.documentId ||
+        normalizeOrigin(frame.url) !== origin
       )
         return;
       const context: Context = {
@@ -108,9 +148,9 @@ export const pagePipeline = createGmailPageCoordinator(
         tabId: sender.tab.id,
         documentId: sender.documentId,
         origin,
-        browserUrl: sender.url,
-        policyUrl: sender.url,
-        serviceId: policy.id,
+        browserUrl: frame.url,
+        policyUrl: frame.url,
+        serviceId: 'generic',
         foreground: true,
       };
       await openBoundPopup(context);
@@ -121,15 +161,17 @@ export const pagePipeline = createGmailPageCoordinator(
         ? localSettings.snapshot()
         : {
             autofillEnabled: false,
-            blockedOrigins: matches.map((m) => m.slice(0, -2)),
+            blockedOrigins: [],
           },
     subscribeSettings: localSettings.subscribe,
     activity: createActivityRecorder(
       localHistory,
       () => localSettings.snapshot().installationId,
-      supportedServices.map((s) => s.id),
+      [],
     ),
     async context(sender) {
+      displayTab = sender.tab?.id;
+      progress.update('page');
       await localSettings.initialized;
       if (
         sender.id !== chrome.runtime.id ||
@@ -142,18 +184,28 @@ export const pagePipeline = createGmailPageCoordinator(
         contextFailure = 'page';
         return null;
       }
+      if (!localSettings.available()) {
+        contextFailure = 'page';
+        return null;
+      }
       const origin = normalizeOrigin(sender.url);
-      const policy = supportedServices.find((s) =>
-        s.origins.includes(origin ?? ''),
-      );
       const mailbox = gmailLifecycle.snapshot();
-      if (
-        !policy ||
-        !origin ||
-        mailbox.state !== 'CONNECTED' ||
-        !mailbox.mailbox
-      ) {
+      if (!origin || mailbox.state !== 'CONNECTED' || !mailbox.mailbox) {
         contextFailure = mailbox.state !== 'CONNECTED' ? 'mailbox' : 'page';
+        return null;
+      }
+      const frame = await chrome.webNavigation.getFrame({
+        tabId: sender.tab.id,
+        frameId: 0,
+      });
+      // Chrome's sender URL remains the document's initial URL after pushState.
+      // Bind to live browser metadata only after exact document/origin validation.
+      if (
+        !frame ||
+        frame.documentId !== sender.documentId ||
+        normalizeOrigin(frame.url) !== origin
+      ) {
+        contextFailure = 'page';
         return null;
       }
       const context = {
@@ -162,9 +214,9 @@ export const pagePipeline = createGmailPageCoordinator(
         tabId: sender.tab.id,
         documentId: sender.documentId,
         origin,
-        browserUrl: sender.url,
-        policyUrl: sender.url,
-        serviceId: policy.id,
+        browserUrl: frame.url,
+        policyUrl: frame.url,
+        serviceId: 'generic',
         foreground: await foreground(sender.tab.id),
       };
       if (!(await current(context))) {
@@ -223,14 +275,21 @@ export const pagePipeline = createGmailPageCoordinator(
     gmailLifecycle.snapshot().state === 'CONNECTED'
       ? gmailLifecycle.check()
       : authenticatedMailbox.check(),
+  (issue) => {
+    retrievalIssue = issue ?? undefined;
+  },
 );
 
 export function pipelineStatus() {
+  if (!displayCurrent) return { state: 'IDLE' };
+  const value = admitting ? { state: 'SEARCHING' } : readPipelineStatus();
+  return { ...value, progress: progress.snapshot() };
+}
+function readPipelineStatus() {
   return pending
     ? {
         state: 'READY',
         requestId: pending.binding.requestId,
-        service: 'Canva',
         expiresAt: pending.binding.expiresAt,
         prompt: pending.prompt,
       }
@@ -244,7 +303,7 @@ export function pipelineStatus() {
               page: 'PAGE_UNAVAILABLE',
             }[contextFailure],
           }
-        : { ...pagePipeline.status(), cancellation };
+        : { ...pagePipeline.status(), cancellation, retrievalIssue };
 }
 export async function acceptFill(requestId: unknown) {
   const selected = pending;
@@ -262,16 +321,15 @@ export async function acceptFill(requestId: unknown) {
 export async function retryPage() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const origin = normalizeOrigin(tab?.url ?? '');
-  if (
-    !origin ||
-    !supportedServices.some((s) => s.origins.includes(origin)) ||
-    tab?.id === undefined ||
-    !(await permitted(origin))
-  )
+  if (!origin || tab?.id === undefined || !(await permitted(origin)))
     return false;
   contextFailure = null;
   retryFailure = null;
   try {
+    displayCurrent = true;
+    displayTab = tab.id;
+    progress.reset();
+    progress.update('detection');
     const detected = await chrome.tabs.sendMessage(tab.id, {
       type: 'scan',
       manual: true,
@@ -312,17 +370,24 @@ chrome.permissions.onAdded.addListener(
   () => void registerSites().catch(() => {}),
 );
 chrome.webNavigation.onCommitted.addListener(({ tabId, frameId }) => {
-  if (frameId === 0) pagePipeline.cancelTab(tabId);
+  if (frameId === 0) {
+    pagePipeline.cancelTab(tabId);
+    if (tabId === displayTab) clearDisplay();
+  }
 });
 chrome.webNavigation.onHistoryStateUpdated.addListener(({ tabId, frameId }) => {
-  if (frameId === 0) pagePipeline.cancelTab(tabId);
+  if (frameId === 0) {
+    pagePipeline.cancelTab(tabId);
+    if (tabId === displayTab) clearDisplay();
+  }
 });
 chrome.tabs.onRemoved.addListener((tabId) =>
   pagePipeline.cancelTab(tabId, 'navigation'),
 );
-chrome.tabs.onActivated.addListener(() =>
-  pagePipeline.cancelAll('tab-changed'),
-);
+chrome.tabs.onActivated.addListener(() => {
+  pagePipeline.cancelAll('tab-changed');
+  clearDisplay();
+});
 chrome.windows.onFocusChanged.addListener(() => {
   // Popup mounting can briefly blur its browser window. Recheck actual request
   // authority after mounting rather than treating regained browser focus as loss.
@@ -330,3 +395,12 @@ chrome.windows.onFocusChanged.addListener(() => {
     void pagePipeline.recheckAll('focus-changed');
   }, 500);
 });
+
+chrome.webNavigation.onReferenceFragmentUpdated?.addListener(
+  ({ tabId, frameId }) => {
+    if (frameId === 0) {
+      pagePipeline.cancelTab(tabId);
+      if (tabId === displayTab) clearDisplay();
+    }
+  },
+);

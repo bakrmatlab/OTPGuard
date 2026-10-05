@@ -50,13 +50,9 @@ if (probeOrigin) {
 }
 // Core 3: exact optional site access; extension-owned user-clicked prompt.
 finalized.permissions.push('scripting', 'webNavigation');
-finalized.host_permissions.push('https://dns.google/*');
-finalized.content_security_policy.extension_pages =
-  finalized.content_security_policy.extension_pages
-    .replace("connect-src 'none'", 'connect-src')
-    .replace(/;$/, ' https://dns.google;');
+
 const pilotManifest = {
-  optional_host_permissions: ['https://www.canva.com/*'],
+  optional_host_permissions: ['https://*/*'],
   minimum_chrome_version: '127',
 };
 const outdir = 'build/chrome-mv3-prod';

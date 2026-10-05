@@ -57,10 +57,9 @@ if (
   manifest.background?.type !== 'module' ||
   JSON.stringify(manifest.permissions) !==
     JSON.stringify(['storage', 'scripting', 'webNavigation']) ||
-  JSON.stringify(manifest.host_permissions) !==
-    JSON.stringify(['https://dns.google/*']) ||
+  JSON.stringify(manifest.host_permissions) !== JSON.stringify([]) ||
   JSON.stringify(manifest.optional_host_permissions) !==
-    JSON.stringify(['https://www.canva.com/*']) ||
+    JSON.stringify(['https://*/*']) ||
   manifest.minimum_chrome_version !== '127' ||
   manifest.content_scripts ||
   manifest.web_accessible_resources ||
@@ -68,7 +67,7 @@ if (
   manifest.oauth2 ||
   manifest.key ||
   manifest.content_security_policy?.extension_pages !==
-    "script-src 'self'; object-src 'none'; connect-src https://dns.google;"
+    "script-src 'self'; object-src 'none'; connect-src 'none';"
 )
   throw new Error(
     'Review extension must retain the default unconfigured boundary',

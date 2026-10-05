@@ -228,3 +228,48 @@ cloud transport activation are outside this local review pass.
 Owner follow-up: public feature landing at `/`, configured Clerk session protection at
 `/dashboard`, and sign-in/sign-up fallback redirects to the dashboard. Local provider-free
 preview and live provider acceptance limits are recorded in website-polish-acceptance.md.
+
+October 5 follow-up: owner approved website commit/merge/push, completed as `e156a81`,
+and requested Clerk working afterward. Existing production keys/provider setup were
+preserved; the exact merged site was manually deployed and aliased to otpguard.net.
+Live landing, Clerk signup/signin forms, Google option and anonymous dashboard refusal
+passed isolated Chromium checks. Owner confirmed successful live login opens the dashboard. See website-auth-live-acceptance.md for evidence and scope limitations.
+
+## Owner-selected generic filling PR — October 5, 2026
+
+One local PR: `feat(extension): support generic user-confirmed email codes`.
+Owner explicitly selected general recent-mail matching, no per-site setup, a simple
+Code found / Fill prompt without sender/destination labels, and authorized implementation.
+This changes the release contract under ADR0022; it is not an additional Core PR number.
+
+Scope: generic candidate parsing/assessment, time-bounded mailbox retrieval, optional
+HTTPS-wide detection permission, bound required Fill confirmation, honest setup text,
+relevant regressions, artifact and browser checks. Preserve existing uncommitted
+acceptance documentation, env/grants/builds and all lifecycle/privacy deferrals.
+No publishing, merge, deployment, provider grant change or following PR is authorized.
+
+Acceptance: one unambiguous numeric code is offered without service configuration;
+no code leaves before a click. Unrelated/unsupported/ambiguous/stale/truncated messages
+refuse or are excluded as documented. Leading zeros/unknown length work; navigation,
+account/mailbox/focus/fields/blocks/permissions/expiry/replay refuse. Popup is minimal
+and never asserts verified sender-to-site trust. Production excludes fixture adapters.
+Report actual synthetic/browser results separately from live multi-site acceptance in
+[generic acceptance](../documentation/generic-fill-acceptance.md), then stop for review.
+
+Generic-fill review repair (October 5): owner reported Canva refusal and Clerk idle.
+Synthetic connected encoded-subject mail and deeply nested decorative-slot controls
+reproduced both symptoms before repair. Support bounded generic-only RFC 2047 subjects
+and eight bounded context ancestors. Preserve ambiguity/lifecycle/click/privacy gates.
+See generic-fill-acceptance.md; real-site retest remains required for live acceptance.
+
+Generic-fill owner review continuation: Canva confirmed working after MIME repair.
+Clerk PAGE_UNAVAILABLE was reproduced as same-document sender/browser URL drift.
+Bind live browser URL after exact document/origin checks and retain later navigation
+refusal. Broaden generic-only MIME/layout/charset coverage with the 47-case matrix in
+generic-email-coverage.md. Keep numerical code/purpose and lifecycle limitations
+explicit; Clerk live retest remains open. This continues the same selected local PR.
+
+October 5 owner revision: complete reliability blockers 1–7 within the existing local
+generic-confirmed-fill PR. ADR0023 and generic-reliability-acceptance.md record the scope,
+matching heuristics, shared request timing, retained fill and actual validation. No next
+Core PR, publication, merge, deployment or installation is authorized by this entry.

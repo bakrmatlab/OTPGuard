@@ -112,16 +112,18 @@ try {
   });
   await page.goto('http://127.0.0.1:3201');
   await expect(
-    page.getByText('Account authentication is unconfigured.'),
+    page.getByRole('heading', { name: 'Email codes, with less friction.' }),
+  ).toBeVisible();
+  await page.goto('http://127.0.0.1:3201/dashboard');
+  await expect(
+    page.getByRole('heading', { name: 'Overview', exact: true }),
   ).toBeVisible();
   await page.setViewportSize({ width: 380, height: 800 });
   await page
     .getByRole('navigation', { name: 'Dashboard' })
-    .getByRole('link', { name: 'Devices', exact: true })
+    .getByRole('link', { name: 'Account & connections', exact: true })
     .click();
-  await expect(
-    page.getByRole('heading', { name: 'Devices', exact: true }),
-  ).toBeVisible();
+  await expect(page.locator('#connections')).toBeVisible();
   expect(
     await page.locator('body').evaluate((body) => body.scrollWidth <= 380),
   ).toBe(true);
@@ -149,8 +151,12 @@ try {
   await popup.goto(
     `chrome-extension://${new URL(worker.url()).host}/popup.html`,
   );
+  await popup.locator('.management > summary').click();
+  await popup.locator('#gmail-summary').click();
   await expect(
-    popup.getByText('Gmail connection is unconfigured.', { exact: false }),
+    popup
+      .getByText('Gmail connection is unconfigured.', { exact: false })
+      .first(),
   ).toBeVisible();
   await expect(popup.getByRole('button', { name: 'Fill' })).toBeDisabled();
   console.log(

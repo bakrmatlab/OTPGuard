@@ -73,14 +73,7 @@ describe('production extension permission boundary', () => {
       'scripting',
       'webNavigation',
     ]);
-    expect(manifest.optional_host_permissions).toEqual([
-      'https://www.canva.com/*',
-    ]);
-    expected.host_permissions.push('https://dns.google/*');
-    expected.content_security_policy.extension_pages =
-      expected.content_security_policy.extension_pages
-        .replace("connect-src 'none'", 'connect-src')
-        .replace(/;$/, ' https://dns.google;');
+    expect(manifest.optional_host_permissions).toEqual(['https://*/*']);
     expect(manifest.host_permissions ?? []).toEqual(expected.host_permissions);
     expect(manifest.content_security_policy).toEqual(
       expected.content_security_policy,
@@ -132,7 +125,7 @@ describe('fixture isolation', () => {
       }
     });
   }
-  it('registers only the exact reviewed optional Canva origin dynamically', () => {
+  it('registers optional HTTPS detection dynamically', () => {
     const source = readFileSync('apps/extension/pipeline/worker.ts', 'utf8');
     expect(source).toContain('chrome.permissions.contains');
     expect(source).toContain('allFrames: false');

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { createDetector } from '../../apps/extension/detection';
-import { insertCode } from '../../apps/extension/insertion';
+import { insertCode, insertCodeRetained } from '../../apps/extension/insertion';
 
 // Explicit fixture adapter, bundled only by the loopback fixture server.
 const syntheticCode = '042681';
@@ -66,4 +66,4 @@ document.querySelector('#fill')!.addEventListener('click', () => {
       : { status: 'rejected', reason: 'missing-group' },
   );
 });
-export { createDetector, insertCode };
+export { createDetector, insertCode, insertCodeRetained };

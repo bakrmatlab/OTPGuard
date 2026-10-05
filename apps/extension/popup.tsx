@@ -1,4 +1,6 @@
+import { stageText, type ProgressSnapshot } from './pipeline/progress';
 import './popup.css';
+import type { RetrievalIssue } from './gmail/retrieval';
 import type { CancellationReason } from './pipeline/coordinator';
 import type { ActivityEvent } from '../../packages/shared';
 import { canonicalBlock } from './settings/local';
@@ -10,8 +12,7 @@ import { createConnectionQueue } from './account/connection-queue';
 const cancellationMessages: Record<CancellationReason, string> = {
   deadline: 'the search time limit was reached.',
   confirmation: 'Fill was not confirmed before the prompt closed or expired.',
-  'confirmation-expired':
-    'the verified Fill prompt expired before confirmation.',
+  'confirmation-expired': 'the Fill prompt expired before confirmation.',
   'binding-expired': 'the Fill approval expired.',
   'current-changed': 'the current account, mailbox, or page check failed.',
   'prepare-refused': 'the page did not accept preparation for filling.',
@@ -47,11 +48,40 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
 export default function Popup() {
   const [pipeline, setPipeline] = useState<{
     state: string;
+    progress?: ProgressSnapshot;
     requestId?: string;
+    reason?: string;
+    retrievalIssue?: RetrievalIssue;
     cancellation?: CancellationReason;
     prompt?: 'requested' | 'unavailable' | 'manual';
   }>({ state: 'IDLE' });
   const [permission, setPermission] = useState('');
+  const [siteAccess, setSiteAccess] = useState<boolean | null>(null);
+  useEffect(() => {
+    void chrome.permissions
+      .contains({ origins: ['https://*/*'] })
+      .then(setSiteAccess)
+      .catch(() => setSiteAccess(false));
+  }, []);
+  const enableSites = () =>
+    void chrome.permissions
+      .request({ origins: ['https://*/*'] })
+      .then((granted) => {
+        setSiteAccess(granted);
+        if (granted && siteAccess !== true) {
+          void chrome.runtime
+            .sendMessage({ type: 'settings-autofill', enabled: true })
+            .then((value) => setSettings(value ?? { state: 'UNAVAILABLE' }))
+            .catch(() => setSettings({ state: 'UNAVAILABLE' }));
+        }
+        setPermission(
+          granted
+            ? 'Website detection enabled. Reload your login page.'
+            : 'Permission denied.',
+        );
+      })
+      .catch(() => setPermission('Permission unavailable.'));
+
   useEffect(() => {
     let active = true;
     const read = () =>
@@ -179,6 +209,10 @@ export default function Popup() {
       setBusy(false);
     }
   };
+  const requestState =
+    status.state === 'SIGN_IN_REQUIRED'
+      ? 'ACCOUNT_UNAVAILABLE'
+      : pipeline.state;
   const config = configuredAccount();
   useEffect(() => {
     let active = true;
@@ -244,14 +278,14 @@ export default function Popup() {
             O
           </span>
           <h1>OTPGuard</h1>
-          <span className="pilot">Local protection</span>
+          <span className="pilot">Local matching</span>
         </div>
         <p className="muted">Email codes, checked locally.</p>
       </header>
       <section aria-labelledby="protection-title" className="protection">
         <p className="eyebrow">Current request</p>
         <h2 id="protection-title">
-          {requestTitle[pipeline.state] ?? 'Request unavailable'}
+          {requestTitle[requestState] ?? 'Request unavailable'}
         </h2>
         {pipeline.state === 'READY' && pipeline.prompt === 'unavailable' && (
           <p role="status">
@@ -260,15 +294,45 @@ export default function Popup() {
           </p>
         )}
         <p role="status" aria-live="polite">
-          {pipeline.state === 'CANCELLED' && pipeline.cancellation
-            ? `Request cancelled: ${cancellationMessages[pipeline.cancellation]}`
-            : (requestText[pipeline.state] ??
-              'Reopen the popup or try again on a supported login page.')}
+          {requestState === 'UNKNOWN' && pipeline.retrievalIssue
+            ? retrievalFailureText(pipeline.retrievalIssue)
+            : requestState === 'UNKNOWN' && pipeline.reason === 'ambiguity'
+              ? 'More than one code or login request may match. Finish other login requests, then request a fresh code and retry.'
+              : requestState === 'CANCELLED' && pipeline.cancellation
+                ? `Request cancelled: ${cancellationMessages[pipeline.cancellation]}`
+                : (requestText[requestState] ??
+                  'Reopen the popup or try again on a supported login page.')}
         </p>
+        {pipeline.progress && (
+          <div>
+            <p>
+              {!['IDLE', 'SEARCHING', 'READY', 'CANDIDATE'].includes(
+                pipeline.state,
+              ) && 'Last observed stage: '}
+              {pipeline.state === 'SEARCHING'
+                ? 'Checking recent emails'
+                : stageText[pipeline.progress.stage]}{' '}
+              · {pipeline.progress.elapsedSeconds}s elapsed
+            </p>
+            <details>
+              <summary>Request progress</summary>
+              <p>{stageText[pipeline.progress.stage]}</p>
+              <p>
+                Current stage: {pipeline.progress.stageSeconds}s. Last observed
+                stages; no email contents or codes.
+              </p>
+              <ol>
+                {pipeline.progress.steps.map((stage, index) => (
+                  <li key={index}>{stageText[stage]}</li>
+                ))}
+              </ol>
+            </details>
+          </div>
+        )}
         <div className="actions">
           <button
             className="primary"
-            disabled={pipeline.state !== 'READY'}
+            disabled={requestState !== 'READY'}
             onClick={() =>
               void chrome.runtime
                 .sendMessage({
@@ -297,54 +361,28 @@ export default function Popup() {
         <p className="muted fill-note">
           OTPGuard never submits. The site may react to input events.
         </p>
+        {siteAccess === false && pipeline.state !== 'READY' && (
+          <div className="panel">
+            <p>
+              Enable once to detect email-code fields on HTTPS websites.
+              Matching does not verify that the email belongs to the website.
+              Clicking Fill shares the likely code with the current page.
+            </p>
+            <button onClick={enableSites}>Enable on websites</button>
+            {permission && <p role="status">{permission}</p>}
+          </div>
+        )}
         <details>
-          <summary>How protection works</summary>
+          <summary>How code matching works</summary>
           <p>
-            Currently supports Canva email-code login only. Signed sender and
-            content are checked locally. Direct delivery and intact-copy replay
-            are not proven. Every insertion requires your click. A verified
-            approval lasts at most 30 seconds; expired approvals require a new
-            search.
+            Recent verification emails are matched by time, code context and
+            field length. Sender identity and the email-to-website relationship
+            are not verified. Every insertion requires your click and shares the
+            code with the current page. Multiple plausible codes or emails
+            refuse. A Fill request lasts at most 30 seconds. Site blocks prevent
+            retrieval. Mail and codes stay local; the extension never submits a
+            form.
           </p>
-          <dl>
-            <dt>VERIFIED — authorized request</dt>
-            <dd>
-              All checks pass. Only a current, worker-authorized request can
-              fill after your click.
-            </dd>
-            <dt>UNKNOWN — insufficient evidence</dt>
-            <dd>
-              Unsupported service, unverified sender, or ambiguous evidence. No
-              code is released; this does not mean the site is malicious.
-            </dd>
-            <dt>MISMATCH — different destination</dt>
-            <dd>
-              The candidate belongs to a different service or approved origin
-              and is refused. Unrelated mail alone is not evidence of phishing.
-            </dd>
-            <dt>BLOCKED — explicit local block</dt>
-            <dd>
-              A saved block prevents retrieval and fill on that exact origin.
-              Removing a block still requires every verification check.
-            </dd>
-            <dt>SEARCHING — retrieval in progress</dt>
-            <dd>A bounded search is underway.</dd>
-            <dt>NO_CODE — no eligible mail</dt>
-            <dd>
-              No eligible code arrived before the search ended. It is not a
-              security decision; a supported flow could offer retry.
-            </dd>
-            <dt>RECONNECT_REQUIRED — mailbox access unavailable</dt>
-            <dd>
-              Use the Gmail controls to reconnect. Only supported sites can
-              retrieve.
-            </dd>
-            <dt>ERROR — operation failed</dt>
-            <dd>
-              The operation could not complete. No successful fill or connection
-              is inferred.
-            </dd>
-          </dl>
         </details>
       </section>
       <section className="connection-summary" aria-label="Connection overview">
@@ -548,30 +586,16 @@ export default function Popup() {
             <h2 id="permissions-title">Permissions</h2>
             <p>
               {configuredGmail()
-                ? 'Gmail read-only access is requested only when you connect. It permits reading all mail; only bounded recent supported-sender mail is retrieved for a current request.'
+                ? 'Gmail read-only access is requested only when you connect. It permits reading all mail; only bounded recent mail is retrieved for a current request.'
                 : 'Local preferences use extension storage. Gmail permission is unconfigured.'}
             </p>
             <p>
-              Optional access applies only to https://www.canva.com. Enable it,
-              then reload the Canva login page. DNS key lookup sends only the
-              public signer/selector to Google Public DNS.
+              Enable detection once for HTTPS websites, then reload your login
+              page. OTPGuard finds likely recent email codes. It does not verify
+              that the email belongs to the website. Clicking Fill shares the
+              code with the current page.
             </p>
-            <button
-              onClick={() =>
-                void chrome.permissions
-                  .request({ origins: ['https://www.canva.com/*'] })
-                  .then((v) =>
-                    setPermission(
-                      v
-                        ? 'Canva enabled. Reload its page.'
-                        : 'Permission denied.',
-                    ),
-                  )
-                  .catch(() => setPermission('Permission unavailable.'))
-              }
-            >
-              Enable Canva
-            </button>
+            <button onClick={enableSites}>Enable on websites</button>
             {permission && <p role="status">{permission}</p>}
           </details>
         </section>
@@ -741,7 +765,7 @@ export default function Popup() {
             <summary id="dashboard-summary">Build & dashboard</summary>
             <h2 id="dashboard-title">Build identity</h2>
             <p>
-              Popup polish · Core 4 engine · v
+              Generic email-code engine · v
               {chrome.runtime.getManifest().version}
             </p>
             <p className="muted">Extension ID: {chrome.runtime.id}</p>
@@ -786,7 +810,7 @@ const mailboxText: Record<MailboxStatus['state'], string> = {
 };
 
 const activityReason: Record<ActivityEvent['reason'], string> = {
-  none: 'All authorization checks passed',
+  none: 'User-confirmed insertion checks passed',
   'local-block': 'Explicit local site block',
   'unsupported-service': 'Service unsupported',
   destination: 'Candidate targets a different approved origin',
@@ -800,21 +824,35 @@ const activityReason: Record<ActivityEvent['reason'], string> = {
 };
 
 const requestTitle: Record<string, string> = {
+  ACCOUNT_UNAVAILABLE: 'Sign in to find your code',
+  MAILBOX_UNAVAILABLE: 'Reconnect Gmail',
+  PAGE_UNAVAILABLE: 'Return to the login page',
+  NO_CHALLENGE: 'Code field not detected',
+  CONTENT_UNAVAILABLE: 'Reload the login page',
   IDLE: 'Ready when you need a code',
-  READY: 'Your code is ready',
+  READY: 'Code found',
   SEARCHING: 'Looking for your code',
   FILLED: 'Code inserted',
   CANCELLED: 'Request stopped',
   NO_CODE: 'No eligible code found',
-  UNKNOWN: 'Could not verify this request',
+  UNKNOWN: 'Could not select a code',
   MISMATCH: 'Destination does not match',
   BLOCKED: 'This site is blocked',
   ERROR: 'Could not complete the request',
   UNAVAILABLE: 'Request unavailable',
 };
 const requestText: Record<string, string> = {
-  IDLE: 'Open a supported email-code challenge, or choose Find code / Retry.',
-  READY: 'Code verified for this request. Click Fill before approval expires.',
+  ACCOUNT_UNAVAILABLE:
+    'Sign in to your OTPGuard account using Set up your account below, then return here and choose Find code / Retry. Gmail access is separate.',
+  MAILBOX_UNAVAILABLE:
+    'Reconnect your Gmail mailbox in Manage connections, then retry.',
+  PAGE_UNAVAILABLE: 'Keep the supported HTTPS login page active, then retry.',
+  NO_CHALLENGE:
+    'No supported empty email-code field was detected on this page.',
+  CONTENT_UNAVAILABLE:
+    'Reload this page to start website detection, then retry.',
+  IDLE: 'Open an email-code challenge, or choose Find code / Retry.',
+  READY: 'Click Fill before this request expires.',
   SEARCHING:
     'Searching recent verification mail… Late mail is checked during this bounded search.',
   FILLED:
@@ -822,7 +860,7 @@ const requestText: Record<string, string> = {
   CANCELLED:
     'The request is no longer active. Return to the email-code challenge and retry.',
   NO_CODE:
-    'No eligible mail arrived during the search. Wait for the email, then retry.',
+    'No eligible code was selected. An email may have arrived but been excluded. Check Request progress, then request a fresh code and retry.',
   UNKNOWN:
     'Evidence is unsupported, insufficient or ambiguous. No code is released; this does not mean the site is malicious.',
   MISMATCH:
@@ -832,3 +870,27 @@ const requestText: Record<string, string> = {
   ERROR:
     'The operation failed. No successful fill is confirmed. Return to the challenge and retry.',
 };
+
+const retrievalIssueText: Record<
+  Exclude<RetrievalIssue, `mime-${string}`>,
+  string
+> = {
+  mime: 'A recent email uses a format that could not be decoded safely. No code was selected. Retry after the recent-mail window clears.',
+  schema:
+    'Gmail returned an unreadable message response. No code was selected. Retry.',
+  limit:
+    'Too much recent mail was returned to check safely. Wait a minute, then request a fresh code and retry.',
+  network: 'Gmail could not be reached. Check the connection, then retry.',
+  quota: 'Gmail temporarily limited requests. Wait before retrying.',
+  mailbox:
+    'Gmail access could not be confirmed. Check Manage connections, then retry.',
+};
+
+function retrievalFailureText(issue: RetrievalIssue): string {
+  if (issue.startsWith('mime-'))
+    return `Email decoding stopped at ${issue.slice(5)}. No code was selected. This diagnostic contains no email contents or codes.`;
+  return (
+    Object.entries(retrievalIssueText).find(([key]) => key === issue)?.[1] ??
+    retrievalIssueText.mime
+  );
+}

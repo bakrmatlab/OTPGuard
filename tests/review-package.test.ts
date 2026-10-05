@@ -26,12 +26,12 @@ const manifest = {
   action: { default_popup: 'popup.html' },
   background: { service_worker: 'background.js', type: 'module' },
   permissions: ['storage', 'scripting', 'webNavigation'],
-  host_permissions: ['https://dns.google/*'],
-  optional_host_permissions: ['https://www.canva.com/*'],
+  host_permissions: [],
+  optional_host_permissions: ['https://*/*'],
   minimum_chrome_version: '127',
   content_security_policy: {
     extension_pages:
-      "script-src 'self'; object-src 'none'; connect-src https://dns.google;",
+      "script-src 'self'; object-src 'none'; connect-src 'none';",
   },
 };
 

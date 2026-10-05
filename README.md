@@ -1,3 +1,10 @@
+> Current local implementation (October 5, 2026): generic, user-confirmed recent
+> Gmail code matching on HTTPS websites, with one optional site-access setup and
+> a “Code found” / Fill prompt. This does not verify the email-to-website relationship.
+> Prior disabled/Canva-only descriptions below are historical milestones. See
+> [generic acceptance](documentation/generic-fill-acceptance.md) and
+> [ADR0022](documentation/adr/0022-generic-user-confirmed-fill.md).
+
 # OTPGuard
 
 A Chrome MV3 portfolio prototype exploring local email-code authorization. Its separate

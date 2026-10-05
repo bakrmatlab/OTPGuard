@@ -1,15 +1,24 @@
+import { recipientMatches } from '../../../packages/security/generic';
 import type { Context, Envelope, Adapter } from '../pipeline/coordinator';
 import type { AccountGate } from '../account/gate';
 import type { createGmailLifecycle } from './lifecycle';
 import { createMailboxCoordinator } from './connected';
 import { createGmailTransport, RetrievalFailure } from './transport';
 import {
-  normalizeRawEmail,
-  parseVerificationCode,
-} from '../../../packages/otp';
-import { verifyDkimContent } from '../../../packages/security/dkim';
-import { createDkimResolver } from './dns';
-import { supportedServices } from '../../../packages/security';
+  clearlyUnrelatedMail,
+  rawEmailHints,
+  type RawEmailIssue,
+} from '../../../packages/otp/raw';
+import { normalizeRawEmail, parseGenericCode } from '../../../packages/otp';
+
+export type RetrievalIssue =
+  | 'quota'
+  | 'network'
+  | 'limit'
+  | 'schema'
+  | 'mime'
+  | `mime-${RawEmailIssue}`
+  | 'mailbox';
 
 // Mail delivery/indexing can lag the challenge. Keep looking within the same
 // bounded request window, leaving time for verification and the owner's click.
@@ -54,6 +63,7 @@ function cancellable<T>(
 /** One volatile run per exact account/session/mailbox/service/window. No cached mail. */
 export function createRetrievalEngine(deps: {
   now(): number;
+  progress?(stage: import('../pipeline/progress').ProgressStage): void;
   current(context: Context): Promise<boolean>;
   cycle(
     context: Context,
@@ -81,13 +91,15 @@ export function createRetrievalEngine(deps: {
       } catch {
         return null;
       }
-      const startedAt = Math.floor(deps.now() / 1000) * 1000;
+      const admittedAt = Math.floor(deps.now() / 1000) * 1000;
+      const startedAt = context.requestWindow?.startedAt ?? admittedAt;
       const key = JSON.stringify([
         context.accountId,
         context.accountSession,
         context.mailboxId,
         context.serviceId,
         startedAt,
+        context.requestWindow,
       ]);
       let run = runs.get(key);
       if (!run) {
@@ -96,19 +108,20 @@ export function createRetrievalEngine(deps: {
         const combined = abort.signal;
         const deadlineTimer = setTimeout(
           () => abort.abort(),
-          Math.max(0, startedAt + 60_000 - deps.now()),
+          Math.max(0, admittedAt + 60_000 - deps.now()),
         );
         const result = (async () => {
           let failed = false;
           try {
             for (const elapsed of schedule) {
-              const target = Math.max(startedAt + elapsed, quotaUntil);
-              if (target >= startedAt + 60_000) return null;
+              const target = Math.max(admittedAt + elapsed, quotaUntil);
+              if (target >= admittedAt + 60_000) return null;
+              deps.progress?.('polling');
               await wait(Math.max(0, target - deps.now()), combined);
               if (
                 !(await cancellable(() => deps.current(context), combined)) ||
                 combined.aborted ||
-                deps.now() >= startedAt + 60_000
+                deps.now() >= admittedAt + 60_000
               )
                 return null;
               try {
@@ -124,6 +137,7 @@ export function createRetrievalEngine(deps: {
                 if (mail === null || mail.length > 10) return null;
                 failed = false;
                 if (mail.length) return mail;
+                deps.progress?.('polling');
               } catch (error) {
                 failed = true;
                 if (
@@ -182,9 +196,11 @@ export function createGmailPageCoordinator(
   mailbox: ReturnType<typeof createGmailLifecycle>,
   transport = createGmailTransport(),
   ensureMailbox = () => mailbox.check(),
+  onFailure: (issue: RetrievalIssue | null) => void = () => {},
 ) {
   const engine = createRetrievalEngine({
     now: browser.now,
+    progress: (stage) => browser.progress?.(stage),
     async current(context) {
       return (
         !!context.accountSession &&
@@ -195,34 +211,46 @@ export function createGmailPageCoordinator(
       );
     },
     async cycle(context, startedAt, signal) {
-      const policy = supportedServices.find((p) => p.id === context.serviceId);
-      // Unsupported services refuse before Google I/O.
+      onFailure(null);
       if (
-        !policy ||
         !context.accountSession ||
         !(await account.current(context.accountSession)) ||
         signal.aborted
       )
         return null;
-      const raw = await mailbox.withMailbox(
-        context.mailboxId,
-        signal,
-        (token, authorizedSignal) =>
-          transport.cycle(
-            token,
-            policy.senders.map((s) => s.address),
-            startedAt,
-            authorizedSignal,
-            'raw',
-          ),
-      );
-      if (!raw || signal.aborted) return null;
+      let raw;
+      try {
+        raw = await mailbox.withMailbox(
+          context.mailboxId,
+          signal,
+          (token, authorizedSignal) =>
+            transport.cycle(
+              token,
+              [],
+              startedAt,
+              authorizedSignal,
+              'raw',
+              true,
+              context.requestWindow?.notBefore,
+              browser.now() + 60000,
+              browser.progress,
+            ),
+        );
+      } catch (error) {
+        onFailure(error instanceof RetrievalFailure ? error.reason : 'network');
+        throw error;
+      }
+      if (!raw || signal.aborted) {
+        if (!signal.aborted) onFailure('mailbox');
+        return null;
+      }
       const envelopes: Envelope[] = [];
       for (const value of raw) {
         const message = value as {
           id?: string;
           raw?: string;
           internalDate?: string;
+          snippet?: unknown;
         };
         if (
           !message.id ||
@@ -230,8 +258,10 @@ export function createGmailPageCoordinator(
           message.raw.length > 350000 ||
           !/^[A-Za-z0-9_-]+={0,2}$/.test(message.raw) ||
           !/^\d{1,16}$/.test(message.internalDate ?? '')
-        )
+        ) {
+          onFailure('schema');
           return null;
+        }
         let bytes: Uint8Array;
         try {
           bytes = Uint8Array.from(
@@ -239,76 +269,86 @@ export function createGmailPageCoordinator(
             (c) => c.charCodeAt(0),
           );
         } catch {
+          onFailure('schema');
           return null;
         }
-        const rule = policy.senders[0];
+        const receivedAt = Number(message.internalDate);
         if (
-          !rule ||
-          !policy.selector ||
-          policy.evidenceContract !== 'signed-content-pilot'
-        )
-          return null;
-        const verified = await verifyDkimContent(
-          bytes,
-          {
-            signingDomain: rule.authenticatedDomain,
-            selector: policy.selector,
-            from: rule.address,
-            recipient: context.mailboxId,
-            now: browser.now(),
-            maxAgeSeconds: 300,
-          },
-          createDkimResolver(),
-        );
-        if (signal.aborted || verified.status !== 'content-authenticated')
-          return null;
-        const email = normalizeRawEmail(bytes);
+          receivedAt <
+            (context.requestWindow?.notBefore ?? startedAt - 60000) ||
+          receivedAt > browser.now()
+        ) {
+          browser.progress?.('receipt');
+          continue;
+        }
+        const hints = rawEmailHints(bytes);
         if (
-          !email ||
-          !policy.emailTemplate ||
-          !policy.emailTemplate.subject.test(email.subject) ||
-          !policy.emailTemplate.instruction.test(email.text)
-        )
+          context.requestWindow?.recipient &&
+          hints?.recipients.length &&
+          !hints.recipients.some((recipient) =>
+            recipientMatches(recipient, context.requestWindow!.recipient!),
+          )
+        ) {
+          browser.progress?.('recipient');
+          continue;
+        }
+        browser.progress?.('decoding');
+        let failure: RawEmailIssue | undefined;
+        const email = normalizeRawEmail(bytes, true, (issue) => {
+          failure = issue;
+        });
+        if (!email) {
+          if (clearlyUnrelatedMail(bytes, message.snippet)) {
+            browser.progress?.('unrelated');
+            continue;
+          }
+          onFailure(`mime-${failure ?? 'headers'}`);
           return null;
-        const candidate = parseVerificationCode(email);
+        }
+        browser.progress?.('selecting');
+        const parsed = parseGenericCode(email);
+        if (parsed.status === 'rejected') {
+          browser.progress?.(
+            parsed.reason === 'unsupported-purpose'
+              ? 'purpose'
+              : parsed.reason === 'quoted-or-forwarded'
+                ? 'quoted'
+                : 'template',
+          );
+          continue;
+        }
         if (
-          candidate.status !== 'candidate' ||
-          !email.text
-            .split(/\r?\n/)
-            .some((line) => line.trim() === candidate.candidate.code)
-        )
-          return null;
-        const head = Array.from(bytes, (c) => String.fromCharCode(c))
-          .join('')
-          .split('\r\n\r\n')[0]!;
-        const signatures = head
-          .replace(/\r\n[ \t]+/g, ' ')
-          .split('\r\n')
-          .filter((h) => /^dkim-signature:/i.test(h));
-        const signature = signatures.find(
-          (h) =>
-            h.includes('d=' + rule.authenticatedDomain + ';') &&
-            h.includes('s=' + policy.selector + ';'),
-        );
-        const signedAt =
-          Number(/(?:;|:)\s*t=(\d+)/.exec(signature ?? '')?.[1]) * 1000;
-        if (!Number.isSafeInteger(signedAt)) return null;
+          parsed.status === 'candidate' &&
+          context.requestWindow?.allowedLengths &&
+          !context.requestWindow.allowedLengths.includes(
+            parsed.candidate.code.length,
+          )
+        ) {
+          browser.progress?.('length');
+          continue;
+        }
+        if (
+          parsed.status === 'candidate' &&
+          context.requestWindow?.expectedLength &&
+          parsed.candidate.code.length !== context.requestWindow.expectedLength
+        ) {
+          browser.progress?.('length');
+          continue;
+        }
         envelopes.push({
           messageId: message.id,
           mailboxId: context.mailboxId,
-          receivedAt: Number(message.internalDate),
+          receivedAt,
+          ...(hints
+            ? {
+                recipients: hints.recipients,
+                ...(hints.senderDomain
+                  ? { senderDomain: hints.senderDomain }
+                  : {}),
+              }
+            : {}),
           email,
-          sender: {
-            status: 'authenticated',
-            messageId: message.id,
-            mailboxId: context.mailboxId,
-            address: rule.address,
-            authenticatedDomain: rule.authenticatedDomain,
-            boundaryId: rule.boundaryId,
-            method: rule.method,
-            delivery: 'unverified',
-            signedAt,
-          },
+          sender: { status: 'unknown' },
         });
       }
       return envelopes;
@@ -320,7 +360,8 @@ export function createGmailPageCoordinator(
       settings:
         browser.settings ??
         (() => ({ autofillEnabled: false, blockedOrigins: [] })),
-      registry: supportedServices,
+      registry: [],
+      mode: 'user-confirmed',
       retrieve: engine.retrieve,
     },
     account,

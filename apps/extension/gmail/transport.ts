@@ -104,13 +104,22 @@ export function createGmailTransport(
       startedAt: number,
       signal: AbortSignal,
       format: 'full' | 'raw' = 'full',
+      generic = false,
+      notBefore = startedAt - 60000,
+      until = startedAt + 60000,
+      progress: (stage: 'listing' | 'fetching') => void = () => {},
     ) {
       if (
-        !senders.length ||
+        (!senders.length && !generic) ||
         senders.length > 20 ||
         senders.some((s) => !/^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+$/.test(s)) ||
         !Number.isSafeInteger(startedAt) ||
-        startedAt < 60_000
+        startedAt < 60_000 ||
+        !Number.isSafeInteger(notBefore) ||
+        notBefore < 0 ||
+        !Number.isSafeInteger(until) ||
+        until <= startedAt ||
+        until - notBefore > 360000
       )
         throw new RetrievalFailure('schema');
       const url = new URL(base);
@@ -118,8 +127,9 @@ export function createGmailTransport(
       url.searchParams.set('includeSpamTrash', 'false');
       url.searchParams.set(
         'q',
-        `{${senders.map((s) => 'from:' + s).join(' ')}} after:${Math.floor((startedAt - 60_000) / 1000)} before:${Math.ceil((startedAt + 60_000) / 1000)}`,
+        `${generic ? '' : `{${senders.map((s) => 'from:' + s).join(' ')}} `}after:${Math.floor(notBefore / 1000)} before:${Math.ceil(until / 1000)}`,
       );
+      progress('listing');
       const body = await read(url, token, signal, 16 * 1024);
       if (!body || typeof body !== 'object' || Array.isArray(body))
         throw new RetrievalFailure('schema');
@@ -149,6 +159,7 @@ export function createGmailTransport(
         if (signal.aborted) throw new RetrievalFailure('network');
         const get = new URL(base + '/' + id);
         get.searchParams.set('format', format);
+        progress('fetching');
         const message = await read(get, token, signal, 512 * 1024);
         if (
           !message ||

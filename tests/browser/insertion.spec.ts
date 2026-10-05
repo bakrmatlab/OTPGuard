@@ -127,7 +127,7 @@ test('native setter bypasses instance setter and emits input then change', async
   );
 });
 
-test('stale, hidden, disabled and number fields and iframe targets fail safely', async ({
+test('stale, hidden, disabled and email fields and iframe targets fail safely', async ({
   page,
 }) => {
   const results = await page.evaluate(async () => {
@@ -158,7 +158,7 @@ test('stale, hidden, disabled and number fields and iframe targets fail safely',
     replacement.hidden = true;
     results.push(insertCode(group, '042681', 6));
     replacement.hidden = false;
-    replacement.type = 'number';
+    replacement.type = 'email';
     results.push(insertCode(group, '042681', 6));
     const frame = document.createElement('iframe');
     frame.srcdoc = '<input autocomplete="one-time-code">';
@@ -218,6 +218,9 @@ test('constraints changed by an input handler stop insertion', async ({
     input.addEventListener(
       'input',
       () => {
+        // Chromium rejects an IDL maxLength smaller than minLength; make the
+        // changed range valid so this exercises interference rather than an exception.
+        (input as HTMLInputElement).minLength = 0;
         (input as HTMLInputElement).maxLength = 0;
       },
       { once: true },
@@ -226,4 +229,70 @@ test('constraints changed by an input handler stop insertion', async ({
   await page.locator('#fill').click();
   await expect(page.locator('#fill-result')).toContainText('page-interference');
   await expect(page.locator('#submissions')).toHaveText('0');
+});
+
+test('retained acknowledgement catches asynchronous clearing and field replacement', async ({
+  page,
+}) => {
+  const results = await page.evaluate(async () => {
+    const modulePath = '/insertion.js';
+    const { createDetector, insertCodeRetained } = await import(modulePath);
+    const field = document.querySelector<HTMLInputElement>('#plain input')!;
+    const group = () =>
+      createDetector(document)
+        .scan()
+        .groups.find(
+          (g: { fields: HTMLInputElement[] }) => g.fields[0] === field,
+        );
+    field.addEventListener(
+      'input',
+      () =>
+        setTimeout(() => {
+          field.value = '';
+        }, 0),
+      { once: true },
+    );
+    const cleared = await insertCodeRetained(group(), '042681', 6);
+    field.value = '';
+    field.addEventListener(
+      'input',
+      () =>
+        setTimeout(() => {
+          field.replaceWith(field.cloneNode());
+        }, 0),
+      { once: true },
+    );
+    const replaced = await insertCodeRetained(group(), '042681', 6);
+    return [cleared, replaced];
+  });
+  expect(results).toEqual(
+    Array(2).fill({ status: 'rejected', reason: 'page-interference' }),
+  );
+});
+
+test('maxLength is an upper bound, exact patterns are enforced, and retained numeric fields preserve zeros', async ({
+  page,
+}) => {
+  const result = await page.evaluate(async () => {
+    const modulePath = '/insertion.js';
+    const { createDetector, insertCodeRetained } = await import(modulePath);
+    document.body.innerHTML =
+      '<form><p>Your email verification code</p><input autocomplete="one-time-code" maxlength="8"></form>';
+    const get = () => createDetector(document).scan().groups[0];
+    const shorter = await insertCodeRetained(get(), '042681', 6);
+    const field = document.querySelector('input')!;
+    field.value = '';
+    field.pattern = '[0-9]{8}';
+    const pattern = await insertCodeRetained(get(), '042681', 6);
+    field.pattern = '';
+    field.type = 'number';
+    const numeric = await insertCodeRetained(get(), '042681', 6);
+    return { shorter, pattern, numeric, value: field.value };
+  });
+  expect(result).toEqual({
+    shorter: { status: 'filled' },
+    pattern: { status: 'rejected', reason: 'length' },
+    numeric: { status: 'filled' },
+    value: '042681',
+  });
 });

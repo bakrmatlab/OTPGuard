@@ -15,6 +15,7 @@ export function createMailboxCoordinator(
       ...adapter,
       async context(sender) {
         const before = generation;
+        adapter.progress?.('mailbox');
         const status = await ensureMailbox();
         if (status.state !== 'CONNECTED') {
           adapter.contextFailure?.('mailbox');

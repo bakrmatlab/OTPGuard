@@ -140,3 +140,24 @@ window; per-field deduplication, current context and policy remain mandatory. Th
 current-check still obtains a fresh authoritative account result after browser checks.
 Synthetic regressions passed; full owner-profile lifecycle/privacy coverage remains
 unverified. See [ADR0021](adr/0021-core-4-remembered-mailbox-and-late-challenges.md).
+
+## Generic mode contract — October 5, 2026
+
+ADR0022 permits explicit user-confirmed insertion without authenticated sender or
+reviewed destination evidence. Single recent codes can be spoofed, imported, replayed
+or belong to another login. A Fill click does not establish email-to-site trust; no
+phishing-prevention claim is made. Broad HTTPS detection increases page exposure, with
+one optional setup grant. Bound release, confirmation, ambiguity refusal, write-ahead
+reservation and local blocks remain mitigations, not proofs of challenge identity.
+No sender/domain guesses or forged authentication headers grant VERIFIED. Previous
+live lifecycle/privacy deferrals remain unverified.
+
+ADR0023 changes generic relevance selection: strongly ordinary subject/snippet hints can
+exclude an unreadable message, and receipt/length/recipient/service contradictions can
+exclude candidates. These are forgeable heuristics, not authenticated association or
+proof that unreadable content has no code. Unknown plausible competition still refuses;
+no newest-message shortcut or automatic insertion is added. A delayed old email after
+resend remains indistinguishable without a server transaction identifier. Retained DOM
+acknowledgement checks 100 ms of asynchronous updates and does not guarantee later
+retention or login acceptance. Numeric type inputs are supported only when the original
+string, including leading zeros, is retained. See ADR0023 and its acceptance report.

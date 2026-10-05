@@ -88,6 +88,8 @@ export interface AuthorizationInput {
   request: {
     mailboxId: string;
     startedAt: number;
+    /** Generic-only receipt floor; coordinator-owned, not sender time. */
+    receiptNotBefore?: number;
     deadline: number;
     url: string;
     topLevel: boolean;

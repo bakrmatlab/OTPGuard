@@ -63,7 +63,7 @@ test('visibility, disabled split member, and bounded traversal fail safely', asy
   await expect(page.locator('#result')).not.toContainText('split');
   await page.evaluate(() => {
     const root = document.createElement('div');
-    for (let i = 0; i < 2100; i++) root.append(document.createElement('span'));
+    for (let i = 0; i < 201; i++) root.append(document.createElement('input'));
     document.body.append(root);
   });
   await expect(page.locator('#result')).toHaveText(
@@ -138,4 +138,37 @@ test('email and authenticator ambiguity and truncated context remain uncertain',
   expect(
     JSON.parse(await page.locator('#result').innerText()).groups[0].flow,
   ).toBe('uncertain');
+});
+
+test('detects a text code field on a large page and split fields in separate wrappers', async ({
+  page,
+}) => {
+  const result = await page.evaluate(async () => {
+    const modulePath = '/harness.js';
+    const { createDetector } = await import(modulePath);
+    document.body.innerHTML =
+      '<main>' +
+      '<span>Background content</span>'.repeat(2500) +
+      '</main><section role="dialog"><p>Enter the code we sent to person@fixture.invalid</p><input placeholder="Enter code" maxlength="6"></section>';
+    const single = createDetector(document).scan();
+    document.body.innerHTML =
+      '<section role="dialog"><p>Check your email for a verification code</p><div>' +
+      Array.from(
+        { length: 6 },
+        () => '<div><input maxlength="1" inputmode="numeric"></div>',
+      ).join('') +
+      '</div></section>';
+    const split = createDetector(document).scan();
+    return {
+      single: single.groups.map((g: { fields: unknown[]; flow: string }) => [
+        g.fields.length,
+        g.flow,
+      ]),
+      split: split.groups.map((g: { fields: unknown[]; flow: string }) => [
+        g.fields.length,
+        g.flow,
+      ]),
+    };
+  });
+  expect(result).toEqual({ single: [[1, 'email']], split: [[6, 'email']] });
 });

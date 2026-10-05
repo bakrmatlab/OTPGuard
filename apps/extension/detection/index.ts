@@ -21,6 +21,7 @@ export interface DetectionSnapshot {
 const MAX_INPUTS = 200;
 const MAX_NODES = 2000;
 const MAX_TEXT = 4000;
+const MAX_CONTEXT_ANCESTORS = 8;
 const otp =
   /\b(otp|one[ -]?time|verification|security|confirmation)\b.*\b(code|password)\b|\b(otp|verification code)\b/i;
 const email =
@@ -81,18 +82,11 @@ export function createDetector(document: Document): {
     scan() {
       if (document.defaultView?.top !== document.defaultView)
         return { groups: [], limited: false };
-      // Bound traversal as well as candidate count; overflow fails closed.
-      const walker = document.createTreeWalker(document.documentElement, 1);
-      const inputs: HTMLInputElement[] = [];
-      let node: Node | null;
-      let visited = 0;
-      while ((node = walker.nextNode())) {
-        if (++visited > MAX_NODES) return { groups: [], limited: true };
-        if (node instanceof document.defaultView!.HTMLInputElement) {
-          inputs.push(node);
-          if (inputs.length > MAX_INPUTS) return { groups: [], limited: true };
-        }
-      }
+      // Native input discovery avoids rejecting a short login dialog because the
+      // surrounding landing page contains thousands of unrelated elements.
+      const found = document.querySelectorAll('input');
+      if (found.length > MAX_INPUTS) return { groups: [], limited: true };
+      const inputs = Array.from(found);
       const eligible = inputs.filter(
         (field) =>
           ['text', 'tel', 'number', 'password'].includes(field.type) &&
@@ -102,8 +96,26 @@ export function createDetector(document: Document): {
       const groups: FieldGroup[] = [];
       for (const field of eligible) {
         if (consumed.has(field)) continue;
-        const container =
-          field.closest('fieldset, form') ?? field.parentElement!;
+        let container: Element = field.parentElement!;
+        if (field.maxLength === 1) {
+          let ancestor: Element | null = container;
+          for (
+            let depth = 0;
+            ancestor &&
+            ancestor !== document.body &&
+            depth < MAX_CONTEXT_ANCESTORS;
+            depth++, ancestor = ancestor.parentElement
+          ) {
+            const members = inputs.filter(
+              (input) => ancestor!.contains(input) && input.maxLength === 1,
+            );
+            if (members.length >= 4) {
+              container = ancestor;
+              break;
+            }
+          }
+        }
+
         const split = eligible.filter(
           (other) => container.contains(other) && other.maxLength === 1,
         );
@@ -122,12 +134,12 @@ export function createDetector(document: Document): {
           .join(' ')
           .slice(0, MAX_TEXT);
         let contextResult = contextText(container);
-        // Email challenge instructions can sit immediately outside the form.
+        // Custom OTP controls often nest several wrappers below email instructions.
         // Inspect a bounded nearby ancestor, never send that text to the worker.
         let nearby = container.parentElement;
         for (
           let level = 0;
-          level < 3 &&
+          level < MAX_CONTEXT_ANCESTORS &&
           nearby &&
           nearby !== document.body &&
           nearby !== document.documentElement &&
@@ -135,7 +147,10 @@ export function createDetector(document: Document): {
           level++, nearby = nearby.parentElement
         ) {
           const candidate = contextText(nearby);
-          if (candidate.limited) break;
+          if (candidate.limited) {
+            contextResult = candidate;
+            break;
+          }
           contextResult = candidate;
         }
         const context = contextResult.text;
@@ -144,7 +159,11 @@ export function createDetector(document: Document): {
           evidence.push('context-limit');
         if (fields.some((input) => input.autocomplete === 'one-time-code'))
           evidence.push('autocomplete');
-        if (otp.test(`${hints} ${context}`)) evidence.push('otp-label');
+        if (
+          otp.test(`${hints} ${context}`) ||
+          (email.test(context) && /\bcode\b/i.test(`${hints} ${context}`))
+        )
+          evidence.push('otp-label');
         if (
           fields.every(
             (input) =>
@@ -165,7 +184,8 @@ export function createDetector(document: Document): {
           !evidence.includes('autocomplete') &&
           !(
             evidence.includes('otp-label') &&
-            evidence.includes('numeric-format')
+            (evidence.includes('numeric-format') ||
+              evidence.includes('email-context'))
           )
         )
           continue;
@@ -265,4 +285,17 @@ export function observeDetection(
   view.addEventListener('resize', schedule);
   publish();
   return stop;
+}
+
+/** Maxlength is an upper bound, not proof that every code has that length. */
+export function codeLengths(group: FieldGroup): number[] {
+  if (group.fields.length > 1) return [group.fields.length];
+  const field = group.fields[0]!;
+  const exact = /^(?:\\d|\[0-9\])\{([4-8])\}$/.exec(field.pattern);
+  return [4, 5, 6, 7, 8].filter(
+    (length) =>
+      (!exact || length === Number(exact[1])) &&
+      (field.maxLength < 0 || length <= field.maxLength) &&
+      (field.minLength < 0 || length >= field.minLength),
+  );
 }

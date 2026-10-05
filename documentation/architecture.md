@@ -51,15 +51,15 @@ production entry graphs, in `development/mock-extension` only.
 
 ## Bounds and conservative behavior
 
-| Mechanism           | Current bound                                                                           |
-| ------------------- | --------------------------------------------------------------------------------------- |
-| Detection           | Top-level light DOM; 60 seconds/120 scans, 2,000 elements/200 inputs; 4–8 split fields  |
-| Parser              | English numeric 4–8 characters; 1,000 subject/32,768 text characters; ambiguity refuses |
-| MIME normalization  | 256KiB decoded body plus inspected headers, 64 parts/depth 8; strict inert HTML subset  |
-| HTTP JSON           | Profile/list 16KiB; full message 512KiB; caps enforced before JSON parsing              |
-| Retrieval seam      | 20 IDs/10 distinct bodies; pagination/overflow refuses; 0/2/6/12/22-second retries      |
-| Request/approval    | 60-second request; at most 30-second approval; provider operations 10 seconds           |
-| Local/cloud history | 7/30-day logical retention; 500 records; cloud currently disabled                       |
+| Mechanism           | Current bound                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Detection           | Top-level light DOM; 60 seconds/120 scans, 200 inputs; nearby context 2,000 text nodes/4,000 characters; 4–8 split fields |
+| Parser              | English numeric 4–8 characters; 1,000 subject/32,768 text characters; ambiguity refuses                                   |
+| MIME normalization  | 256KiB decoded body plus inspected headers, 64 parts/depth 8; strict inert HTML subset                                    |
+| HTTP JSON           | Profile/list 16KiB; full message 512KiB; caps enforced before JSON parsing                                                |
+| Retrieval seam      | 20 IDs/10 distinct bodies; pagination/overflow refuses; 0/2/6/12/22-second retries                                        |
+| Request/approval    | 60-second request; at most 30-second approval; provider operations 10 seconds                                             |
+| Local/cloud history | 7/30-day logical retention; 500 records; cloud currently disabled                                                         |
 
 No links/images are followed during normalization, no attachment retrieval occurs, and no
 newest-code shortcut resolves ambiguity. Coalescing requires matching account/session/mailbox/
@@ -145,3 +145,36 @@ alternative MIME uses bounded authoritative plain text without HTML rendering.
 A trusted-local write-ahead hashed message/account ledger prevents uncertain resend.
 [ADR0020](adr/0020-core-3-signed-content-clicked-fill.md) and
 [acceptance](core-3-acceptance.md) describe implementation and live limits.
+
+## Current generic flow — October 5, 2026
+
+ADR0022 supersedes the earlier disabled/site-specific production descriptions for
+the owner-selected generic mode. After one optional HTTPS-wide grant, the top-level
+content script detects email-code fields; the worker searches bounded recent Gmail
+raw mail and extracts generic numeric candidates. Generic assessment returns CANDIDATE,
+never VERIFIED. The exact extension popup must confirm Fill before prepare/reservation/
+release. Account/mailbox/document/origin/focus/field checks and cancellation remain.
+Unknown input lengths are resolved before prepare. Shared generic concurrency prevents
+separate websites selecting the same candidate. History uses null service IDs.
+Production has no DKIM DNS traffic or stored mappings; the reviewed policy remains
+separate. See generic-fill-acceptance.md for actual evidence and coverage limits.
+
+Generic format coverage additionally handles mixed MIME, subjectless mail, common
+legacy charsets, spaced numeric codes and inline/table HTML layouts. Embedded images
+and binary application attachments are inert resources, never code sources. Forwarded
+or attached email bodies and encrypted MIME still refuse. SPA admission binds the
+browser's live frame URL after document/origin validation because sender.url may
+retain the original URL; exact URL/document checks remain at subsequent boundaries.
+See [generic email coverage](generic-email-coverage.md).
+
+Generic reliability revision (ADR0023): one worker-owned challenge window is shared
+with retrieval and candidate selection; early email-request gestures and resend hints
+contain no page-supplied timestamp. Retry preserves that window with a fresh polling
+deadline. Explicit receipt/field/recipient/service contradictions can narrow matching,
+while unknown competition refuses. Ordinary unreadable newsletters can be excluded
+using bounded subject/snippet heuristics; other decoder failures keep the cycle incomplete.
+Production insertion acknowledges retained values after 100 ms, without initiating
+submission or overwriting intervening changes. No additional provider scopes or site
+permissions are introduced. See generic-reliability-acceptance.md.
+
+Request diagnostics now expose a volatile closed stage enum, elapsed timing and at most 12 last-observed stages to the popup. Admission, retrieval, exclusion and release stages share the same local observer; it has no authorization role. Concurrent checks can interleave stages.

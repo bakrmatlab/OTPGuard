@@ -1,20 +1,25 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import type { Adapter, Context } from '../apps/extension/pipeline/coordinator';
 const captured = vi.hoisted(() => ({
+  state: 'IDLE',
   browser: null as Omit<Adapter, 'retrieve' | 'registry'> | null,
 }));
 vi.mock('../apps/extension/gmail/retrieval', () => ({
   createGmailPageCoordinator: (browser: typeof captured.browser) => {
     captured.browser = browser;
     return {
-      status: () => ({ state: 'IDLE' }),
+      status: () => ({ state: captured.state }),
       cancelAll: vi.fn(),
       cancelTab: vi.fn(),
       recheckAll: vi.fn(),
     };
   },
 }));
-vi.mock('../apps/extension/gmail/worker', () => ({ gmailLifecycle: {} }));
+vi.mock('../apps/extension/gmail/worker', () => ({
+  gmailLifecycle: {
+    snapshot: () => ({ state: 'CONNECTED', mailbox: 'synthetic' }),
+  },
+}));
 vi.mock('../apps/extension/gmail/authenticated-worker', () => ({
   authenticatedMailbox: {},
 }));
@@ -28,6 +33,7 @@ vi.mock('../apps/extension/settings/worker', () => ({
 }));
 vi.mock('../apps/extension/activity/worker', () => ({ localHistory: {} }));
 afterEach(() => {
+  captured.state = 'IDLE';
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.resetModules();
@@ -36,15 +42,22 @@ async function setup(openPopup: () => Promise<void>) {
   vi.useFakeTimers();
   vi.setSystemTime(100000);
   const listener = { addListener: vi.fn() };
+  const activated = { addListener: vi.fn() };
   vi.stubGlobal('chrome', {
     action: { openPopup },
-    runtime: { getURL: (p: string) => 'chrome-extension://fixture/' + p },
+    runtime: {
+      id: 'fixture',
+      getURL: (p: string) => 'chrome-extension://fixture/' + p,
+    },
     permissions: {
       contains: async () => true,
       onAdded: listener,
       onRemoved: listener,
     },
-    scripting: { unregisterContentScripts: async () => {} },
+    scripting: {
+      unregisterContentScripts: async () => {},
+      registerContentScripts: vi.fn(async () => {}),
+    },
     webNavigation: {
       getFrame: async () => ({
         documentId: 'doc',
@@ -54,9 +67,9 @@ async function setup(openPopup: () => Promise<void>) {
       onHistoryStateUpdated: listener,
     },
     tabs: {
-      get: async () => ({ active: true, windowId: 17 }),
+      get: async () => ({ id: 1, active: true, windowId: 17 }),
       onRemoved: listener,
-      onActivated: listener,
+      onActivated: activated,
     },
     windows: {
       getLastFocused: async () => ({ id: 17, focused: true }),
@@ -81,7 +94,13 @@ async function setup(openPopup: () => Promise<void>) {
     expectedLength: 6,
     expiresAt: 130000,
   };
-  return { worker, context, binding, confirm: captured.browser!.confirm! };
+  return {
+    worker,
+    context,
+    binding,
+    activated,
+    confirm: captured.browser!.confirm!,
+  };
 }
 it('keeps verified Fill available when Chrome rejects automatic popup opening, then reports exact confirmation expiry', async () => {
   const t = await setup(async () => {
@@ -135,7 +154,7 @@ it('targets the browser-derived request window when opening the automatic prompt
   const open = vi.fn(async () => {});
   const t = await setup(open);
   Object.assign(chrome.tabs, {
-    get: async () => ({ active: true, windowId: 17 }),
+    get: async () => ({ id: 1, active: true, windowId: 17 }),
   });
   Object.assign(chrome.webNavigation, {
     getFrame: async () => ({ documentId: 'doc', url: t.context.browserUrl }),
@@ -150,4 +169,116 @@ it('targets the browser-derived request window when opening the automatic prompt
   expect(open).toHaveBeenCalledWith({ windowId: 17 });
   abort.abort();
   expect(await result).toBe(false);
+});
+
+it('registers top-level HTTPS-wide detection only with the broad optional grant', async () => {
+  const t = await setup(async () => {});
+  const register = vi.mocked(chrome.scripting.registerContentScripts);
+  await t.worker.registerSites();
+  expect(register).toHaveBeenCalledWith([
+    {
+      id: 'otpguard-pilot',
+      matches: ['https://*/*'],
+      js: ['content.js'],
+      runAt: 'document_idle',
+      allFrames: false,
+      persistAcrossSessions: true,
+    },
+  ]);
+  register.mockClear();
+  Object.assign(chrome.permissions, { contains: async () => false });
+  await t.worker.registerSites();
+  expect(register).not.toHaveBeenCalled();
+});
+
+it('unavailable local settings refuse an existing Fill approval', async () => {
+  const t = await setup(async () => {});
+  const controller = new AbortController();
+  const result = t.confirm(t.context, t.binding, controller.signal, false);
+  const { localSettings } = await import('../apps/extension/settings/worker');
+  const available = vi.spyOn(localSettings, 'available').mockReturnValue(false);
+  try {
+    expect(await t.worker.acceptFill(t.binding.requestId)).toBe(false);
+  } finally {
+    available.mockRestore();
+    controller.abort();
+  }
+  expect(await result).toBe(false);
+});
+
+it('admits a same-document SPA challenge using browser route metadata, then refuses later navigation', async () => {
+  const t = await setup(async () => {});
+  const url =
+    'https://www.canva.com/sign-in/factor-one?redirect_url=https%3A%2F%2Ffixture.invalid';
+  chrome.webNavigation.getFrame = vi.fn(
+    async (): Promise<chrome.webNavigation.GetFrameResultDetails> => ({
+      documentId: 'doc',
+      url,
+      documentLifecycle: 'active',
+      errorOccurred: false,
+      frameType: 'outermost_frame',
+      parentFrameId: -1,
+    }),
+  );
+  const sender: chrome.runtime.MessageSender = {
+    id: 'fixture',
+    frameId: 0,
+    documentLifecycle: 'active',
+    documentId: 'doc',
+    tab: await chrome.tabs.get(1),
+    url: 'https://www.canva.com/sign-in',
+  };
+  const bound = await captured.browser!.context(sender);
+  expect(bound).toMatchObject({
+    browserUrl: url,
+    policyUrl: url,
+    documentId: 'doc',
+  });
+  expect(await captured.browser!.current(bound!)).toBe(true);
+  chrome.webNavigation.getFrame = vi.fn(
+    async (): Promise<chrome.webNavigation.GetFrameResultDetails> => ({
+      documentId: 'doc',
+      url: 'https://www.canva.com/other-route',
+      documentLifecycle: 'active',
+      errorOccurred: false,
+      frameType: 'outermost_frame',
+      parentFrameId: -1,
+    }),
+  );
+  expect(await captured.browser!.current(bound!)).toBe(false);
+  expect(
+    await captured.browser!.context({
+      ...sender,
+      documentId: 'different-document',
+    }),
+  ).toBeNull();
+  expect(
+    await captured.browser!.context({
+      ...sender,
+      url: 'https://other.fixture.invalid/sign-in',
+    }),
+  ).toBeNull();
+  t.worker.pagePipeline.cancelAll();
+});
+
+it('hides the previous page status and timer when switching tabs', async () => {
+  const t = await setup(async () => {});
+  captured.browser!.progress!('filling');
+  expect(t.worker.pipelineStatus()).toHaveProperty('progress');
+  t.activated.addListener.mock.calls[0]![0]();
+  expect(t.worker.pipelineStatus()).toEqual({ state: 'IDLE' });
+});
+
+it('reading a previous terminal status does not freeze a new admission clock', async () => {
+  const t = await setup(async () => {});
+  captured.state = 'FILLED';
+  captured.browser!.contextFailure!(null);
+  captured.browser!.progress!('account');
+  t.worker.pipelineStatus();
+  vi.setSystemTime(105000);
+  captured.browser!.progress!('mailbox');
+  captured.state = 'SEARCHING';
+  expect(t.worker.pipelineStatus()).toMatchObject({
+    progress: { stage: 'mailbox', elapsedSeconds: 5 },
+  });
 });

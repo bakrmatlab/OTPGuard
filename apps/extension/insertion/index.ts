@@ -1,4 +1,4 @@
-import { createDetector, type FieldGroup } from '../detection';
+import { createDetector, codeLengths, type FieldGroup } from '../detection';
 
 export type FillResult =
   | { status: 'filled' }
@@ -40,24 +40,29 @@ export function insertCode(
           candidate.fields.every((field, index) => field === fields[index]),
       );
   if (!current()) return reject('stale-group');
+  if (!codeLengths(group).includes(code.length)) return reject('length');
   if (fields.some((field) => field.value !== '')) return reject('user-value');
-  if (fields.some((field) => !['text', 'tel', 'password'].includes(field.type)))
+  if (
+    fields.some(
+      (field) => !['text', 'tel', 'password', 'number'].includes(field.type),
+    )
+  )
     return reject('unsupported');
   if (
     fields.length > 1
       ? fields.length !== expectedLength
-      : (fields[0]!.maxLength >= 0 &&
-          fields[0]!.maxLength !== expectedLength) ||
+      : (fields[0]!.maxLength >= 0 && fields[0]!.maxLength < expectedLength) ||
         fields[0]!.minLength > expectedLength
   )
     return reject('length');
   const compatible = () =>
+    codeLengths(group).includes(code.length) &&
     fields.every(
       (field) =>
-        ['text', 'tel', 'password'].includes(field.type) &&
+        ['text', 'tel', 'password', 'number'].includes(field.type) &&
         (fields.length > 1
           ? field.maxLength === 1
-          : (field.maxLength === -1 || field.maxLength === expectedLength) &&
+          : (field.maxLength === -1 || field.maxLength >= expectedLength) &&
             field.minLength <= expectedLength),
     );
   const setter = Object.getOwnPropertyDescriptor(
@@ -79,9 +84,33 @@ export function insertCode(
     )
       return reject('page-interference');
     const field = fields[index]!;
+    const accepted = field.dispatchEvent(
+      new view.InputEvent('beforeinput', {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        inputType: 'insertReplacementText',
+        data: values[index]!,
+      }),
+    );
+    if (
+      !accepted ||
+      !current() ||
+      !compatible() ||
+      fields.some(
+        (member, position) =>
+          member.value !== (position < index ? values[position] : ''),
+      )
+    )
+      return reject('page-interference');
     setter.call(field, values[index]);
     field.dispatchEvent(
-      new view.Event('input', { bubbles: true, composed: true }),
+      new view.InputEvent('input', {
+        bubbles: true,
+        composed: true,
+        inputType: 'insertReplacementText',
+        data: values[index]!,
+      }),
     );
     if (field.value !== values[index] || !current() || !compatible())
       return reject('page-interference');
@@ -94,4 +123,33 @@ export function insertCode(
   )
     return reject('page-interference');
   return { status: 'filled' };
+}
+
+/** Acknowledge retained values after queued framework/timer updates, not merely
+ * the synchronous setter. Never retry, roll back, or overwrite a page/user change. */
+export async function insertCodeRetained(
+  group: FieldGroup,
+  code: string,
+  expectedLength: number,
+): Promise<FillResult> {
+  const result = insertCode(group, code, expectedLength);
+  if (result.status !== 'filled') return result;
+  const document = group.fields[0]!.ownerDocument;
+  const view = document.defaultView!;
+  await new Promise<void>((resolve) => view.setTimeout(resolve, 100));
+  const values = group.fields.length === 1 ? [code] : [...code];
+  const snapshot = createDetector(document).scan();
+  const same = snapshot.groups.some(
+    (candidate) =>
+      candidate.fields.length === group.fields.length &&
+      candidate.fields.every((field, index) => field === group.fields[index]),
+  );
+  return !snapshot.limited &&
+    same &&
+    codeLengths(group).includes(code.length) &&
+    group.fields.every(
+      (field, index) => field.isConnected && field.value === values[index],
+    )
+    ? { status: 'filled' }
+    : { status: 'rejected', reason: 'page-interference' };
 }

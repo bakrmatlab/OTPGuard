@@ -113,3 +113,25 @@ remains unverified; source-level absence of persistence does not prove a browser
 Core 4 connection intent is stored as version plus two digests in trusted-context local
 storage, without time-based retention; removal/replacement or uninstall clears it. It
 is not exported or uploaded. It cannot authorize a request without fresh provider checks.
+
+## Generic user-confirmed mode — October 5, 2026
+
+The owner-selected ADR0022 mode searches bounded recent messages across the mailbox,
+rather than filtering to registered senders. Only bounded raw mail is processed in
+worker memory; no mail/code/sender/token is uploaded or persisted. Generic activity
+uses null service IDs, never arbitrary site names. Existing release/connection digests
+remain unchanged. The generic production path performs no DNS key lookups.
+
+One optional HTTPS-wide browser permission enables top-level field detection. No DOM
+text leaves for Gmail queries. Fill is required and shares the likely code with the
+current page without verifying the sender-to-site relationship. This is disclosed at
+site-access setup. A matching email may be spoofed or belong to another login; no
+phishing-prevention claim is made for this mode. All prior live privacy deferrals remain.
+
+The generic reliability revision uses a Gmail-provided snippet only as a bounded local
+relevance hint for otherwise unreadable ordinary mail. Displayed recipient hints and
+message sender-domain/subject hints are processed in volatile local request context.
+Early request gestures send only a closed event type; the typed email is not included.
+No hint, snippet, code or body is added to persistent storage, backend requests or logs.
+
+Request progress uses worker-memory-only stage enums and elapsed seconds. It contains no email bodies, OTPs, tokens, headers, message IDs, URLs or recipient values, and is not persisted, logged or uploaded. New admission and worker restart clear the trail.

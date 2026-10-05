@@ -450,3 +450,35 @@ it('keeps polling an initially empty mailbox until a code arrives after thirty s
   await vi.advanceTimersByTimeAsync(60_000);
   expect(cycle).toHaveBeenCalledTimes(6);
 });
+
+it('late retry uses the original query window with a fresh bounded polling deadline', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(150000);
+  const starts: number[] = [];
+  const envelope = {
+    messageId: 'late',
+    mailboxId: context.mailboxId,
+    receivedAt: 192000,
+    sender: { status: 'unknown' as const },
+    email: { subject: 'Login code', text: 'Your code is 003719' },
+  };
+  const engine = createRetrievalEngine({
+    now: () => Date.now(),
+    current: async () => true,
+    cycle: async (_context, start) => {
+      starts.push(start);
+      return Date.now() >= 192000 ? [envelope] : [];
+    },
+  });
+  const result = engine.retrieve(
+    {
+      ...context,
+      requestWindow: { startedAt: 100000, notBefore: 40000, expectedLength: 6 },
+    },
+    new AbortController().signal,
+  );
+  await vi.advanceTimersByTimeAsync(42000);
+  expect(await result).toEqual([envelope]);
+  expect(starts).toEqual(Array(7).fill(100000));
+  engine.cancelAll();
+});

@@ -100,3 +100,11 @@ No provider policy, origin allowlist, mailbox grant or deployment was changed.
 ![Landing desktop preview](images/website-landing-desktop.png)
 
 ![Landing mobile preview](images/website-landing-mobile.png)
+
+## Superseding owner authorization — October 5, 2026
+
+The owner approved commit/merge/push and requested Clerk activation. Website changes
+are now on `main` and `origin/main` as `e156a81`. The production deployment and actual
+anonymous/auth-form browser checks are recorded in
+[website-auth-live-acceptance.md](website-auth-live-acceptance.md). Earlier local-only
+statements describe the review snapshot, not the current deployment state.
