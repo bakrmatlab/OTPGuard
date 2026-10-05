@@ -196,3 +196,12 @@ after restart through fresh matching account/mailbox checks, without interactive
 per-restart explicit Connect rule for this pilot and records the reproduced late-SPA
 failure and synthetic account-probe overhead. Full live acceptance remains separate;
 see [Core 4 acceptance](core-4-acceptance.md). The owner subsequently reported the v5 attempt worked and authorized commit, merge and push of this Core 4 scope. Broader live acceptance remains partial; deployment and subsequent scopes remain unstarted.
+
+### Core 4 closure
+
+The owner accepted the working Canva pilot after successful full Chrome restart
+and fresh login without Connect or Retry. Autonomous browser/artifact/storage checks
+passed; remaining owner-assisted failure/privacy cases were explicitly deferred,
+not passed. See [Core 4 acceptance](core-4-acceptance.md). The owner authorized
+final documentation and proceeding to a separate UI/UX polish pass; this does not
+authorize additional service integrations or public deployment.

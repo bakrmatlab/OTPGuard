@@ -1,4 +1,4 @@
-# Core 4 — Complete pilot acceptance (in progress)
+# Core 4 — Owner-controlled pilot accepted with deferred checks
 
 Proposed title: `test(core): accept the real end-to-end OTP journey`.
 Owner-selected scope: Core 4 only. Owner authorized commit, merge and push after the v5 run; deployment remains outside scope.
@@ -6,11 +6,12 @@ Date: October 4, 2026, America/Toronto.
 
 ## Current conclusion
 
-**Complete pilot acceptance remains partial.** Baseline validation passed; subsequent
-owner feedback produced a reproducible late-SPA automatic-detection failure and
-account-probe overhead regression, repaired below. The final v5 artifact was installed and the owner reported “worked” after the requested fresh attempt. This supports the repaired journey on that attempt; detailed popup/fill/server-completion steps were not separately reconfirmed. Full live
-lifecycle/privacy acceptance remains pending. Existing Core 3 evidence is inherited,
-not a fresh Core 4 test result.
+**Core 4 is closed for the owner-controlled Canva pilot, with deferred live checks.** The fresh Canva journey after a full Chrome restart passed by owner report.
+On October 4, the owner confirmed quitting and reopening Chrome, then completing a
+fresh Canva login without reconnecting Gmail or clicking Retry, using the installed
+v5 artifact. This establishes full-browser restart restoration and successful fresh
+site completion for that attempt. Broad live failure/cancellation/privacy acceptance
+remains partial. The browser suite subsequently passed with production-content checks pointed at v5; the configured Gmail UI simulation also passed separately.
 
 The owner confirmed insertion on Core 3 v12. The owner subsequently confirmed in this Core 4 chat that Canva login did succeed after that Fill. This adds owner-confirmed server completion to the v12 evidence; it is not a fresh Core 4 artifact run.
 The automatic missing-mailbox prompt was observed separately. See
@@ -72,39 +73,40 @@ not overwritten. Subsequent build and packaging checks used the clean export.
 
 ## Acceptance ledger
 
-| Cases                                                          | Core 4 result / remaining evidence                                                                  |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| A01: Google website/shared combined account/fresh Convex       | Basic prior live evidence; fresh final-artifact run pending                                         |
-| A02–A06: logout/switch/revoke/expiry/offline/delayed authority | Synthetic regressions passed; broader live run pending                                              |
-| G01: denial or missing scope                                   | Synthetic denial/scope regressions passed; live denial pending                                      |
-| G02: explicit connection and worker restart                    | Prior live connection/restart evidence; final-artifact run pending                                  |
-| G03–G04: disconnect/revoke/expiry/mailbox change               | Synthetic regressions passed; live provider cases pending                                           |
-| G05: no mail/retry/quota/network/provider latency              | Synthetic bounded polling/quota/cancellation passed; live cases pending                             |
-| G06: malformed/oversized/inert MIME                            | Synthetic coverage passed; no live adversarial delivery claimed                                     |
-| S01: real signed Canva template                                | Core 2/3 evidence inherited; fresh final-artifact retrieval pending                                 |
-| S02–S05: forged/stale/ambiguous/unsupported/wrong origin       | Synthetic verifier/parser/policy and DOM cases passed; actual live refusal matrix pending           |
-| F01: automatic prompt, clicked insertion, owner login          | Core 3 insertion confirmed; fresh fully automatic run and server login pending                      |
-| F02: real split flow                                           | Not claimed for Canva; split/leading-zero mechanism passed synthetic tests only                     |
-| F03: manual/auto-off/retry                                     | Synthetic same-policy regression passed; final live retry pending                                   |
-| F04–F06: field/tab/document/focus/concurrency                  | Synthetic races and isolated DOM/browser refusals passed; owner-profile latency checks pending      |
-| F07: worker crash/replay                                       | Synthetic write-ahead uncertain-release refusal and browser restart passed; live windows pending    |
-| F08–F10: permission/block/invalidation/site events             | Synthetic coverage passed; live permission denial/revoke and pending-work changes remain pending    |
-| P01/H01: privacy and disabled cloud upload                     | Source/artifact/test boundaries checked; actual complete live network/storage/logging audit pending |
-| O01: reproducible configured install/reload                    | Fresh build/provenance passed; owner-profile configured installation/reload pending                 |
+| Cases                                                          | Core 4 result / remaining evidence                                                                                                            |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| A01: Google website/shared combined account/fresh Convex       | Basic prior live evidence; fresh final-artifact run pending                                                                                   |
+| A02–A06: logout/switch/revoke/expiry/offline/delayed authority | Synthetic regressions passed; broader live run pending                                                                                        |
+| G01: denial or missing scope                                   | Synthetic denial/scope regressions passed; live denial pending                                                                                |
+| G02: explicit connection and worker restart                    | Explicit connection and worker reload observed; full Chrome restart with no reconnect passed by owner report                                  |
+| G03–G04: disconnect/revoke/expiry/mailbox change               | Synthetic regressions passed; live provider cases pending                                                                                     |
+| G05: no mail/retry/quota/network/provider latency              | Synthetic bounded polling/quota/cancellation passed; live cases pending                                                                       |
+| G06: malformed/oversized/inert MIME                            | Synthetic coverage passed; no live adversarial delivery claimed                                                                               |
+| S01: real signed Canva template                                | Signed-template evidence inherited; fresh v5 Canva journey after Chrome restart passed by owner report                                        |
+| S02–S05: forged/stale/ambiguous/unsupported/wrong origin       | Synthetic verifier/parser/policy and DOM cases passed; actual live refusal matrix pending                                                     |
+| F01: automatic prompt, clicked insertion, owner login          | Owner confirmed fresh Canva login after full Chrome restart without Connect or Retry on v5                                                    |
+| F02: real split flow                                           | Not claimed for Canva; split/leading-zero mechanism passed synthetic tests only                                                               |
+| F03: manual/auto-off/retry                                     | Synthetic same-policy regression passed; final live retry pending                                                                             |
+| F04–F06: field/tab/document/focus/concurrency                  | Synthetic races and isolated DOM/browser refusals passed; owner-profile latency checks pending                                                |
+| F07: worker crash/replay                                       | Synthetic write-ahead uncertain-release refusal and browser restart passed; live windows pending                                              |
+| F08–F10: permission/block/invalidation/site events             | Synthetic coverage passed; idle Canva permission removal/unregistration and restoration verified in Chrome; pending-request cases remain open |
+| P01/H01: privacy and disabled cloud upload                     | Source/artifact/test boundaries and installed metadata schemas checked; complete live network/logging audit remains pending                   |
+| O01: reproducible configured install/reload                    | Build/provenance and installed v5 path verified; owner-reported full Chrome restart journey passed                                            |
 
 Cloud settings/device/history, dashboard polish, additional services and public release
 are outside Core 4. Provider/store approval is not inferred from local acceptance.
 
-## Next owner-controlled run
+## Owner-controlled acceptance procedure
 
 1. With any filled code out of view, open `chrome://extensions`. Verify the combined
    ID and current loaded path, preserving the legacy extension and named exports.
    Update only the combined installation to the exact Core 4 artifact above.
 2. Confirm website Google sign-in and the same extension account privately; run the
    fresh Convex identity check. Owner enters credentials/CAPTCHA themselves.
-3. After worker reload, verify disconnected Gmail state; explicit Connect is required
-   by [ADR0017](adr/0017-authenticated-gmail-connection.md). Confirm the intended mailbox
-   privately. Never automatically restore that binding or revoke the preserved grant.
+3. Confirm remembered Gmail restoration after restart under
+   [ADR0021](adr/0021-core-4-remembered-mailbox-and-late-challenges.md). This happy-path
+   case passed by owner report; changed or unavailable authority must still require
+   reconnection. Preserve the legacy grant when testing provider failures.
 4. Confirm optional Canva enablement and automatic prompting. Owner starts one fresh
    challenge; keep Chrome foreground. Record only whether the owned prompt reaches
    READY, whether the field remains empty, and any closed refusal/cancellation reason.
@@ -168,7 +170,7 @@ signed-out/revoked authority, late logout, corrupt/unreadable data, automatic pa
 admission, pending Connect versus Disconnect and removal failure. No token, plaintext
 mailbox, OTP or approval is saved. Consent remains explicit.
 
-Latest configured artifact:
+Historical v3 configured artifact:
 `/tmp/otpguard-core-4-review-v3/apps/extension/build/chrome-mv3-prod`.
 The provenance record contains v1 and v3 hashes plus the exact changed source hashes.
 Chrome UI confirmed v3 loaded under the existing combined ID, preserving prior exports
@@ -238,3 +240,88 @@ attempt, without inferring all lifecycle/privacy cases or separate server comple
 The owner then explicitly authorized committing, merging and pushing all changes in
 this Core 4 scope. Broader acceptance limitations above remain open; no deployment
 or next scope is authorized.
+
+## Full Chrome restart acceptance — October 4, 2026
+
+The owner explicitly confirmed this exact procedure worked: quit and reopen Chrome,
+then complete one fresh Canva login without reconnecting Gmail or clicking Retry.
+The last UI-verified installed artifact was v5, now represented by merged source
+commit 759b642. Evidence is owner-reported; no code, mail, credentials or screenshot
+was collected. This updates G02 and the fresh Canva journey/server-completion result.
+It does not close revocation, account switching, interrupted pending-request replay,
+permission cancellation or live privacy-audit cases.
+
+## Autonomous acceptance continuation — October 4, 2026
+
+The owner requested the remaining checks that do not require owner participation.
+No production source changed. These checks used merged Core 4 source 759b642 and
+the previously installed v5 artifact; browser test sources in the validation export
+were byte-for-byte identical to the current checkout.
+
+### Automated checks
+
+- `bun run check`: type/lint/format passed; 383 tests in 29 files passed. This
+  includes synthetic no-mail/late-mail, quota/offline/deadline, authority changes,
+  confirmation expiry, local blocking, user-input protection and crash/replay cases.
+- Initial `DEBUG=pw:webserver OTPGuard_ARTIFACT=/tmp/otpguard-core-4-review-v5/apps/extension/build/chrome-mv3-prod bun run test:browser`
+  in `/tmp/otpguard-core-4-validation-v2` reproduced `listen EPERM` at
+  127.0.0.1:3100. This was sandbox local-server denial, not an application defect.
+- The same suite with local-server/Chromium execution permission passed 33 cases,
+  with one configured Gmail UI simulation skipped. The production-content tests
+  use v5; other cases use the suite's unconfigured, mock or local DOM fixtures.
+  This is not a complete production-provider end-to-end simulation.
+- The skipped Gmail UI simulation was separately run using a newly isolated
+  Gmail-only public-config artifact in `/tmp/otpguard-core-4-gmail-ui-fixture`.
+  `bun /tmp/otpguard-core-4-gmail-ui.ts` built the fixture and ran
+  `tests/browser/gmail.spec.ts`: all three cases passed. The configured case
+  simulated denial, mailbox change and unconfirmed revocation and asserted zero
+  external requests. No live OAuth or owner-profile grant changes occurred.
+- `bun /tmp/otpguard-core-4-artifact-check.ts` supplied the reviewed public
+  configuration to `tests/manifest.test.ts` against v5: all five checks passed,
+  including manifest, production permission/CSP and bundle boundaries.
+
+The temporary scripts are verification helpers outside the repository, not shipped
+application code. No server or production-code fix was necessary.
+
+### Installed Chrome checks
+
+Chrome was on the logged-in Canva home page with no active challenge. The extension
+reported IDLE and restored a connected mailbox; only sanitized state was retained.
+
+- Automatic prompting changed from on to off and back to on through the popup.
+- Canva's exact local block was saved and removed; no blocks remained afterward.
+- Removing only `https://www.canva.com/*` permission returned success and a
+  subsequent permission check returned false. The production permission listener
+  unregistered the Canva content script. Enable Canva restored the original
+  permission; both permission and content-script registration were then true.
+- Read-only DevTools queries inspected local data privately and returned only
+  schema booleans/counts. Remembered connection was version plus two SHA-256
+  digests; settings, local activity and replay entries had documented metadata
+  shapes; no unknown `otpguard.*` storage keys existed. The first activity check
+  omitted the documented `action` field from its expected shape; correcting the
+  audit predicate produced a passing result. This was a verification-script
+  error, not malformed stored history. No stored values or identities were logged.
+
+Temporary audit console output was cleared, DevTools and the added management tab
+were closed, Canva was reloaded, automatic prompting stayed enabled, no local block
+remained, and original Canva permission/registration were restored. The legacy
+installation and Google project grant were preserved.
+
+These installed checks establish idle settings/permission behavior and a current
+application-storage schema snapshot. They do not prove pending-request cancellation,
+absence of historical leaks, Chrome-managed credential internals or complete live
+network/logging privacy. Those checks, fresh logout/account switch/revocation, and
+owner-generated interrupted/concurrent login requests remain owner-assisted work.
+
+## Owner closure and deferrals
+
+The owner chose to skip the remaining owner-assisted checks and then authorized
+finalizing Core 4 and proceeding to UI/UX polish. Active-request interruption/
+concurrency, logout/account switch/provider revocation, and full live network/logging
+privacy checks are deferred and remain unverified. This is acceptance of the working
+one-service owner-controlled pilot, not full security/privacy clearance or public
+release readiness. Existing DKIM receipt/replay limitations remain unchanged.
+
+Core 4 implementation was committed, merged and pushed as 759b642. This report
+adds the subsequent browser-restart result and autonomous checks. No production
+code changed in this closeout. UI/UX polish is a separate owner-requested scope.
