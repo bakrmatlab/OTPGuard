@@ -1,56 +1,113 @@
 :root {
   color-scheme: light;
-  font-family: system-ui, sans-serif;
-  color: #182c3b;
-  background: #f3f6f8;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #182d2b;
+  background: #f5f7f4;
 }
 * {
   box-sizing: border-box;
 }
+html,
 body {
+  width: 380px;
+  min-width: 380px;
   margin: 0;
 }
 main {
   width: 380px;
-  max-width: 100vw;
   padding: 18px;
 }
 header {
-  padding: 0 4px 12px;
+  padding: 0 2px 14px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 32px;
+  border-radius: 10px 10px 14px 14px;
+  background: #14634d;
+  color: white;
+  font-weight: 750;
 }
 h1 {
-  margin: 4px 0 8px;
-  font-size: 26px;
+  margin: 0;
+  font-size: 21px;
+  letter-spacing: -0.7px;
+}
+.pilot {
+  margin-left: auto;
+  border: 1px solid #d4dfd5;
+  border-radius: 20px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 650;
+  color: #42634e;
 }
 h2 {
-  margin: 0 0 12px;
-  font-size: 17px;
+  margin: 0 0 10px;
+  font-size: 19px;
+  letter-spacing: -0.4px;
 }
 p,
 dd {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
+p {
+  margin: 8px 0;
+}
+header p {
+  margin-bottom: 0;
+}
 .eyebrow {
-  color: #34586b;
+  color: #42634e;
   font-weight: 650;
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  margin: 0 0 9px;
 }
 section {
-  padding: 16px;
-  margin: 0 0 12px;
-  border: 1px solid #c9d5de;
-  border-radius: 12px;
+  margin: 0 0 9px;
+  border: 1px solid #dae3da;
+  border-radius: 13px;
   background: white;
 }
 .protection {
-  border-top: 4px solid #315b73;
+  padding: 18px;
+  border-color: #b7d2c2;
+  background: linear-gradient(145deg, #f1f9f3, white 75%);
+}
+.protection h2 {
+  font-size: 23px;
 }
 .muted {
-  color: #475d6c;
+  color: #53665d;
+}
+.fill-note {
+  font-size: 11px;
+}
+.connection-summary {
+  padding: 11px 15px;
+}
+.connection-summary p {
+  margin: 5px 0;
+}
+.connection-summary span {
+  display: block;
+  color: #53665d;
+  font-size: 10px;
+}
+.connection-summary strong {
+  font-size: 12px;
+  font-weight: 600;
 }
 button,
 input,
@@ -63,32 +120,55 @@ summary {
   min-height: 36px;
 }
 button {
-  background: #edf3f7;
-  color: #183b50;
-  border: 1px solid #9fb4c2;
-  border-radius: 6px;
-  padding: 8px 10px;
+  background: #f4f7f4;
+  color: #23483b;
+  border: 1px solid #bacdbf;
+  border-radius: 8px;
+  padding: 8px 11px;
   margin: 4px 4px 4px 0;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
+button:hover:enabled {
+  background: #e5efe7;
+}
+button.primary {
+  color: white;
+  background: #14634d;
+  border-color: #14634d;
+}
+button.primary:hover:enabled {
+  background: #0b4f3c;
+}
 button:disabled {
-  color: #536371;
-  background: #eef0f2;
-  border-color: #c6cdd3;
+  color: #657068;
+  background: #eef1ed;
+  border-color: #d7ded6;
   cursor: default;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.actions button {
+  flex: 1;
+  margin: 0;
+  min-height: 42px;
 }
 a {
   display: inline-block;
   padding: 8px 0;
-  color: #164f75;
+  color: #126249;
 }
 :focus-visible {
-  outline: 3px solid #126ba0;
+  outline: 3px solid #146bc0;
   outline-offset: 3px;
 }
 label {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.55;
 }
 input:not([type='checkbox']),
@@ -96,25 +176,168 @@ textarea {
   width: 100%;
   padding: 9px;
   margin: 8px 0;
-  border: 1px solid #7892a3;
-  border-radius: 5px;
+  border: 1px solid #8ca695;
+  border-radius: 7px;
 }
 input[type='checkbox'] {
   margin-right: 8px;
+  accent-color: #14634d;
 }
 textarea {
   min-height: 120px;
 }
 summary {
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  padding: 8px 0;
+  padding: 10px 0;
+}
+.panel {
+  padding: 0 15px;
+}
+.panel > summary {
+  padding: 12px 0;
+}
+.panel[open] {
+  padding-bottom: 15px;
+}
+.panel[open] > summary {
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e3e9e1;
+}
+.panel h2 {
+  font-size: 15px;
 }
 dt {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
   margin-top: 12px;
 }
 dd {
   margin: 4px 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
+}
+@media (forced-colors: active) {
+  .brand-mark,
+  .pilot,
+  .protection {
+    border: 1px solid CanvasText;
+  }
+}
+.management {
+  border: 1px solid #dae3da;
+  border-radius: 13px;
+  background: white;
+  padding: 0 15px;
+}
+.management > summary {
+  padding: 13px 0;
+}
+.management[open] {
+  background: transparent;
+  padding: 0;
+  border: none;
+}
+.management[open] > summary {
+  padding: 13px 15px;
+}
+.connection-link {
+  padding: 5px 0;
+  margin: 2px 0 0;
+  background: transparent;
+  border: none;
+  color: #126249;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.connection-link:hover:enabled {
+  background: transparent;
+  color: #0b4f3c;
+}
+.support-detail {
+  margin: 6px 0;
+  border-bottom: 1px solid #e3e9e1;
+}
+.support-detail > summary {
+  color: #42634e;
+  font-size: 11px;
+}
+.permission-notice {
+  background: #f1f6ef;
+  padding: 10px;
+  border-radius: 8px;
+}
+h3 {
+  font-size: 13px;
+  margin: 18px 0 8px;
+}
+.preference-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dae3da;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.preference-toggle input {
+  flex-shrink: 0;
+  margin: 4px 0 0;
+}
+.blocked-site {
+  border-top: 1px solid #e3e9e1;
+  padding: 10px 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.blocked-site span {
+  display: block;
+}
+.last-action,
+.empty-history {
+  padding: 12px;
+  background: #f5f7f4;
+  border-radius: 8px;
+}
+.last-action time {
+  display: block;
+  margin-top: 6px;
+  color: #53665d;
+}
+button.destructive {
+  color: #97342d;
+}
+
+.panel[open] > :not(summary) {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+.panel[open] > :last-child {
+  margin-bottom: 0;
+}
+.account-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+}
+.account-actions > :only-child {
+  grid-column: 1 / -1;
+}
+.account-actions a,
+.account-actions button {
+  margin: 0;
+  padding: 8px;
+  text-align: center;
+}
+.account-actions a {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.support-detail > summary {
+  padding: 8px 0;
 }

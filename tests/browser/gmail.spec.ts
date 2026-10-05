@@ -42,9 +42,11 @@ for (const phase of ['startup', 'action'] as const) {
       await popup.goto(
         `chrome-extension://${new URL(worker.url()).host}/popup.html`,
       );
+      await popup.locator('.management > summary').click();
+      await popup.locator('#gmail-summary').click();
       if (phase === 'action') {
         await expect(
-          popup.getByText('No mailbox connected.', { exact: true }),
+          popup.getByText('No mailbox connected.', { exact: true }).first(),
         ).toBeVisible();
         await popup
           .getByRole('button', { name: 'Check Gmail connection' })
@@ -53,17 +55,22 @@ for (const phase of ['startup', 'action'] as const) {
       const fallback = configuredGmail()
         ? 'Gmail connection needs checking.'
         : 'Gmail connection is unconfigured.';
-      await expect(popup.getByText(fallback, { exact: false })).toBeVisible();
+      await expect(
+        popup.getByText(fallback, { exact: false }).first(),
+      ).toBeVisible();
       if (configuredGmail()) {
         await popup
           .getByRole('button', { name: /^(Re)?connect Gmail$/i })
           .click();
-        await expect(popup.getByText(fallback, { exact: false })).toBeVisible();
+        await expect(
+          popup.getByText(fallback, { exact: false }).first(),
+        ).toBeVisible();
       } else {
         await expect(
           popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }),
         ).toHaveCount(0);
       }
+      await popup.getByText('How protection works', { exact: true }).click();
       await expect(
         popup.getByText('Every insertion requires your click.', {
           exact: false,
@@ -142,34 +149,42 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
     await popup.goto(
       `chrome-extension://${new URL(worker.url()).host}/popup.html`,
     );
+    await popup.locator('.management > summary').click();
+    await popup.locator('#gmail-summary').click();
     await expect(
-      popup.getByText('No mailbox connected.', { exact: true }),
+      popup.getByText('No mailbox connected.', { exact: true }).first(),
     ).toBeVisible();
     await popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }).click();
     await expect(
-      popup.getByText('Connection was denied', { exact: false }),
+      popup.getByText('Connection was denied', { exact: false }).first(),
     ).toBeVisible();
     await popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }).click();
     await expect(
       popup.getByText('Mailbox: mailbox@fixture.invalid'),
     ).toBeVisible();
     await expect(
-      popup.getByText('Synthetic account', { exact: true }),
+      popup.getByText('Synthetic account', { exact: true }).first(),
     ).toBeVisible();
     await popup.getByRole('button', { name: 'Check Gmail connection' }).click();
     await expect(
-      popup.getByText('Google returned a different mailbox.', { exact: false }),
+      popup
+        .getByText('Google returned a different mailbox.', { exact: false })
+        .first(),
     ).toBeVisible();
     await popup.getByRole('button', { name: 'Disconnect Gmail' }).click();
     await expect(
-      popup.getByText('Google returned a different mailbox.', { exact: false }),
+      popup
+        .getByText('Google returned a different mailbox.', { exact: false })
+        .first(),
     ).toBeVisible();
     await popup.getByRole('button', { name: 'Disconnect Gmail' }).click();
     await expect(
-      popup.getByText(
-        'Disconnected locally. Google revocation could not be confirmed.',
-        { exact: false },
-      ),
+      popup
+        .getByText(
+          'Disconnected locally. Google revocation could not be confirmed.',
+          { exact: false },
+        )
+        .first(),
     ).toBeVisible();
     await expect(popup.getByText('Mailbox:', { exact: false })).toHaveCount(0);
     await popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }).click();
@@ -178,7 +193,7 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
     ).toBeVisible();
     await popup.getByRole('button', { name: 'Disconnect Gmail' }).click();
     await expect(
-      popup.getByText('No mailbox connected.', { exact: true }),
+      popup.getByText('No mailbox connected.', { exact: true }).first(),
     ).toBeVisible();
     expect(external).toEqual([]);
   } finally {

@@ -205,3 +205,13 @@ passed; remaining owner-assisted failure/privacy cases were explicitly deferred,
 not passed. See [Core 4 acceptance](core-4-acceptance.md). The owner authorized
 final documentation and proceeding to a separate UI/UX polish pass; this does not
 authorize additional service integrations or public deployment.
+
+### Owner-selected first popup polish pass
+
+October 4, 2026: the owner selected a first compact extension-popup UI/UX pass,
+with current status and clicked Fill first, readable setup/retry/expiry states,
+progressive account/connection/preferences/history disclosure, keyboard usability
+and recognizable build identity. New services, dashboard changes, provider grants,
+publication, merge and deployment are excluded. Local results and remaining limits
+are in [popup polish acceptance](popup-polish-acceptance.md). Core 4's deferred
+owner-assisted lifecycle/concurrency/privacy checks remain unverified.

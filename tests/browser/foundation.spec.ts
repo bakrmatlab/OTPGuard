@@ -67,12 +67,22 @@ test('unpacked extension worker and popup load without page access', async () =>
     await expect(
       popup.getByRole('heading', { name: 'OTPGuard', exact: true }),
     ).toBeVisible();
-    await expect(popup.getByRole('status')).toHaveText('Request status: IDLE');
+    await expect(popup.getByRole('status')).toContainText(
+      'Open a supported email-code challenge',
+    );
+    await popup.evaluate(() => {
+      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
+        'details.panel, details.management',
+      ))
+        panel.open = true;
+    });
     await expect(
       popup.getByText('Account authentication is unconfigured.'),
     ).toBeVisible();
     await expect(
-      popup.getByText('Gmail connection is unconfigured.', { exact: false }),
+      popup
+        .getByText('Gmail connection is unconfigured.', { exact: false })
+        .first(),
     ).toBeVisible();
     expect(
       await worker.evaluate(
@@ -91,6 +101,12 @@ test('unpacked extension worker and popup load without page access', async () =>
     await expect(automatic).toBeChecked();
     await expect(automatic).toBeEnabled();
     await popup.reload();
+    await popup.evaluate(() => {
+      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
+        'details.panel, details.management',
+      ))
+        panel.open = true;
+    });
     await expect(automatic).toBeChecked();
     await automatic.click();
     await expect(automatic).not.toBeChecked();
@@ -111,6 +127,12 @@ test('unpacked extension worker and popup load without page access', async () =>
       }),
     ).toBeVisible();
     await popup.reload();
+    await popup.evaluate(() => {
+      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
+        'details.panel, details.management',
+      ))
+        panel.open = true;
+    });
     await popup
       .getByRole('button', {
         name: 'Remove local block for https://site.fixture.invalid',
@@ -137,6 +159,12 @@ test('unpacked extension worker and popup load without page access', async () =>
       });
     }, event);
     await popup.reload();
+    await popup.evaluate(() => {
+      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
+        'details.panel, details.management',
+      ))
+        panel.open = true;
+    });
     await expect(popup.getByText('1 local activity records.')).toBeVisible();
     await expect(
       popup.getByText('Input filled (login acceptance unknown)', {
@@ -153,6 +181,12 @@ test('unpacked extension worker and popup load without page access', async () =>
       popup.getByRole('textbox', { name: 'Local history JSON' }),
     ).toHaveCount(0);
     await popup.reload();
+    await popup.evaluate(() => {
+      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
+        'details.panel, details.management',
+      ))
+        panel.open = true;
+    });
     await expect(popup.getByText('0 local activity records.')).toBeVisible();
     await expect(
       popup.getByText('Cloud activity upload is disabled', { exact: false }),
@@ -175,9 +209,7 @@ test('unpacked extension worker and popup load without page access', async () =>
     await expect(
       popup.getByRole('button', { name: 'Enable Canva' }),
     ).toBeEnabled();
-    await popup
-      .getByText('Understand protection states', { exact: true })
-      .focus();
+    await popup.getByText('How protection works', { exact: true }).focus();
     await popup.keyboard.press('Enter');
     await expect(
       popup.getByText('Unrelated mail alone is not evidence of phishing.', {
@@ -192,6 +224,8 @@ test('unpacked extension worker and popup load without page access', async () =>
     await expect(automatic).toBeFocused();
     await popup.keyboard.press('Space');
     await expect(automatic).toBeChecked();
+    await expect(automatic).toBeEnabled();
+    await expect(automatic).toBeFocused();
     await popup.keyboard.press('Space');
     await expect(automatic).not.toBeChecked();
     await expect(popup.getByText('No recorded fill action.')).toBeVisible();
