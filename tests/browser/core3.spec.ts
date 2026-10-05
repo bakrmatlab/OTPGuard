@@ -1,5 +1,32 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import type * as Pipeline from '../fixtures/generic-pipeline';
+let pipeline: typeof Pipeline;
+let harnessDirectory: string;
+test.beforeAll(async () => {
+  // Bundle production seams together, as the extension does. Playwright's TS
+  // loader cannot initialize their existing package re-export cycles directly.
+  harnessDirectory = mkdtempSync(join(tmpdir(), 'otpguard-pipeline-fixture-'));
+  const bundle = join(harnessDirectory, 'pipeline.mjs');
+  execFileSync('bun', [
+    'build',
+    'tests/fixtures/generic-pipeline.ts',
+    '--target=node',
+    '--format=esm',
+    '--outfile',
+    bundle,
+  ]);
+  pipeline = await import(pathToFileURL(bundle).href);
+});
+test.afterAll(() => {
+  if (harnessDirectory)
+    rmSync(harnessDirectory, { recursive: true, force: true });
+});
 const artifact =
   process.env.OTPGuard_ARTIFACT ?? 'apps/extension/build/chrome-mv3-prod';
 
@@ -301,86 +328,154 @@ test('generic content detects an unfamiliar HTTPS site with no maxlength and doe
 
 // Synthetic input-otp structure: one real input beneath decorative digit slots.
 // Clerk's public CodeControl uses this component rather than six native inputs.
-test('detects a nested email code control behind decorative slots', async ({
-  page,
-}) => {
-  await page.route('https://new-login.example/**', (r) =>
-    r.fulfill({
-      contentType: 'text/html',
-      body: `<!doctype html><main><section><h2>Check your email</h2><p>to continue to Example</p><div><div><div><div style="position:relative;width:300px;height:48px"><div role="group">${'<span>□</span>'.repeat(6)}</div><div style="position:absolute;inset:0"><input aria-label="Enter verification code" autocomplete="one-time-code" inputmode="numeric" maxlength="6" style="position:absolute;inset:0;width:100%;height:100%;color:transparent"></div></div></div></div></div><button>Resend</button></section></main>`,
-    }),
-  );
-  await page.goto('https://new-login.example/login');
-  await page.evaluate(() => {
-    const messages: unknown[] = [];
-    const listeners: ((
-      v: unknown,
-      sender: unknown,
-      reply: (v: unknown) => void,
-    ) => void)[] = [];
-    Object.assign(window, {
-      __nestedMessages: messages,
-      __nestedListeners: listeners,
-      chrome: {
-        runtime: {
-          id: 'fixture',
-          sendMessage: async (v: unknown) => {
-            messages.push(v);
-          },
-          onMessage: {
-            addListener: (listener: (typeof listeners)[number]) =>
-              listeners.push(listener),
+for (const layout of ['blocks', 'inline'] as const)
+  test(`detects and fills nested email code controls with ${layout} recipient text`, async ({
+    page,
+  }) => {
+    await page.route('https://new-login.example/**', (r) =>
+      r.fulfill({
+        contentType: 'text/html',
+        body: `<!doctype html><main><section><h2>Check your email</h2><p>to continue to Example</p><p>${layout === 'inline' ? '<span>person@</span><span>fixture.invalid</span>' : 'person@fixture.invalid'}</p><div><div><div><div style="position:relative;width:300px;height:48px"><div role="group">${'<span>□</span>'.repeat(6)}</div><div style="position:absolute;inset:0"><input aria-label="Enter verification code" autocomplete="one-time-code" inputmode="numeric" maxlength="6" style="position:absolute;inset:0;width:100%;height:100%;color:transparent"></div></div></div></div></div><button>Resend</button></section></main>`,
+      }),
+    );
+    await page.goto('https://new-login.example/login');
+    await page.evaluate(() => {
+      const messages: unknown[] = [];
+      const listeners: ((
+        v: unknown,
+        sender: unknown,
+        reply: (v: unknown) => void,
+      ) => void)[] = [];
+      Object.assign(window, {
+        __nestedMessages: messages,
+        __nestedListeners: listeners,
+        chrome: {
+          runtime: {
+            id: 'fixture',
+            sendMessage: async (v: unknown) => {
+              messages.push(v);
+            },
+            onMessage: {
+              addListener: (listener: (typeof listeners)[number]) =>
+                listeners.push(listener),
+            },
           },
         },
+      });
+    });
+    await page.addScriptTag({
+      content: readFileSync(artifact + '/content.js', 'utf8'),
+    });
+    expect(
+      await page.evaluate(() => Reflect.get(window, '__nestedMessages')),
+    ).toMatchObject([
+      {
+        type: 'detect',
+        expectedLength: 0,
+        allowedLengths: [4, 5, 6],
+        emailFlow: true,
+        recipient: 'person@fixture.invalid',
       },
-    });
-  });
-  await page.addScriptTag({
-    content: readFileSync(artifact + '/content.js', 'utf8'),
-  });
-  expect(
-    await page.evaluate(() => Reflect.get(window, '__nestedMessages')),
-  ).toMatchObject([
-    {
-      type: 'detect',
-      expectedLength: 0,
-      allowedLengths: [4, 5, 6],
-      emailFlow: true,
-    },
-  ]);
-  await expect(page.locator('input')).toHaveValue('');
-  const result = await page.evaluate(async () => {
-    const listeners = Reflect.get(window, '__nestedListeners') as ((
-      v: unknown,
-      sender: unknown,
-      reply: (v: unknown) => void,
-    ) => void)[];
-    const binding = {
-      requestId: 'nested',
-      groupId: 'fields-1',
-      expectedLength: 6,
-      expiresAt: Date.now() + 20000,
-    };
-    let prepared: unknown;
-    let resolveRelease!: (value: unknown) => void;
-    const released = new Promise((resolve) => {
-      resolveRelease = resolve;
-    });
-    listeners[0]!({ type: 'prepare', ...binding }, { id: 'fixture' }, (v) => {
-      prepared = v;
-    });
-    listeners[0]!(
-      { type: 'release', ...binding, code: '003719' },
-      { id: 'fixture' },
-      (v) => {
-        resolveRelease(v);
+    ]);
+    await expect(page.locator('input')).toHaveValue('');
+    const {
+      createAccountGate,
+      createGmailLifecycle,
+      GMAIL_SCOPE,
+      createGmailTransport,
+      createGmailPageCoordinator,
+    } = pipeline;
+    const gate = createAccountGate(async () => ({
+      userId: 'fixture-user',
+      sessionId: 'fixture-session',
+      expiresAt: Date.now() + 60000,
+      label: 'Synthetic',
+    }));
+    const mailbox = createGmailLifecycle(
+      {
+        token: async () => ({
+          token: 'synthetic-token',
+          grantedScopes: [GMAIL_SCOPE],
+        }),
+        profile: async () => 'person@fixture.invalid',
+        remove: async () => {},
+        clear: async () => {},
+        revoke: async () => true,
       },
+      true,
     );
-    return { prepared, released: await released };
+    await mailbox.connect();
+    let confirmFill: (() => void) | undefined;
+    const coordinator = createGmailPageCoordinator(
+      {
+        now: Date.now,
+        id: () => 'nested',
+        settings: () => ({ autofillEnabled: true, blockedOrigins: [] }),
+        context: async () => ({
+          accountId: '',
+          mailboxId: 'person@fixture.invalid',
+          tabId: 1,
+          documentId: 'nested-document',
+          origin: 'https://new-login.example',
+          browserUrl: 'https://new-login.example/login',
+          policyUrl: 'https://new-login.example/login',
+          serviceId: 'generic',
+          foreground: true,
+        }),
+        current: async () => true,
+        confirm: async () =>
+          new Promise<boolean>((resolve) => {
+            confirmFill = () => resolve(true);
+          }),
+        send: async (_context, message) =>
+          page.evaluate(
+            (message) =>
+              new Promise((resolve) => {
+                const listeners = Reflect.get(window, '__nestedListeners') as ((
+                  v: unknown,
+                  sender: unknown,
+                  reply: (v: unknown) => void,
+                ) => void)[];
+                listeners[0]!(message, { id: 'fixture' }, resolve);
+              }),
+            message,
+          ),
+      },
+      gate,
+      mailbox,
+      createGmailTransport(
+        async (url) =>
+          new Response(
+            JSON.stringify(
+              new URL(url).searchParams.has('format')
+                ? {
+                    id: 'synthetic-mail',
+                    internalDate: String(Date.now()),
+                    raw: Buffer.from(
+                      'To: person@fixture.invalid\r\nSubject: Login code\r\nContent-Type: text/plain\r\n\r\nYour code is 003719',
+                    ).toString('base64url'),
+                  }
+                : { messages: [{ id: 'synthetic-mail' }] },
+            ),
+          ),
+      ),
+    );
+    try {
+      const detected = await page.evaluate(
+        () => Reflect.get(window, '__nestedMessages') as unknown[],
+      );
+      const result = coordinator.handle(detected[0], {});
+      await expect.poll(() => !!confirmFill).toBe(true);
+      await expect(page.locator('input')).toHaveValue('');
+      confirmFill!();
+      expect(await result).toEqual({ state: 'FILLED' });
+    } finally {
+      coordinator.dispose();
+      gate.invalidate();
+      mailbox.invalidate();
+    }
+    await expect(page.locator('input')).toHaveValue('003719');
   });
-  expect(result).toEqual({ prepared: true, released: true });
-  await expect(page.locator('input')).toHaveValue('003719');
-});
 
 test('trusted resend cancels approval and starts a fresh request on the same fields', async ({
   page,

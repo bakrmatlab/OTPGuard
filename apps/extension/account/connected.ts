@@ -7,17 +7,20 @@ export function createConnectedCoordinator(
 ) {
   const coordinator = createCoordinator({
     ...adapter,
-    async context(sender) {
-      adapter.contextFailure?.(null);
+    async context(sender, signal) {
       adapter.progress?.('account');
       const bound = await gate.refresh(true);
+      if (signal?.aborted) return null;
       if (!bound) {
         adapter.contextFailure?.('account');
         return null;
       }
-      const context = await adapter.context(sender);
+      const context = await adapter.context(sender, signal);
+      if (signal?.aborted) return null;
       if (!context) return null;
-      if (!(await gate.current(bound))) {
+      const current = await gate.current(bound);
+      if (signal?.aborted) return null;
+      if (!current) {
         adapter.contextFailure?.('account');
         return null;
       }

@@ -178,3 +178,25 @@ submission or overwriting intervening changes. No additional provider scopes or 
 permissions are introduced. See generic-reliability-acceptance.md.
 
 Request diagnostics now expose a volatile closed stage enum, elapsed timing and at most 12 last-observed stages to the popup. Admission, retrieval, exclusion and release stages share the same local observer; it has no authorization role. Concurrent checks can interleave stages.
+
+Generic request follow-up: the background routes early challenge events through the
+account/mailbox/page boundary. Admission is cancellable and consumes the same
+60-second budget as retrieval and confirmation. Navigation cancels pending admission;
+late provider results do not admit an expired request. Only detection starts a new
+searching display. See [follow-up acceptance](generic-request-followup-acceptance.md).
+
+Generic recipient hints use bounded rendered text, preserving block boundaries and
+inline address fragments. Concatenated DOM text must not create a different address
+by prefixing adjacent headings. Recipient contradiction still excludes a candidate;
+this correction changes extraction, not the mailbox or release policy.
+
+Generic parsing excludes explicitly marked copyright years/ranges from candidate
+numbers, including when inert email text puts metadata on the same line as a code
+label. Other four-digit numbers still require the existing context rules; a year-like
+value can itself be a valid code. Two distinct labelled codes remain ambiguous.
+
+A generic code label followed by explicit request-audit wording, such as “This code
+was requested from”, does not introduce an OTP value. Dates and other audit numbers
+therefore do not compete with a labelled verification code elsewhere in the email.
+Additional actual code labels still participate in ambiguity. These grammatical hints
+are generic matching heuristics and never establish sender/destination trust.

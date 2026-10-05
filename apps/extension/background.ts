@@ -20,7 +20,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
     message &&
     typeof message === 'object' &&
     'type' in message &&
-    ['detect', 'cancel'].includes(String(message.type))
+    ['challenge', 'detect', 'cancel'].includes(String(message.type))
   ) {
     void pagePipeline
       .handle(message, sender)

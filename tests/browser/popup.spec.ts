@@ -265,6 +265,40 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
           'expired before confirmation',
         );
     }
+    for (const [stage, text] of [
+      ['messages-ambiguous', 'Multiple recent emails contain plausible codes'],
+      [
+        'codes-ambiguous',
+        'One email contains multiple plausible numeric codes',
+      ],
+      [
+        'requests-ambiguous',
+        'Competing login requests or code field groups were detected',
+      ],
+      [
+        'retrieval-incomplete',
+        'Email retrieval did not return a complete candidate set',
+      ],
+    ]) {
+      await popup.evaluate(
+        (stage) =>
+          Reflect.get(window, 'syntheticPopup').update({
+            state: 'UNKNOWN',
+            reason: 'ambiguity',
+            progress: {
+              stage,
+              elapsedSeconds: 8,
+              stageSeconds: 0,
+              steps: ['selecting', stage],
+            },
+          }),
+        stage,
+      );
+      await expect(popup.getByRole('status')).toHaveText(
+        text + '. No code was released.',
+      );
+      await expect(fill).toBeDisabled();
+    }
     await popup.evaluate(() =>
       Reflect.get(window, 'syntheticPopup').update({
         state: 'UNKNOWN',
@@ -432,19 +466,21 @@ test('one-time website setup explains generic matching and enables automatic fin
       { origins: ['https://*/*'] },
       { type: 'settings-autofill', enabled: true },
     ]);
-    expect(
-      await worker.evaluate(async () => {
-        const value = (await chrome.storage.local.get('otpguard.settings.v1'))[
-          'otpguard.settings.v1'
-        ];
-        return (
-          !!value &&
-          typeof value === 'object' &&
-          'autofillEnabled' in value &&
-          value.autofillEnabled === true
-        );
-      }),
-    ).toBe(true);
+    await expect
+      .poll(() =>
+        worker.evaluate(async () => {
+          const value = (
+            await chrome.storage.local.get('otpguard.settings.v1')
+          )['otpguard.settings.v1'];
+          return (
+            !!value &&
+            typeof value === 'object' &&
+            'autofillEnabled' in value &&
+            value.autofillEnabled === true
+          );
+        }),
+      )
+      .toBe(true);
     await expect(
       popup.getByRole('button', { name: 'Fill', exact: true }),
     ).toBeDisabled();

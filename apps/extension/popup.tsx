@@ -297,7 +297,15 @@ export default function Popup() {
           {requestState === 'UNKNOWN' && pipeline.retrievalIssue
             ? retrievalFailureText(pipeline.retrievalIssue)
             : requestState === 'UNKNOWN' && pipeline.reason === 'ambiguity'
-              ? 'More than one code or login request may match. Finish other login requests, then request a fresh code and retry.'
+              ? pipeline.progress &&
+                [
+                  'messages-ambiguous',
+                  'codes-ambiguous',
+                  'requests-ambiguous',
+                  'retrieval-incomplete',
+                ].includes(pipeline.progress.stage)
+                ? stageText[pipeline.progress.stage] + '. No code was released.'
+                : 'More than one code or login request may match. Finish other login requests, then request a fresh code and retry.'
               : requestState === 'CANCELLED' && pipeline.cancellation
                 ? `Request cancelled: ${cancellationMessages[pipeline.cancellation]}`
                 : (requestText[requestState] ??

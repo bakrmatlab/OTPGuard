@@ -241,6 +241,8 @@ it.each([
   'unreadable-code-plus-code',
   'encoded-canva',
   'html-alternative',
+  'inline-copyright',
+  'request-metadata',
 ])(
   'actual connected generic retrieval handles %s without a service mapping or DNS',
   async (scenario) => {
@@ -293,7 +295,11 @@ it.each([
       body:
         scenario === 'encoded-canva' || scenario === 'html-alternative'
           ? 'Log in to your Canva Account\r\nEnter this code within the next 10 minutes to log in to your Canva Account.\r\n003719\r\nCanva Pty Ltd, 110 Kippax St, NSW 2010, Australia\r\n'
-          : 'Your verification code is 003719\r\n',
+          : scenario === 'inline-copyright'
+            ? 'Your verification code is 003719. © 2026 Example\r\n'
+            : scenario === 'request-metadata'
+              ? 'Verification code\r\nEnter the following verification code when prompted:\r\n003719\r\nTo protect your account, do not share this code.\r\nDid not request this?\r\nThis code was requested from 192.0.2.10, Example City at 05 October 2026, 17:15 UTC. If you did not make this request, ignore this email.\r\n© 2026 Example\r\n'
+              : 'Your verification code is 003719\r\n',
     }).raw;
     if (scenario === 'html-alternative')
       code = fixture({
@@ -374,7 +380,9 @@ it.each([
           scenario === 'unrelated-plus-code' ||
           scenario === 'unreadable-newsletter-plus-code' ||
           scenario === 'encoded-canva' ||
-          scenario === 'html-alternative'
+          scenario === 'html-alternative' ||
+          scenario === 'inline-copyright' ||
+          scenario === 'request-metadata'
           ? 'FILLED'
           : 'UNKNOWN',
       );
@@ -398,7 +406,9 @@ it.each([
           scenario === 'unrelated-plus-code' ||
           scenario === 'unreadable-newsletter-plus-code' ||
           scenario === 'encoded-canva' ||
-          scenario === 'html-alternative',
+          scenario === 'html-alternative' ||
+          scenario === 'inline-copyright' ||
+          scenario === 'request-metadata',
       );
     } finally {
       coordinator.dispose();
@@ -742,4 +752,114 @@ it('freezes elapsed diagnostics after a request finishes', () => {
   expect(p.snapshot()?.elapsedSeconds).toBe(1);
   p.reset();
   expect(p.snapshot()).toBeUndefined();
+});
+
+it.each([
+  ['messages-ambiguous', 'messages'],
+  ['codes-ambiguous', 'codes'],
+  ['requests-ambiguous', 'requests'],
+  ['retrieval-incomplete', 'incomplete'],
+] as const)(
+  'identifies %s without exposing mail, counts or codes',
+  async (stage, scenario) => {
+    const t = setup();
+    const progress: string[] = [];
+    t.adapter.progress = (value) => progress.push(value);
+    if (scenario === 'messages')
+      t.adapter.retrieve = async () => [
+        t.envelope,
+        { ...t.envelope, messageId: 'other' },
+      ];
+    if (scenario === 'codes')
+      t.envelope.email.text += '\nYour verification code is 008417';
+    if (scenario === 'incomplete') t.adapter.retrieve = async () => null;
+    const coordinator = createCoordinator(t.adapter);
+    try {
+      expect(
+        await coordinator.handle(
+          { ...t.detect, groupCount: scenario === 'requests' ? 2 : 1 },
+          {},
+        ),
+      ).toEqual({ state: 'UNKNOWN', reason: 'ambiguity' });
+      expect(progress.at(-1)).toBe(stage);
+      expect(t.sent).toEqual([]);
+    } finally {
+      coordinator.dispose();
+    }
+  },
+);
+
+it.each([
+  '© 2026 Example',
+  'Copyright 2026 Example',
+  'Copyright (c) 2020–2026 Example',
+])(
+  'does not interpret an explicitly marked inline copyright year as another code: %s',
+  (footer) => {
+    const email = {
+      subject: 'Login code',
+      text: 'Your code is 003719. ' + footer,
+    };
+    expect(parseGenericCode(email)).toMatchObject({
+      status: 'candidate',
+      candidate: { code: '003719' },
+    });
+    expect(
+      parseGenericCode({ ...email, text: email.text + '. Your code is 008417' })
+        .status,
+    ).toBe('ambiguous');
+    expect(
+      parseGenericCode({ subject: 'Login code', text: 'Your code is 2026' }),
+    ).toMatchObject({ status: 'candidate', candidate: { code: '2026' } });
+  },
+);
+
+it.each([
+  'This code was requested from 192.0.2.10, Example City at 05 October 2026, 17:15 UTC. If you did not make this request, ignore this email.',
+  'This code was requested from\n192.0.2.10, Example City at\n05 October 2026, 17:15 UTC.',
+])('keeps request audit metadata out of candidates: %s', (metadata) => {
+  const email = {
+    subject: 'Verification code',
+    text:
+      'Verification code\nEnter the following verification code when prompted:\n003719\nTo protect your account, do not share this code.\nDid not request this?\n' +
+      metadata +
+      '\n© 2026 Example',
+  };
+  expect(parseGenericCode(email)).toMatchObject({
+    status: 'candidate',
+    candidate: { code: '003719' },
+  });
+  expect(
+    parseGenericCode({
+      ...email,
+      text: email.text + '\nYour verification code is 008417',
+    }).status,
+  ).toBe('ambiguous');
+});
+
+it('preserves two labelled codes even when the first is followed by request metadata', () => {
+  expect(
+    parseGenericCode({
+      subject: 'Verification code',
+      text: 'Your code is 003719\nThis code was requested from 192.0.2.10 at 05 October 2026. Your code is 008417',
+    }).status,
+  ).toBe('ambiguous');
+});
+
+it('extracts a code from inert HTML while excluding a request audit date', () => {
+  const email = normalizeRawEmail(
+    fixture({
+      headers: [
+        'Subject: Verification code',
+        'Content-Type: text/html; charset=utf-8',
+      ],
+      body: '<h2>Verification code</h2><p>Enter the following verification code when prompted:</p><strong>003719</strong><p>To protect your account, do not share this code.</p><h3>Did not request this?</h3><p>This code was requested from <b>192.0.2.10, Example City at 05 October 2026, 17:15 UTC.</b> If you did not make this request, ignore this email.</p><footer>© 2026 Example</footer>',
+    }).raw,
+    true,
+  );
+  expect(email).not.toBeNull();
+  expect(parseGenericCode(email!)).toMatchObject({
+    status: 'candidate',
+    candidate: { code: '003719' },
+  });
 });

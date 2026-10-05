@@ -169,10 +169,11 @@ export const pagePipeline = createGmailPageCoordinator(
       () => localSettings.snapshot().installationId,
       [],
     ),
-    async context(sender) {
+    async context(sender, signal) {
       displayTab = sender.tab?.id;
       progress.update('page');
       await localSettings.initialized;
+      if (signal?.aborted) return null;
       if (
         sender.id !== chrome.runtime.id ||
         sender.frameId !== 0 ||
@@ -198,6 +199,7 @@ export const pagePipeline = createGmailPageCoordinator(
         tabId: sender.tab.id,
         frameId: 0,
       });
+      if (signal?.aborted) return null;
       // Chrome's sender URL remains the document's initial URL after pushState.
       // Bind to live browser metadata only after exact document/origin validation.
       if (
@@ -220,6 +222,7 @@ export const pagePipeline = createGmailPageCoordinator(
         foreground: await foreground(sender.tab.id),
       };
       if (!(await current(context))) {
+        if (signal?.aborted) return null;
         contextFailure = 'page';
         return null;
       }

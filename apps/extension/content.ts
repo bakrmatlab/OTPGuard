@@ -216,7 +216,13 @@ function recipientHint(group: FieldGroup): string | undefined {
     container && container !== document.body && depth < 8;
     depth++, container = container.parentElement
   ) {
-    const text = container.textContent ?? '';
+    const rawText = container.textContent ?? '';
+    if (rawText.length > 4000 || /[*•]/.test(rawText)) return undefined;
+    // textContent joins adjacent block elements without separators, turning a
+    // service heading plus an address into a different recipient. Read the
+    // rendered text so block boundaries remain boundaries and inline address
+    // fragments retain their displayed spelling.
+    const text = container instanceof HTMLElement ? container.innerText : '';
     if (text.length > 4000 || /[*•]/.test(text)) return undefined;
     const addresses = [
       ...text.matchAll(

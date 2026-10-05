@@ -4,7 +4,15 @@ import type { NormalizedEmail, ParseResult, CodeCandidate } from './index';
 export function parseGenericCode(email: NormalizedEmail): ParseResult {
   if (email.subject.length > 1000 || email.text.length > 32768)
     return { status: 'rejected', reason: 'input-limit' };
-  const text = `${email.subject}\n${email.text}`.replace(/\r\n?/g, '\n');
+  const text = `${email.subject}\n${email.text}`
+    .replace(/\r\n?/g, '\n')
+    // Inert markup can put the footer on the same line as a code label. An
+    // explicitly marked copyright year is metadata, not another OTP. Do not
+    // discard arbitrary four-digit values: 2026 can itself be a valid code.
+    .replace(
+      /((?:©|\bcopyright\b)\s*(?:\(c\)\s*)?)[12][0-9]{3}(?:\s*[-–—]\s*[12][0-9]{3})?(?![0-9])/gi,
+      '$1 ',
+    );
   if (
     /(^|\n)\s*(>|on .+wrote:|[- ]*(?:original|forwarded) message|begin forwarded message:|from:)/i.test(
       text,
@@ -18,7 +26,7 @@ export function parseGenericCode(email: NormalizedEmail): ParseResult {
   )
     return { status: 'rejected', reason: 'unsupported-purpose' };
   const label =
-    /\b(?:(?:verification|security|confirmation|authentication|login|sign[ -]?in|one[ -]?time|access) (?:code|password)|(?:your|the|this) code|passcode|otp)\b/i;
+    /\b(?:(?:verification|security|confirmation|authentication|login|sign[ -]?in|one[ -]?time|access) (?:code|password)|(?:your|the|this) code|passcode|otp)\b(?!\s+(?:(?:was|has been|had been|is)\s+)?requested\s+(?:from|at|on|by|using)\b)/i;
   if (!label.test(text))
     return { status: 'rejected', reason: 'unsupported-template' };
   const lines = text

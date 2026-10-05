@@ -96,7 +96,10 @@ export interface Adapter {
   reserve?(context: Context, messageId: string): Promise<boolean>;
   now(): number;
   id(): string;
-  context(sender: chrome.runtime.MessageSender): Promise<Context | null>;
+  context(
+    sender: chrome.runtime.MessageSender,
+    signal?: AbortSignal,
+  ): Promise<Context | null>;
   /** Recheck the bound account/mailbox and browser document/URL/focus after every await. */
   current(context: Context): Promise<boolean>;
   /** Complete bounded plausible set; null means incomplete or failed retrieval. */
@@ -142,6 +145,11 @@ export function createCoordinator(adapter: Adapter) {
   const used = new Set<string>();
   const challengeStarts = new Map<string, number>();
   const windows = new Map<string, { startedAt: number; notBefore: number }>();
+  const admissions = new Set<{
+    tabId: number | undefined;
+    abort: AbortController;
+    reason: CancellationReason | undefined;
+  }>();
   let disposed = false;
   let status: LocalStatus = { state: 'IDLE' };
   let latestRequest: Request | undefined;
@@ -179,11 +187,20 @@ export function createCoordinator(adapter: Adapter) {
       return status;
     },
     cancelAll(reason: CancellationReason = 'invalidated') {
+      for (const admission of admissions) {
+        admission.reason = reason;
+        admission.abort.abort();
+      }
       for (const request of requests.values()) cancel(request, reason);
       windows.clear();
       challengeStarts.clear();
     },
     cancelTab(tabId: number, reason: CancellationReason = 'navigation') {
+      for (const admission of admissions)
+        if (admission.tabId === tabId) {
+          admission.reason = reason;
+          admission.abort.abort();
+        }
       for (const request of requests.values())
         if (request.context.tabId === tabId) cancel(request, reason);
     },
@@ -207,7 +224,65 @@ export function createCoordinator(adapter: Adapter) {
       const observedAt = adapter.now();
       const message = parseClient(value);
       if (!message) return { state: 'UNKNOWN', reason: 'request' };
-      const suppliedContext = await adapter.context(sender);
+      if (message.type === 'detect') adapter.contextFailure?.(null);
+      // Admission includes provider/browser awaits. Bound it before those checks,
+      // and detach late results without admitting a stale document or request.
+      const admission = {
+        tabId: sender.tab?.id,
+        abort: new AbortController(),
+        reason: undefined as CancellationReason | undefined,
+      };
+      admissions.add(admission);
+      const admissionTimer = setTimeout(() => {
+        admission.reason = 'deadline';
+        admission.abort.abort();
+      }, 60_000);
+      let suppliedContext: Context | null;
+      try {
+        suppliedContext = await new Promise<Context | null>(
+          (resolve, reject) => {
+            const cancelled = () => resolve(null);
+            admission.abort.signal.addEventListener('abort', cancelled, {
+              once: true,
+            });
+            const cleanup = () =>
+              admission.abort.signal.removeEventListener('abort', cancelled);
+            void adapter.context(sender, admission.abort.signal).then(
+              (value) => {
+                cleanup();
+                resolve(value);
+              },
+              (error) => {
+                cleanup();
+                reject(error);
+              },
+            );
+          },
+        );
+      } catch {
+        suppliedContext = null;
+        if (!admission.abort.signal.aborted) adapter.contextFailure?.('page');
+      } finally {
+        clearTimeout(admissionTimer);
+        admissions.delete(admission);
+      }
+      if (
+        admission.abort.signal.aborted ||
+        adapter.now() >= observedAt + 60_000
+      ) {
+        if (
+          admission.reason === 'account-changed' ||
+          admission.reason === 'mailbox-changed'
+        ) {
+          adapter.contextFailure?.(
+            admission.reason === 'account-changed' ? 'account' : 'mailbox',
+          );
+          suppliedContext = null;
+        } else {
+          adapter.cancelled?.(admission.reason ?? 'deadline');
+          return (status = { state: 'CANCELLED' });
+        }
+      }
       const context = suppliedContext ? { ...suppliedContext } : null;
       if (disposed) return { state: 'CANCELLED' };
       if (!context) {
@@ -355,7 +430,7 @@ export function createCoordinator(adapter: Adapter) {
         groupId: message.groupId,
         length: message.expectedLength,
         startedAt,
-        deadline: startedAt + 60_000,
+        deadline: observedAt + 60_000,
         ambiguous: message.groupCount !== 1,
         abort: new AbortController(),
       };
@@ -372,7 +447,10 @@ export function createCoordinator(adapter: Adapter) {
       requests.set(request.id, request);
       latestRequest = request;
       status = { state: 'SEARCHING' };
-      const timer = setTimeout(() => cancel(request, 'deadline'), 60_000);
+      const timer = setTimeout(
+        () => cancel(request, 'deadline'),
+        Math.max(0, request.deadline - adapter.now()),
+      );
       try {
         if (blocked())
           return (status = { state: 'BLOCKED', reason: 'local-block' });
@@ -381,8 +459,10 @@ export function createCoordinator(adapter: Adapter) {
         adapter.progress?.('polling');
         const envelopes = await adapter.retrieve(context, request.abort.signal);
         if (!(await alive(request))) return stop(request, 'current-changed');
-        if (!envelopes || envelopes.length > 10)
+        if (!envelopes || envelopes.length > 10) {
+          adapter.progress?.('retrieval-incomplete');
           return (status = { state: 'UNKNOWN', reason: 'ambiguity' });
+        }
         adapter.progress?.('selecting');
         let plausible =
           adapter.mode === 'user-confirmed'
@@ -477,6 +557,18 @@ export function createCoordinator(adapter: Adapter) {
         if (!message.manual && !preferences().autofillEnabled)
           return stop(request, 'automatic-disabled');
         status = decide();
+        if (
+          adapter.mode === 'user-confirmed' &&
+          status.state === 'UNKNOWN' &&
+          status.reason === 'ambiguity'
+        )
+          adapter.progress?.(
+            request.ambiguous
+              ? 'requests-ambiguous'
+              : messages.length !== 1
+                ? 'messages-ambiguous'
+                : 'codes-ambiguous',
+          );
         if (status.state !== 'VERIFIED' && status.state !== 'CANDIDATE')
           return status;
         if (adapter.mode === 'user-confirmed' && !adapter.confirm)

@@ -13,15 +13,16 @@ export function createMailboxCoordinator(
   const coordinator = createConnectedCoordinator(
     {
       ...adapter,
-      async context(sender) {
+      async context(sender, signal) {
         const before = generation;
         adapter.progress?.('mailbox');
         const status = await ensureMailbox();
+        if (signal?.aborted) return null;
         if (status.state !== 'CONNECTED') {
           adapter.contextFailure?.('mailbox');
           return null;
         }
-        const context = await adapter.context(sender);
+        const context = await adapter.context(sender, signal);
         return before === generation && context?.mailboxId === status.mailbox
           ? context
           : null;

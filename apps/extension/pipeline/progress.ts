@@ -16,6 +16,12 @@ export const stageText = {
   quoted: 'A recent message was excluded: quoted or forwarded code',
   length: 'A recent message was excluded: code length does not fit the field',
   selecting: 'Checking code candidates for ambiguity',
+  'messages-ambiguous': 'Multiple recent emails contain plausible codes',
+  'codes-ambiguous': 'One email contains multiple plausible numeric codes',
+  'requests-ambiguous':
+    'Competing login requests or code field groups were detected',
+  'retrieval-incomplete':
+    'Email retrieval did not return a complete candidate set',
   approval: 'Code found: waiting for your Fill click',
   preparing: 'Checking that the code field is still ready',
   replay: 'Checking that this email has not already been used',
