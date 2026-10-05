@@ -215,3 +215,16 @@ and recognizable build identity. New services, dashboard changes, provider grant
 publication, merge and deployment are excluded. Local results and remaining limits
 are in [popup polish acceptance](popup-polish-acceptance.md). Core 4's deferred
 owner-assisted lifecycle/concurrency/privacy checks remain unverified.
+
+### Owner-selected website UI/UX pass
+
+After popup polish was approved, merged and pushed as `5e87580`, the owner requested
+website UI/UX work. The first pass refines existing dashboard/account/auth-page
+presentation on `codex/website-ux-polish`, preserving inactive cloud capabilities and
+the existing provider/extension contracts. Results and review limits are recorded in
+[website polish acceptance](website-polish-acceptance.md). Website publication and
+cloud transport activation are outside this local review pass.
+
+Owner follow-up: public feature landing at `/`, configured Clerk session protection at
+`/dashboard`, and sign-in/sign-up fallback redirects to the dashboard. Local provider-free
+preview and live provider acceptance limits are recorded in website-polish-acceptance.md.

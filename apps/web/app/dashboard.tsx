@@ -1,4 +1,5 @@
 import React, { type ReactNode } from 'react';
+import { Workspace, WorkspaceNavigation } from './workspace';
 import { supportedServices } from '../../../packages/security';
 import {
   providerReportLabel,
@@ -15,11 +16,10 @@ export type ReportState =
     };
 const sections = [
   ['overview', 'Overview'],
-  ['connections', 'Connected accounts'],
+  ['connections', 'Account & connections'],
   ['activity', 'Activity'],
-  ['devices', 'Devices'],
   ['settings', 'Settings'],
-  ['services', 'Supported services'],
+  ['services', 'Supported sites'],
 ] as const;
 function Panel({
   id,
@@ -31,7 +31,12 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="panel" aria-labelledby={`${id}-title`}>
+    <section
+      id={id}
+      tabIndex={-1}
+      className="panel"
+      aria-labelledby={`${id}-title`}
+    >
       <div className="panel-heading">
         <h2 id={`${id}-title`}>{title}</h2>
       </div>
@@ -162,7 +167,7 @@ export function ActivityState({
 }
 export function Dashboard({ account }: { account?: ReactNode }) {
   return (
-    <div className="dashboard-shell">
+    <Workspace>
       <a className="skip-link" href="#main">
         Skip to dashboard
       </a>
@@ -174,16 +179,7 @@ export function Dashboard({ account }: { account?: ReactNode }) {
           OTPGuard
         </a>
         <p className="nav-label">YOUR WORKSPACE</p>
-        <nav aria-label="Dashboard">
-          {sections.map(([id, label], index) => (
-            <a key={id} href={`#${id}`}>
-              <span aria-hidden="true" className="nav-number">
-                0{index + 1}
-              </span>
-              {label}
-            </a>
-          ))}
-        </nav>
+        <WorkspaceNavigation sections={sections} />
         <div className="sidebar-note">
           <span className="status-dot" aria-hidden="true" />
           Local-first by design<p>Mail and codes stay out of this dashboard.</p>
@@ -191,49 +187,82 @@ export function Dashboard({ account }: { account?: ReactNode }) {
       </aside>
       <main id="main" className="dashboard-main" tabIndex={-1}>
         <header className="topbar">
-          <span>Workspace / Dashboard</span>
-          <span className="badge">Local prototype</span>
+          <span>OTPGuard / Workspace</span>
+          <span className="badge">Browser-first protection</span>
         </header>
         <section
           id="overview"
           aria-labelledby="overview-title"
           className="overview"
+          tabIndex={-1}
         >
           <p className="eyebrow">ACCOUNT & SECURITY</p>
-          <h1 id="overview-title">Your protection workspace</h1>
+          <div className="overview-heading">
+            <h1 id="overview-title">Overview</h1>
+            <a className="account-link" href="#connections">
+              Manage account
+            </a>
+          </div>
           <p className="intro">
-            A clear view of what OTPGuard can report, and what stays in your
-            browser.
+            Manage your account here. Find and fill verification codes with the
+            extension.
           </p>
           <div className="capability-notice">
             <span className="notice-symbol" aria-hidden="true">
               i
             </span>
             <div>
-              <strong>Connected features are not active</strong>
+              <strong>Your extension does the work</strong>
               <p>
-                The owner-controlled Canva extension pilot supports user-clicked
-                fill. Cloud metadata transport is unconfigured in this setup.
+                The extension checks email codes locally and fills only after
+                your click. Cloud metadata is not connected to this dashboard.
               </p>
             </div>
           </div>
           <div className="summary-grid">
-            <div className="summary-card">
-              <p>Account sync</p>
-              <strong>Unconfigured</strong>
-              <span>No cloud data read</span>
-            </div>
-            <div className="summary-card">
-              <p>Supported services</p>
+            <a className="summary-card" href="#connections">
+              <p>Account</p>
+              <strong>Account &amp; connections</strong>
+              <span>Sign in or manage your shared session</span>
+            </a>
+            <a className="summary-card" href="#services">
+              <p>Coverage</p>
               <strong>{supportedServices.length} pilot service</strong>
-              <span>Owner-controlled extension pilot</span>
-            </div>
-            <div className="summary-card">
-              <p>Activity visibility</p>
-              <strong>Browser-local</strong>
-              <span>Unsynchronized history stays local</span>
-            </div>
+              <span>See supported sites and exact origins</span>
+            </a>
+            <a className="summary-card" href="#settings">
+              <p>Preferences</p>
+              <strong>Make it work for you</strong>
+              <span>Find prompts, site access and local controls</span>
+            </a>
           </div>
+          <section className="getting-started" aria-labelledby="start-title">
+            <h2 id="start-title">Ready to use OTPGuard?</h2>
+            <ol>
+              <li>
+                <strong>Connect your mailbox</strong>
+                <span>
+                  Open the extension and connect Gmail. Website sign-in does not
+                  grant mailbox access.
+                </span>
+              </li>
+              <li>
+                <strong>Enable a supported site</strong>
+                <span>
+                  Grant site access in the extension, then open a fresh
+                  email-code challenge.
+                </span>
+              </li>
+              <li>
+                <strong>Review and fill</strong>
+                <span>
+                  When a code is verified, click Fill. Complete your login on
+                  the site.
+                </span>
+              </li>
+            </ol>
+            <a href="#services">Check supported sites</a>
+          </section>
         </section>
         <div className="content-grid">
           <Panel id="connections" title="Connected accounts">
@@ -247,8 +276,8 @@ export function Dashboard({ account }: { account?: ReactNode }) {
                   <>
                     <p>Account authentication is unconfigured.</p>
                     <p className="muted">
-                      The current development Clerk transport is unsupported
-                      under the session privacy requirements.
+                      Account features are unavailable in this setup. Your
+                      extension connection is managed separately.
                     </p>
                   </>
                 )}
@@ -269,6 +298,14 @@ export function Dashboard({ account }: { account?: ReactNode }) {
               No synchronized connection report available. This does not mean
               your local mailbox is disconnected.
             </div>
+            <details className="secondary-details">
+              <summary>Device reports</summary>
+              <DeviceReports state={{ kind: 'unconfigured' }} />
+              <p>
+                Device reports are not connected here. A missing report does not
+                mean your local extension is disconnected.
+              </p>
+            </details>
           </Panel>
           <Panel id="activity" title="Activity">
             <ActivityState kind="unconfigured" />
@@ -284,59 +321,78 @@ export function Dashboard({ account }: { account?: ReactNode }) {
                 Cloud history, if enabled<strong>30 days · optional</strong>
               </span>
             </div>
-            <p className="muted">
-              Local history can span OTPGuard account changes. Retention is
-              applied when the extension runs or history is accessed; inactive
-              stored bytes may remain longer. A recorded fill means input
-              insertion, not server login acceptance.
-            </p>
-            <button disabled aria-describedby="cloud-history-help">
-              Enable cloud history
-            </button>
-            <p id="cloud-history-help" className="control-help">
-              Unavailable until policy and authenticated transport requirements
-              are resolved. No history is uploaded from this page.
-            </p>
-          </Panel>
-          <Panel id="devices" title="Devices">
-            <DeviceReports state={{ kind: 'unconfigured' }} />
-            <p>
-              When available, each report will show its receipt time and age.
-              Reports at least five minutes old are stale; even a recent report
-              cannot guarantee a currently valid Gmail token.
-            </p>
-            <p className="muted">
-              Installation IDs identify extension installations, not hardware or
-              security attestation. Remote device management is unavailable here
-              and cannot instantly revoke an offline Google grant.
-            </p>
+            <details className="secondary-details">
+              <summary>History retention details</summary>
+              <p className="muted">
+                Local history can span OTPGuard account changes. Retention is
+                applied when the extension runs or history is accessed; inactive
+                stored bytes may remain longer. A recorded fill means input
+                insertion, not server login acceptance.
+              </p>
+            </details>
+            <details className="secondary-details">
+              <summary>Cloud history availability</summary>
+              <button disabled aria-describedby="cloud-history-help">
+                Enable cloud history
+              </button>
+              <p id="cloud-history-help" className="control-help">
+                Unavailable until policy and authenticated transport
+                requirements are resolved. No history is uploaded from this
+                page.
+              </p>
+            </details>
           </Panel>
           <Panel id="settings" title="Settings">
             <div className="setting-row">
               <div>
-                <h3>Automatic fill preference</h3>
+                <h3>Automatic code prompts</h3>
                 <p>
-                  Manage the saved local preference in the extension. Its value
-                  is unknown to this dashboard.
+                  Open the extension → Connections, preferences & history →
+                  Preferences & site blocks. Turn automatic prompts on or off
+                  there. Its current value is not available here.
                 </p>
               </div>
               <span className="badge">Local only</span>
             </div>
             <div className="setting-row">
               <div>
-                <h3>Account settings sync</h3>
+                <h3>Site access &amp; blocks</h3>
                 <p>
-                  Cloud settings sync is unconfigured. Local preferences remain
-                  usable independently.
+                  Use Site access in the extension to enable a supported site.
+                  Use Preferences &amp; site blocks to block an exact origin or
+                  remove an existing block.
                 </p>
               </div>
-              <button disabled aria-describedby="settings-help">
-                Enable sync
-              </button>
+              <a href="#services">Supported sites</a>
             </div>
-            <p id="settings-help" className="control-help">
-              No settings are read or changed by this dashboard.
-            </p>
+            <div className="setting-row">
+              <div>
+                <h3>Local history</h3>
+                <p>
+                  View, export or delete records in the extension’s Local
+                  history panel. Codes and mail are never included.
+                </p>
+              </div>
+              <a href="#activity">History details</a>
+            </div>
+            <details className="secondary-details">
+              <summary>Cloud settings availability</summary>
+              <div className="setting-row">
+                <div>
+                  <h3>Account settings sync</h3>
+                  <p>
+                    Cloud settings sync is unconfigured. Local preferences
+                    remain usable independently.
+                  </p>
+                </div>
+                <button disabled aria-describedby="settings-help">
+                  Enable sync
+                </button>
+              </div>
+              <p id="settings-help" className="control-help">
+                No settings are read or changed by this dashboard.
+              </p>
+            </details>
             <div className="inline-note">
               <strong>Security enforcement is always required.</strong>{' '}
               Automatic and manual fill use the same authorization gates. Local
@@ -383,12 +439,12 @@ export function Dashboard({ account }: { account?: ReactNode }) {
           </p>
         </Panel>
         <footer>
-          OTPGuard · Local prototype
+          OTPGuard · Local protection
           <span>
-            Provider setup and real-flow acceptance remain incomplete.
+            Canva pilot · additional services and public release remain gated.
           </span>
         </footer>
       </main>
-    </div>
+    </Workspace>
   );
 }

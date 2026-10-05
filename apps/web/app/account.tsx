@@ -2,18 +2,25 @@
 import { useUser, UserButton } from '@clerk/nextjs';
 export function Account() {
   const { user, isLoaded } = useUser();
-  if (!isLoaded) return <p>Checking account session…</p>;
+  if (!isLoaded) return <p role="status">Checking account session…</p>;
   return user ? (
-    <section>
-      <h2>OTPGuard account</h2>
+    <div className="account-session">
       <p>{user.primaryEmailAddress?.emailAddress ?? user.id}</p>
-      <p>Account ID: {user.id}</p>
+      <details>
+        <summary>Account reference</summary>
+        <p className="mono">Account ID: {user.id}</p>
+      </details>
       <p>
         Sign-out also signs out the OTPGuard extension in this browser profile.
       </p>
-      <UserButton />
-    </section>
+      <div className="profile-control">
+        <span>Manage your profile</span>
+        <UserButton />
+      </div>
+    </div>
   ) : (
-    <a href="/sign-in">Sign in to OTPGuard</a>
+    <a className="account-link" href="/sign-in">
+      Sign in to OTPGuard
+    </a>
   );
 }

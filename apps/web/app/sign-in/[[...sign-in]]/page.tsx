@@ -2,23 +2,34 @@ import { webAccountConfigured } from '../../../account-config';
 import { SignIn } from '@clerk/nextjs';
 export default function SignInPage() {
   return (
-    <main>
+    <main className="auth-page">
+      <a className="auth-brand" href="/" aria-label="OTPGuard home">
+        <span className="brand-mark" aria-hidden="true">
+          O
+        </span>
+        OTPGuard
+      </a>
       <h1>OTPGuard account sign-in</h1>
       {webAccountConfigured() ? (
         <SignIn
           routing="path"
           path="/sign-in"
           signUpUrl="/sign-up"
-          fallbackRedirectUrl="/"
+          fallbackRedirectUrl="/dashboard"
         />
       ) : (
         <p>Account authentication is unconfigured.</p>
       )}
-      <p>
-        Signing in also signs in the OTPGuard extension in this browser profile.
-        Signing out ends this shared session.
-      </p>
-      <p>Signing in does not connect Gmail.</p>
+      <div className="auth-notice">
+        <p>
+          Signing in also signs in the OTPGuard extension in this browser
+          profile. Signing out ends this shared session.
+        </p>
+        <p>Signing in does not connect Gmail.</p>
+      </div>
+      <a className="back-link" href="/">
+        Back to home
+      </a>
     </main>
   );
 }

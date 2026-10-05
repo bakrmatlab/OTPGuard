@@ -4,19 +4,27 @@ import { resolve } from 'node:path';
 test('web entry point explains unavailable capabilities', async ({ page }) => {
   await page.goto('http://127.0.0.1:3100');
   await expect(
+    page.getByRole('heading', { name: 'Email codes, with less friction.' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Get started', exact: true }),
+  ).toHaveAttribute('href', '/sign-up');
+  await page.goto('http://127.0.0.1:3100/dashboard');
+  await expect(
     page.getByRole('heading', {
-      name: 'Your protection workspace',
+      name: 'Overview',
       exact: true,
     }),
   ).toBeVisible();
   await expect(
     page.getByText(
-      'The owner-controlled Canva extension pilot supports user-clicked',
+      'The extension checks email codes locally and fills only after your click.',
       {
         exact: false,
       },
     ),
   ).toBeVisible();
+  await page.getByRole('link', { name: 'Manage account', exact: true }).click();
   await expect(
     page.getByText('Account authentication is unconfigured.'),
   ).toBeVisible();
