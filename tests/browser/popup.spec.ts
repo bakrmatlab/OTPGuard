@@ -563,7 +563,10 @@ test('Chrome native action popup keeps 380px content without clipping', async ()
                 resolve(JSON.stringify({
                   width: innerWidth,
                   clientWidth: root.clientWidth,
-                  scrollbar: root.scrollHeight > root.clientHeight ? scrollbarWidth : 0,
+                  scrollbar: scrollbarWidth,
+                  body: document.body.getBoundingClientRect().width,
+                  mainLeft: main.getBoundingClientRect().left,
+                  mainRight: main.getBoundingClientRect().right,
                   main: main.getBoundingClientRect().width,
                   overflow: root.scrollWidth > root.clientWidth,
                   fill: document.querySelector('.actions button').getBoundingClientRect().width,
@@ -578,10 +581,18 @@ test('Chrome native action popup keeps 380px content without clipping', async ()
       }),
     });
     const dimensions = JSON.parse(await response);
-    // Native viewport width includes classic scrollbars on Linux; overlay
-    // scrollbars on macOS consume no layout space. Content stays exactly 380px.
-    expect(dimensions.clientWidth).toBe(380);
-    expect(dimensions.width).toBe(380 + dimensions.scrollbar);
+    // Chrome may reserve classic-scrollbar space when sizing the native popup,
+    // even when no root scrollbar is active. Overlay-scrollbar platforms reserve 0.
+    // The document's content must stay 380px and entirely inside the usable viewport.
+    expect(
+      [380, 380 + dimensions.scrollbar],
+      JSON.stringify(dimensions),
+    ).toContain(dimensions.width);
+    expect(dimensions.clientWidth).toBeGreaterThanOrEqual(380);
+    expect(dimensions.clientWidth).toBeLessThanOrEqual(dimensions.width);
+    expect(dimensions.body).toBe(380);
+    expect(dimensions.mainLeft).toBe(0);
+    expect(dimensions.mainRight).toBeLessThanOrEqual(dimensions.clientWidth);
     expect(dimensions.main).toBe(380);
     expect(dimensions.overflow).toBe(false);
     expect(dimensions.fill).toBeGreaterThan(120);

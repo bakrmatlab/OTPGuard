@@ -76,3 +76,15 @@ merging and pushing the CI repair and challenge tracking, then starting timing/
 provider work. This supersedes the earlier local-only publication boundary for
 these two scopes. Linux CI verification follows the authorized push; live
 configuration/acceptance limitations remain unchanged.
+
+## Linux CI follow-up
+
+The authorized push at `50fc221` ran Linux CI as run 37400909920: 70 browser cases
+passed, one skipped, and the native popup assertion still failed. Linux reported
+root `clientWidth` 395 too; the first repair's assumption that the allowance must
+be consumed by an active root scrollbar was incorrect. The test now accepts only
+380 or 380 plus the measured platform scrollbar width, including Chrome's reserved
+allowance when no root scrollbar is active. Body/main width remains exactly 380,
+main left edge is zero, its right edge must fit inside root client width, and
+horizontal overflow and undersized Fill still fail. Failure messages include only
+synthetic layout dimensions. No production layout or permission changed.
