@@ -159,9 +159,8 @@ export function normalizeRawEmail(
           ? /;\s*charset\s*=\s*(?:"([^";]+)"|([^;\s]+))/i
           : /;\s*charset=(?:"([^";]+)"|([^;\s]+))/i
       ).exec(type);
-      const encoding = (
-        headers.get('content-transfer-encoding') ?? '7bit'
-      ).toLowerCase();
+      const transfer = headers.get('content-transfer-encoding') ?? '7bit';
+      const encoding = (generic ? transfer.trim() : transfer).toLowerCase();
       stage = 'transfer-encoding';
       let decoded = body;
       if (encoding === 'quoted-printable') {
@@ -377,31 +376,4 @@ export function rawEmailHints(
   } catch {
     return null;
   }
-}
-
-/** Only explicit ordinary-mail categories with a readable, non-code snippet can
- * exclude a decoder failure. Missing/ambiguous hints keep the cycle incomplete.
- * This is a generic matching heuristic, never proof of absent hidden content. */
-export function clearlyUnrelatedMail(
-  input: Uint8Array,
-  snippet: unknown,
-): boolean {
-  const hints = rawEmailHints(input);
-  if (
-    !hints ||
-    typeof snippet !== 'string' ||
-    !snippet.trim() ||
-    snippet.length > 1000
-  )
-    return false;
-  const text = hints.subject + ' ' + snippet;
-  if (
-    /[\u0000-\u001f\u007f]|\b(code|otp|passcode|password|verify|verification|security|authenticate|authentication|sign[ -]?in|log[ -]?in|access|confirm your|one[ -]?time)\b/i.test(
-      text,
-    )
-  )
-    return false;
-  return /^(?:newsletter\b|(?:your )?(?:daily|weekly|monthly) (?:newsletter|digest|roundup)\b|(?:your )?(?:order|invoice|receipt|shipping|delivery)\b)/i.test(
-    hints.subject.trim(),
-  );
 }

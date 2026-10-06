@@ -169,3 +169,12 @@ This integrates generic user-confirmed filling and diagnostics with partial live
 acceptance: owner reports Canva success, Clerk unresolved. Follow-up scope and
 explicit owner-only live testing constraint are in clerk-continuation-handoff.md.
 No additional provider grants, owner installation or deployment requested/performed.
+
+## Rank-4 superseding decoder-failure decision
+
+ADR0028 removes the earlier acceptance row 1's unreadable-newsletter exclusion. A
+subject/snippet cannot establish that an unseen body has no plausible code. The new
+connected regression reproduces an unsafe Fill on the prior implementation and now
+requires UNKNOWN with no release. Readable unrelated mail remains excludable; eligible
+decoder failures make the complete cycle unavailable. See
+[rank-4 acceptance](retrieval-mime-acceptance.md).

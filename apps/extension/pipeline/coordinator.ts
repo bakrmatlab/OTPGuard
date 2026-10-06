@@ -3,6 +3,7 @@ import {
   CONFIRM_MS,
   RELEASE_MS,
 } from '../../../packages/security/timing';
+import { genericRetrievalLimits } from '../../../packages/security/retrieval-limits';
 import {
   parseVerificationCode,
   parseGenericCode,
@@ -605,7 +606,13 @@ export function createCoordinator(adapter: Adapter) {
           adapter.retrieve(context, request.abort.signal),
         );
         if (!(await alive(request))) return stop(request, 'current-changed');
-        if (!envelopes || envelopes.length > 10) {
+        if (
+          !envelopes ||
+          envelopes.length >
+            (adapter.mode === 'user-confirmed'
+              ? genericRetrievalLimits.messages
+              : 10)
+        ) {
           adapter.progress?.('retrieval-incomplete');
           return (status = { state: 'UNKNOWN', reason: 'ambiguity' });
         }

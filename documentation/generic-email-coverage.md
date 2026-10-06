@@ -49,3 +49,28 @@ characters separated by one hyphen are recognized under explicit code-context
 gates. The presentation hyphen is omitted from the six-character release. Other
 punctuation and longer grouped tokens remain unsupported. Synthetic regression
 coverage is in `tests/grouped-alphanumeric-otp.test.ts`.
+
+## Rank-4 bounded retrieval/MIME revision
+
+Generic transfer-encoding tokens accept surrounding whitespace after header unfolding;
+plain/HTML alternatives still jointly contribute to ambiguity. Unknown charset labels,
+invalid bytes, truncated boundaries, unsupported containers, forwarded/attached text,
+encrypted messages and per-message part/depth/text/raw caps continue to refuse.
+No text attachment extraction, external-resource fetch, language or code-format expansion.
+
+Generic search now includes spam/trash and follows bounded pagination before fetching
+all returned bodies (fifty IDs, five pages per enumeration, four parallel reads).
+A closing enumeration refuses visible ID-set changes; caps and unreadable eligible mail
+refuse the cycle. Newsletter-looking subjects and short snippets cannot prove the unseen
+body lacks a competing code; snippets are no longer requested or used. This supersedes
+the earlier unreadable-newsletter exclusion. Readable ordinary mail remains parsable and
+excludable under the existing candidate contract. Sent/draft/archive labels are not used
+as trust or exclusion evidence; this is a time-only mailbox query, not inbox-only search.
+
+Gmail search/indexing is provider-dependent. Re-enumeration is not an atomic snapshot;
+mail indexed after it or arriving during confirmation can still be missed. Over fifty
+messages, more than five pages, malformed responses, per-response/aggregate/MIME caps,
+quota/offline and timeout failures cannot fall back to a partial or newest-code choice.
+Live coverage and late-old-mail/server challenge identity remain unverified/limited.
+See [acceptance](retrieval-mime-acceptance.md) and
+[ADR0028](adr/0028-bounded-complete-generic-retrieval.md).

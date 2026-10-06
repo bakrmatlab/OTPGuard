@@ -152,12 +152,19 @@ reservation and local blocks remain mitigations, not proofs of challenge identit
 No sender/domain guesses or forged authentication headers grant VERIFIED. Previous
 live lifecycle/privacy deferrals remain unverified.
 
-ADR0023 changes generic relevance selection: strongly ordinary subject/snippet hints can
-exclude an unreadable message, and receipt/length/recipient/service contradictions can
-exclude candidates. These are forgeable heuristics, not authenticated association or
-proof that unreadable content has no code. Unknown plausible competition still refuses;
+ADR0028 supersedes ADR0023's subject/snippet unreadable-mail exclusion: all eligible
+decoder failures make retrieval incomplete. Receipt/length/recipient/service
+contradictions still exclude candidates under the existing generic contract. These
+remain forgeable heuristics, not authenticated association. Unknown plausible competition still refuses;
 no newest-message shortcut or automatic insertion is added. A delayed old email after
 resend remains indistinguishable without a server transaction identifier. Retained DOM
 acknowledgement checks 100 ms of asynchronous updates and does not guarantee later
 retention or login acceptance. Numeric type inputs are supported only when the original
 string, including leading zeros, is retained. See ADR0023 and its acceptance report.
+
+Bounded pagination and spam/trash inclusion reduce hidden competition. All returned
+IDs must be fetched, and cap/resource/schema failures discard the cycle. Four concurrent
+reads share cancellation and an aggregate byte budget. Re-enumeration refuses visible
+ID-set changes during retrieval. Provider indexing or mail arriving after that check
+is not covered by an atomic snapshot; late-old-mail and concurrent challenge identity
+remain unresolved. See [ADR0028](adr/0028-bounded-complete-generic-retrieval.md).

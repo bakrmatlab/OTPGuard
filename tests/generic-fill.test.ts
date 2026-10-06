@@ -243,6 +243,8 @@ it.each([
   'html-alternative',
   'inline-copyright',
   'request-metadata',
+  'busy-single',
+  'busy-competing',
 ])(
   'actual connected generic retrieval handles %s without a service mapping or DNS',
   async (scenario) => {
@@ -314,14 +316,16 @@ it.each([
       body: 'A normal update with no login code.\r\n',
     }).raw;
     const raw = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64url');
-    const ids = [
-      'two-emails',
-      'unrelated-plus-code',
-      'unreadable-newsletter-plus-code',
-      'unreadable-code-plus-code',
-    ].includes(scenario)
-      ? ['a', 'b']
-      : ['a'];
+    const ids = scenario.startsWith('busy-')
+      ? Array.from({ length: 12 }, (_, i) => 'm' + i)
+      : [
+            'two-emails',
+            'unrelated-plus-code',
+            'unreadable-newsletter-plus-code',
+            'unreadable-code-plus-code',
+          ].includes(scenario)
+        ? ['a', 'b']
+        : ['a'];
     const urls: string[] = [];
     const transport = createGmailTransport(async (url) => {
       urls.push(url);
@@ -336,8 +340,22 @@ it.each([
                   scenario === 'unreadable-newsletter-plus-code'
                     ? 'This week in product news'
                     : 'Your verification code is 003719',
-                raw:
-                  scenario === 'malformed'
+                raw: scenario.startsWith('busy-')
+                  ? raw(
+                      u.pathname.endsWith('/m11')
+                        ? code
+                        : scenario === 'busy-competing' &&
+                            u.pathname.endsWith('/m10')
+                          ? fixture({
+                              headers: [
+                                'Subject: Login code',
+                                'Content-Type: text/plain',
+                              ],
+                              body: 'Your code is 008417',
+                            }).raw
+                          : unrelated,
+                    )
+                  : scenario === 'malformed'
                     ? 'invalid'
                     : raw(
                         [
@@ -351,7 +369,7 @@ it.each([
                                   : 'Subject: Login code',
                                 'Content-Type: text/plain; charset=unknown',
                               ],
-                              body: 'Unreadable',
+                              body: 'Your verification code is 008417',
                             }).raw
                           : scenario === 'unrelated-plus-code' &&
                               u.pathname.endsWith('/b')
@@ -359,7 +377,14 @@ it.each([
                             : code,
                       ),
               }
-            : { messages: ids.map((id) => ({ id })) },
+            : scenario.startsWith('busy-')
+              ? u.searchParams.has('pageToken')
+                ? { messages: ids.slice(10).map((id) => ({ id })) }
+                : {
+                    messages: ids.slice(0, 10).map((id) => ({ id })),
+                    nextPageToken: 'last',
+                  }
+              : { messages: ids.map((id) => ({ id })) },
         ),
       );
     }, t.adapter.now);
@@ -377,8 +402,8 @@ it.each([
     try {
       expect((await coordinator.handle(t.detect, {})).state).toBe(
         scenario === 'single' ||
+          scenario === 'busy-single' ||
           scenario === 'unrelated-plus-code' ||
-          scenario === 'unreadable-newsletter-plus-code' ||
           scenario === 'encoded-canva' ||
           scenario === 'html-alternative' ||
           scenario === 'inline-copyright' ||
@@ -389,7 +414,8 @@ it.each([
       expect(issues).toEqual(
         scenario === 'malformed'
           ? [null, 'mime-headers']
-          : scenario === 'unreadable-code-plus-code'
+          : scenario === 'unreadable-code-plus-code' ||
+              scenario === 'unreadable-newsletter-plus-code'
             ? [null, 'mime-charset']
             : [null],
       );
@@ -403,8 +429,8 @@ it.each([
         t.sent.some((v) => Reflect.get(v as object, 'type') === 'release'),
       ).toBe(
         scenario === 'single' ||
+          scenario === 'busy-single' ||
           scenario === 'unrelated-plus-code' ||
-          scenario === 'unreadable-newsletter-plus-code' ||
           scenario === 'encoded-canva' ||
           scenario === 'html-alternative' ||
           scenario === 'inline-copyright' ||

@@ -4,11 +4,8 @@ import type { AccountGate } from '../account/gate';
 import type { createGmailLifecycle } from './lifecycle';
 import { createMailboxCoordinator } from './connected';
 import { createGmailTransport, RetrievalFailure } from './transport';
-import {
-  clearlyUnrelatedMail,
-  rawEmailHints,
-  type RawEmailIssue,
-} from '../../../packages/otp/raw';
+import { rawEmailHints, type RawEmailIssue } from '../../../packages/otp/raw';
+import { genericRetrievalLimits } from '../../../packages/security/retrieval-limits';
 import { normalizeRawEmail, parseGenericCode } from '../../../packages/otp';
 
 export type RetrievalIssue =
@@ -134,7 +131,11 @@ export function createRetrievalEngine(deps: {
                   !(await cancellable(() => deps.current(context), combined))
                 )
                   return null;
-                if (mail === null || mail.length > 10) return null;
+                if (
+                  mail === null ||
+                  mail.length > genericRetrievalLimits.messages
+                )
+                  return null;
                 failed = false;
                 if (mail.length) return mail;
                 deps.progress?.('polling');
@@ -250,7 +251,6 @@ export function createGmailPageCoordinator(
           id?: string;
           raw?: string;
           internalDate?: string;
-          snippet?: unknown;
         };
         if (
           !message.id ||
@@ -298,10 +298,6 @@ export function createGmailPageCoordinator(
           failure = issue;
         });
         if (!email) {
-          if (clearlyUnrelatedMail(bytes, message.snippet)) {
-            browser.progress?.('unrelated');
-            continue;
-          }
           onFailure(`mime-${failure ?? 'headers'}`);
           return null;
         }

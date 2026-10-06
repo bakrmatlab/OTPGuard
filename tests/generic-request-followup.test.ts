@@ -139,7 +139,8 @@ it.each(
         expect(outcome).toEqual({ state: 'CANCELLED' });
         expect(cancelled).toHaveBeenLastCalledWith(action);
       } else expect(outcome).toBeUndefined();
-      expect(fetcher).toHaveBeenCalledTimes(2);
+      // Initial list, body, closing list; stalled admission starts no new search.
+      expect(fetcher).toHaveBeenCalledTimes(3);
       stalled = false;
       finishRead();
       await vi.advanceTimersByTimeAsync(0);

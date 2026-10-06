@@ -51,26 +51,28 @@ production entry graphs, in `development/mock-extension` only.
 
 ## Bounds and conservative behavior
 
-| Mechanism           | Current bound                                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Detection           | Top-level light DOM; 60 seconds/120 scans, 200 inputs; nearby context 2,000 text nodes/4,000 characters; 4–8 split fields |
-| Parser              | English numeric 4–8 characters; 1,000 subject/32,768 text characters; ambiguity refuses                                   |
-| MIME normalization  | 256KiB decoded body plus inspected headers, 64 parts/depth 8; strict inert HTML subset                                    |
-| HTTP JSON           | Profile/list 16KiB; full message 512KiB; caps enforced before JSON parsing                                                |
-| Retrieval seam      | 20 IDs/10 distinct bodies; pagination/overflow refuses; 0/2/6/12/22-second retries                                        |
-| Request/approval    | 60-second request; at most 30-second approval; provider operations 10 seconds                                             |
-| Local/cloud history | 7/30-day logical retention; 500 records; cloud currently disabled                                                         |
+| Mechanism           | Current bound                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Detection           | Top-level light DOM; 60 seconds/120 scans, 200 inputs; nearby context 2,000 text nodes/4,000 characters; 4–8 split fields                        |
+| Parser              | Generic English 4–8 ASCII alphanumeric; 1,000 subject/32,768 text characters; ambiguity refuses                                                  |
+| MIME normalization  | 256KiB decoded body plus inspected headers, 64 parts/depth 8; strict inert HTML subset                                                           |
+| HTTP JSON           | Profile/list 16KiB; full message 512KiB; caps enforced before JSON parsing                                                                       |
+| Retrieval seam      | Generic: 50 IDs, five pages per enumeration, all bodies; cap failures refuse; 0/2/6/12/22/32/42-second retries; reviewed seam retains ten bodies |
+| Request/approval    | Generic: 60-second search, 30-second confirmation, 15-second fresh release; cycle 30 seconds; provider operations 10 seconds                     |
+| Local/cloud history | 7/30-day logical retention; 500 records; cloud currently disabled                                                                                |
 
 No links/images are followed during normalization, no attachment retrieval occurs, and no
 newest-code shortcut resolves ambiguity. Coalescing requires matching account/session/mailbox/
 service/time window and keeps approvals separate. No mail/code survives completion in an app
-cache. These modules are tested seams, not active production retrieval.
+cache. Generic paths are active with configured providers and current authority; historical
+reviewed automatic-fill gates remain separate.
 
 ## Account and cloud decisions
 
 Clerk OTPGuard identity is distinct from Chrome's Gmail mailbox. Development URL credential
 transport is unsupported; keep pk_test refusal, explicit no-cache worker adapter, fresh
-authoritative session probes and cancellation. Current auth is unconfigured. Chrome owns
+authoritative session probes and cancellation. Provider-free review builds are unconfigured; production shared-session setup has
+separate acceptance evidence below. Chrome owns
 its token cache; mailbox identity remains worker memory. Consent occurs only on Connect.
 Local disconnect/cache cleanup and remote revocation are separate outcomes.
 
@@ -171,8 +173,8 @@ Generic reliability revision (ADR0023): one worker-owned challenge window is sha
 with retrieval and candidate selection; early email-request gestures and resend hints
 contain no page-supplied timestamp. Retry preserves that window with a fresh polling
 deadline. Explicit receipt/field/recipient/service contradictions can narrow matching,
-while unknown competition refuses. Ordinary unreadable newsletters can be excluded
-using bounded subject/snippet heuristics; other decoder failures keep the cycle incomplete.
+while unknown competition refuses. Rank 4 supersedes the earlier subject/snippet
+exclusion: eligible unreadable mail keeps the cycle incomplete.
 Production insertion acknowledges retained values after 100 ms, without initiating
 submission or overwriting intervening changes. No additional provider scopes or site
 permissions are introduced. See generic-reliability-acceptance.md.
@@ -257,3 +259,10 @@ Trusted nearby new-code controls recognize request/get/send/email new/another co
 wording as well as resend/send-again. They establish the existing fresh receipt
 window and cancel prior approval, without any site mapping or release permission.
 Script clicks and genuinely competing new messages remain refusing cases.
+
+Rank 4 generic transport enumerates up to fifty unique IDs across five pages before
+four parallel workers fetch all bodies. Spam/trash are included. A second enumeration
+refuses visible set changes. Aggregate response bytes and cycle/request time are
+bounded (8 MiB / thirty seconds / ten seconds); no partial set can reach selection.
+The historical reviewed transport retains its ten-body/no-pagination behavior.
+See [ADR0028](adr/0028-bounded-complete-generic-retrieval.md).

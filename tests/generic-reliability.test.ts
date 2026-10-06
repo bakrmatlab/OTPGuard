@@ -63,29 +63,6 @@ it('retains ambiguity across large rich alternatives and rejects critical duplic
   ).toBeNull();
 });
 
-it('excludes only strongly unrelated unreadable mail and preserves unknown/OTP ambiguity', async () => {
-  const { clearlyUnrelatedMail } = await import('../packages/otp/raw');
-  const newsletter = raw(
-    ['Subject: Weekly digest', 'Content-Type: text/plain; charset=unknown'],
-    'Unreadable body',
-  );
-  expect(clearlyUnrelatedMail(newsletter, 'This week in product news')).toBe(
-    true,
-  );
-  expect(
-    clearlyUnrelatedMail(newsletter, 'Your verification code is 003719'),
-  ).toBe(false);
-  expect(clearlyUnrelatedMail(newsletter, undefined)).toBe(false);
-  expect(
-    clearlyUnrelatedMail(
-      raw(
-        ['Subject: Sign in', 'Content-Type: text/plain; charset=unknown'],
-        'Unreadable',
-      ),
-      'Welcome',
-    ),
-  ).toBe(false);
-});
 it.each(['charset=utf8; charset=windows-1252', 'boundary=p; boundary=q'])(
   'refuses conflicting MIME parameters %s',
   (parameters) => {

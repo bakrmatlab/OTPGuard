@@ -1,17 +1,17 @@
 # Prototype privacy and data handling
 
-This describes the current source and its disabled integration seams. It is not a published
+This describes the current generic source and disabled cloud integration seams. It is not a published
 store privacy policy or proof of provider review. The default demo needs no account or mail.
 
-| Data                  | Location and current handling                                                                                                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Local settings        | Trusted-context Chrome storage: version, random installation UUID, autofill preference and exact HTTPS blocked origins; profile-local, never synced today                                                    |
-| Local history         | Version plus service ID/null, FILL action, result/reason enums, timestamp and installation UUID; at most 500 records, seven-day logical visibility; normal production history empty because fill is disabled |
-| Gmail token           | Optional worker operation locals and Chrome-managed cache; no application refresh-token/token persistence; Google profile Authorization header or revoke POST body only                                      |
-| Mailbox identity      | Optional worker memory and popup display; not stored as application data, exported or uploaded; revalidated after restart using only local connection-intent digests                                         |
-| Clerk session         | Production shared-session auth now configured and basic live checks passed; worker-only probes and no application cache; browser-owned provider cookies remain separate                                      |
-| Email/OTP             | No active production message retrieval/fill; reusable processing keeps objects transient; only fabricated demo codes are used in fixtures/assets                                                             |
-| Future cloud metadata | Inactive account-scoped boolean settings, installation status/time and separate six-field history contract; no current app transport/upload                                                                  |
+| Data                  | Location and current handling                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local settings        | Trusted-context Chrome storage: version, random installation UUID, autofill preference and exact HTTPS blocked origins; profile-local, never synced today                             |
+| Local history         | Version plus service ID/null, FILL action, result/reason enums, timestamp and installation UUID; at most 500 records, seven-day logical visibility; generic fills use null service ID |
+| Gmail token           | Optional worker operation locals and Chrome-managed cache; no application refresh-token/token persistence; Google profile Authorization header or revoke POST body only               |
+| Mailbox identity      | Optional worker memory and popup display; not stored as application data, exported or uploaded; revalidated after restart using only local connection-intent digests                  |
+| Clerk session         | Production shared-session auth now configured and basic live checks passed; worker-only probes and no application cache; browser-owned provider cookies remain separate               |
+| Email/OTP             | Generic production retrieval processes bounded raw Gmail mail in worker memory and releases a candidate only after required Fill; only fabricated codes appear in fixtures/assets     |
+| Future cloud metadata | Inactive account-scoped boolean settings, installation status/time and separate six-field history contract; no current app transport/upload                                           |
 
 No OTP, OTP hash, message body/subject/snippet, message/mailbox/account identifiers, raw URL,
 exact destination hostname, arbitrary error text or Gmail credential belongs in history or
@@ -31,8 +31,8 @@ are unverified. Opt-out/deletion atomically erase current backend events and dis
 failed remote deletion must report failure. Client abort cannot undo an already committed
 server write. No current dashboard cloud export/delete or account deletion is available.
 
-Gmail readonly consent is broad mailbox permission, not OTP-only access. Current lifecycle
-uses only profile identity; real retrieval is disabled. Disconnect cancels work immediately,
+Gmail readonly consent is broad mailbox permission, not OTP-only access. Generic retrieval
+is active when configured and authorized; reviewed automatic fill remains separate. Disconnect cancels work immediately,
 drains pending consent, clears local cache and attempts revocation only for a remembered,
 rechecked mailbox. Without that binding, remote revocation remains unconfirmed. Provider
 revocation is asynchronous and may affect grants in the same Google project. Browser-owned
@@ -128,8 +128,8 @@ current page without verifying the sender-to-site relationship. This is disclose
 site-access setup. A matching email may be spoofed or belong to another login; no
 phishing-prevention claim is made for this mode. All prior live privacy deferrals remain.
 
-The generic reliability revision uses a Gmail-provided snippet only as a bounded local
-relevance hint for otherwise unreadable ordinary mail. Displayed recipient hints and
+The earlier generic reliability revision used Gmail snippets for unreadable-mail exclusion;
+rank 4 removes that heuristic and no longer requests snippets. Displayed recipient hints and
 message sender-domain/subject hints are processed in volatile local request context.
 Early request gestures send only a closed event type; the typed email is not included.
 No hint, snippet, code or body is added to persistent storage, backend requests or logs.
@@ -152,3 +152,12 @@ are memory-only; no new data is persisted or uploaded. Late provider/Chrome resu
 are detached on cancellation, though underlying calls may still finish. Already
 sent page values cannot be retracted; uncertain delivery retains replay reservation.
 See [ADR0027](adr/0027-bounded-confirmation-and-release.md).
+
+Rank 4 expands each generic cycle to fifty complete message IDs, including spam/trash,
+with up to five pages per enumeration and four concurrent reads. A closing enumeration
+checks visible set changes. Streamed JSON bytes total at most 8 MiB per cycle, response
+bytes at most 512 KiB, raw MIME at most 256 KiB, and cycle time at most thirty seconds.
+IDs/page tokens/raw mail and candidate material are transient only. Search queries
+contain only time bounds; no page text, code, recipient or sender is added. No new
+storage, permission, OAuth scope or cloud transport is introduced. More mail is read
+locally and provider calls can increase. See [ADR0028](adr/0028-bounded-complete-generic-retrieval.md).
