@@ -1,51 +1,38 @@
 import { chromium, expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
 
-test('web entry point explains unavailable capabilities', async ({ page }) => {
+test('web entry points expose the approved UI without configured accounts', async ({
+  page,
+}) => {
   await page.goto('http://127.0.0.1:3100');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'Find the code.Choose Fill.',
+  );
   await expect(
-    page.getByRole('heading', { name: 'Email codes, with less friction.' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'Get started', exact: true }),
-  ).toHaveAttribute('href', '/sign-up');
+    page.getByRole('link', { name: 'Install for Chrome' }),
+  ).toHaveAttribute('href', '/setup');
+  await expect(page.locator('#demo-code')).toHaveValue('');
   await page.goto('http://127.0.0.1:3100/dashboard');
   await expect(
-    page.getByRole('heading', {
-      name: 'Overview',
-      exact: true,
-    }),
+    page.getByRole('heading', { name: 'Browser settings', exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText(
-      'The extension checks email codes locally and fills only after your click.',
-      {
-        exact: false,
-      },
-    ),
-  ).toBeVisible();
-  await page.getByRole('link', { name: 'Manage account', exact: true }).click();
-  await expect(
-    page.getByText('Account authentication is unconfigured.'),
-  ).toBeVisible();
-  await page.goto('http://127.0.0.1:3100/sign-in');
-  await expect(
-    page.getByRole('heading', { name: 'OTPGuard account sign-in' }),
+    page.getByText('Account authentication is unconfigured.', { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText('Account authentication is unconfigured.'),
+    page.getByRole('link', { name: 'Sign in to connect this browser' }),
   ).toBeVisible();
-  await expect(page.locator('input')).toHaveCount(1);
-  await expect(page.locator('#demo-code')).toHaveValue('');
-  await page.goto('http://127.0.0.1:3100/sign-up');
-  await expect(
-    page.getByRole('heading', { name: 'Create your OTPGuard account' }),
-  ).toBeVisible();
-  await expect(
-    page.getByText('Account authentication is unconfigured.'),
-  ).toBeVisible();
-  await expect(page.locator('input')).toHaveCount(1);
-  await expect(page.locator('#demo-code')).toHaveValue('');
+  for (const [route, title] of [
+    ['sign-in', 'OTPGuard account sign-in'],
+    ['sign-up', 'Create your OTPGuard account'],
+  ] as const) {
+    await page.goto('http://127.0.0.1:3100/' + route);
+    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(
+      page.getByText('Account authentication is unconfigured.'),
+    ).toBeVisible();
+    await expect(page.locator('input')).toHaveCount(0);
+  }
 });
 
 test('unpacked extension worker, popup and management load without page access', async () => {
