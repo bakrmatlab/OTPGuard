@@ -53,7 +53,10 @@ function visible(field: HTMLInputElement): boolean {
   return field.getClientRects().length > 0;
 }
 
-function contextText(root: Element): { text: string; limited: boolean } {
+function contextText(
+  root: Element,
+  fields: readonly HTMLInputElement[],
+): { text: string; limited: boolean } {
   const walker = root.ownerDocument.createTreeWalker(root, 4);
   let text = '';
   let count = 0;
@@ -65,12 +68,23 @@ function contextText(root: Element): { text: string; limited: boolean } {
       parent?.closest('script, style, template, [hidden], [aria-hidden="true"]')
     )
       continue;
+    const region = parent?.closest('aside, nav, footer, [role="navigation"]');
+    if (region && !fields.some((field) => region.contains(field))) continue;
     text += ` ${node.textContent?.slice(0, MAX_TEXT - text.length) ?? ''}`;
   }
   return {
     text: text.replace(/\s+/g, ' ').trim(),
     limited: text.length >= MAX_TEXT || count > MAX_NODES,
   };
+}
+
+/** Manual email intent cannot override positive sensitive/authenticator evidence. */
+export function canConfirmEmail(group: FieldGroup): boolean {
+  return !group.evidence.some((evidence) =>
+    ['authenticator-context', 'sensitive-context', 'context-limit'].includes(
+      evidence,
+    ),
+  );
 }
 
 export function createDetector(document: Document): {
@@ -128,12 +142,12 @@ export function createDetector(document: Document): {
               `${input.name} ${input.id} ${input.getAttribute('aria-label') ?? ''} ${input.placeholder} ${Array.from(
                 input.labels ?? [],
               )
-                .map((label) => contextText(label).text)
+                .map((label) => contextText(label, [input]).text)
                 .join(' ')}`,
           )
           .join(' ')
           .slice(0, MAX_TEXT);
-        let contextResult = contextText(container);
+        let contextResult = contextText(container, fields);
         // Custom OTP controls often nest several wrappers below email instructions.
         // Inspect a bounded nearby ancestor, never send that text to the worker.
         let nearby = container.parentElement;
@@ -146,7 +160,7 @@ export function createDetector(document: Document): {
           !email.test(contextResult.text);
           level++, nearby = nearby.parentElement
         ) {
-          const candidate = contextText(nearby);
+          const candidate = contextText(nearby, fields);
           if (candidate.limited) {
             contextResult = candidate;
             break;

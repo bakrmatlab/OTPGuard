@@ -200,3 +200,60 @@ was requested from”, does not introduce an OTP value. Dates and other audit nu
 therefore do not compete with a labelled verification code elsewhere in the email.
 Additional actual code labels still participate in ambiguity. These grammatical hints
 are generic matching heuristics and never establish sender/destination trust.
+
+Parser reliability scope 1 treats explicit audit/reference headings as code-context
+boundaries, including flattened text. A standalone reference number cannot inherit
+an earlier OTP label across that boundary. Clearly negated number-free safety
+statements are excluded from purpose matching; numeric disclaimers remain conservative.
+Additional actual code labels and disagreement across MIME alternatives still refuse.
+See [parser acceptance](generic-parser-reliability-acceptance.md).
+
+An uncertain native OTP field can request a separate explicit email intent from the
+extension popup. No Gmail message search starts before that intent. The volatile,
+one-use intent expires after 30 seconds and binds to the account session, mailbox,
+foreground tab, browser document and exact field group. Known authenticator,
+sensitive and oversized contexts refuse this fallback. A found generic candidate
+still requires a separate Fill click; intent never authorizes code release.
+Unrelated navigation/sidebar/footer text is excluded from detection context only
+when that region does not contain the target fields.
+
+Generic user-confirmed code matching supports 4–8 ASCII letters/digits with exact
+case preserved. Letter-containing codes require clear inline or standalone code
+placement. Arbitrary words, symbols, URLs and long token fragments are not searched
+as codes. The release schema and generic candidate gate accept the same bounded
+format; the reviewed automatic policy is unchanged. Insertion checks number inputs
+and HTML patterns before any writes and repeats compatibility checks during events.
+
+Exactly `AAA-BBB` presentation grouping is supported in generic code context:
+three ASCII alphanumeric characters, one ASCII hyphen, then three characters.
+Extraction returns the six characters with case preserved. This fills six code
+cells without writing the display separator. Arbitrary punctuation is not stripped.
+
+English code connector casing is ignored, with code casing preserved. Alphabetic
+quote wrappers must match. Unquoted introductory/status words are ambiguous prose,
+while explicit quoted or isolated word codes remain eligible. Numeric matching
+rejects partial values attached to Unicode words, URLs, addresses or domains. A
+generated synthetic format matrix is part of the default unit/integration suite.
+
+The popup treats Fill command acceptance separately from insertion acknowledgement.
+It immediately disables Fill during a handoff, ignores stale READY responses for
+that clicked request, renders selected-code transitional states and shows insertion
+success only on FILLED. A lost command response leaves delivery unconfirmed; it
+never initiates a repeat fill. The clicked request ID stays only in popup memory.
+
+Supported automatic email-code detection starts a presentation-only popup attempt
+in parallel with provider admission. The worker validates foreground browser metadata,
+permission/settings/block policy and cancellation, and deduplicates early attempts
+by document/URL/field group in memory. Presentation failure leaves all retrieval and
+required-Fill gates intact. Manual Retry and uncertain-field recovery remain manual.
+
+The release ledger returns closed local reservation diagnostics while retaining its
+boolean compatibility API and unchanged write-ahead protection. Reused-email and
+unavailable-record refusals remain UNKNOWN/message-binding and block release, but
+carry an optional replay enum for precise popup recovery text. The diagnostic is
+not sender trust, server-login evidence or permission to clear reservation history.
+
+Trusted nearby new-code controls recognize request/get/send/email new/another code
+wording as well as resend/send-again. They establish the existing fresh receipt
+window and cancel prior approval, without any site mapping or release permission.
+Script clicks and genuinely competing new messages remain refusing cases.

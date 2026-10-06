@@ -20,7 +20,7 @@ compatibility cases, not a claim of exhaustive email or website coverage.
 | Forwarded/replied/attached email bodies, encrypted bodies                                  | Refused                                                                            |
 | Malformed MIME/transfer encoding/boundaries/unsafe controls                                | Refused                                                                            |
 | Recovery/reset/payment/SMS/TOTP purposes                                                   | Refused under the current sign-in-only contract                                    |
-| Alphanumeric, outside 4–8 digits, non-English-only code wording                            | Unsupported in this PR                                                             |
+| Symbols, outside 4–8 characters, non-English-only code wording                             | Unsupported in this PR                                                             |
 
 The 47-case matrix in `tests/generic-email-coverage.test.ts` covers successful formats
 and refusal behavior. Existing generic connected tests exercise raw Gmail response,
@@ -38,3 +38,14 @@ to SPA login flows, with no site selectors/mappings. Clerk live retest is still 
 Generic body decoding supports standard TextDecoder charset labels and MIME
 parameter spacing, including UTF-8 aliases. Malformed bytes and unknown labels
 refuse; no fallback guessing is used. The strict signed pilot is unchanged.
+
+Owner-requested format follow-up supports 4–8 ASCII letters/digits, including
+letter-only codes, with exact case preserved and explicit code placement required.
+Numeric-only input types/patterns refuse letters before writing. See ADR0024 and
+`tests/alphanumeric-otp.test.ts`; historical reviewed automatic policy stays numeric.
+
+Grouped format follow-up: exactly two groups of three ASCII alphanumeric
+characters separated by one hyphen are recognized under explicit code-context
+gates. The presentation hyphen is omitted from the six-character release. Other
+punctuation and longer grouped tokens remain unsupported. Synthetic regression
+coverage is in `tests/grouped-alphanumeric-otp.test.ts`.

@@ -863,3 +863,130 @@ it('extracts a code from inert HTML while excluding a request audit date', () =>
     candidate: { code: '003719' },
   });
 });
+it.each(['A7b9Q2', 'ABCDEF', 'abcdef'])(
+  'generic pipeline releases case-preserved %s only after Fill',
+  async (code) => {
+    const t = setup();
+    t.envelope.email.text = `Your verification code is ${code}.`;
+    let click!: (v: boolean) => void;
+    t.adapter.confirm = () =>
+      new Promise((resolve) => {
+        click = resolve;
+      });
+    const coordinator = createCoordinator(t.adapter);
+    const result = coordinator.handle(t.detect, {});
+    await vi.waitFor(() =>
+      expect(coordinator.status()).toEqual({ state: 'CANDIDATE' }),
+    );
+    expect(t.sent).toEqual([]);
+    click(true);
+    expect(await result).toEqual({ state: 'FILLED' });
+    expect(t.sent).toMatchObject([
+      { type: 'prepare', expectedLength: 6 },
+      { type: 'release', code, expectedLength: 6 },
+    ]);
+    coordinator.dispose();
+  },
+);
+it('grouped presentation reaches a six-character release only after Fill', async () => {
+  const t = setup();
+  t.envelope.email.subject = 'Team confirmation code: A7B-C9D';
+  t.envelope.email.text = 'Here is your confirmation code.\nA7B-C9D';
+  let click!: (value: boolean) => void;
+  t.adapter.confirm = () =>
+    new Promise((resolve) => {
+      click = resolve;
+    });
+  const coordinator = createCoordinator(t.adapter);
+  const result = coordinator.handle(t.detect, {});
+  await vi.waitFor(() =>
+    expect(coordinator.status()).toEqual({ state: 'CANDIDATE' }),
+  );
+  expect(t.sent).toEqual([]);
+  click(true);
+  expect(await result).toEqual({ state: 'FILLED' });
+  expect(t.sent).toMatchObject([
+    { type: 'prepare', expectedLength: 6 },
+    { type: 'release', expectedLength: 6, code: 'A7BC9D' },
+  ]);
+  coordinator.dispose();
+});
+it('starts presentation before slow admission finishes without releasing a code', async () => {
+  const t = setup();
+  const context = await t.adapter.context({});
+  let finish!: (value: typeof context) => void;
+  t.adapter.context = () =>
+    new Promise((resolve) => {
+      finish = resolve;
+    });
+  const detected = vi.fn(async () => {});
+  t.adapter.detected = detected;
+  t.adapter.settings = () => ({ autofillEnabled: true, blockedOrigins: [] });
+  t.adapter.confirm = async () => false;
+  const coordinator = createCoordinator(t.adapter);
+  const result = coordinator.handle(t.detect, {});
+  expect(detected).toHaveBeenCalledTimes(1);
+  expect(t.sent).toEqual([]);
+  finish(context);
+  expect(await result).toMatchObject({ state: 'CANCELLED' });
+  expect(t.sent).toEqual([]);
+  coordinator.dispose();
+});
+it.each(['manual', 'opening-refused'])(
+  'early presentation preserves confirmation gates for %s',
+  async (scenario) => {
+    const t = setup();
+    const detected = vi.fn(async () => {
+      if (scenario === 'opening-refused')
+        throw new Error('Synthetic popup refusal');
+    });
+    t.adapter.detected = detected;
+    t.adapter.settings = () => ({ autofillEnabled: true, blockedOrigins: [] });
+    t.adapter.confirm = async () => false;
+    const coordinator = createCoordinator(t.adapter);
+    expect(
+      await coordinator.handle(
+        { ...t.detect, manual: scenario === 'manual' },
+        {},
+      ),
+    ).toMatchObject({ state: 'CANCELLED' });
+    expect(detected).toHaveBeenCalledTimes(scenario === 'manual' ? 0 : 1);
+    expect(t.sent).toEqual([]);
+    coordinator.dispose();
+  },
+);
+it.each(['already-used', 'unavailable'] as const)(
+  'reports %s reservation without releasing the code',
+  async (replay) => {
+    const t = setup();
+    t.adapter.reserve = async () => replay;
+    const coordinator = createCoordinator(t.adapter);
+    expect(await coordinator.handle(t.detect, {})).toEqual({
+      state: 'UNKNOWN',
+      reason: 'message-binding',
+      replay,
+    });
+    expect(t.sent).toMatchObject([{ type: 'prepare' }]);
+    expect(t.sent).not.toContainEqual(
+      expect.objectContaining({ type: 'release' }),
+    );
+    coordinator.dispose();
+  },
+);
+it('a fresh request still refuses two newly delivered plausible messages', async () => {
+  const t = setup();
+  t.adapter.retrieve = async () => [
+    t.envelope,
+    {
+      ...t.envelope,
+      messageId: 'second-fresh',
+      email: { subject: 'Verification code', text: 'Your code is 008417' },
+    },
+  ];
+  const coordinator = createCoordinator(t.adapter);
+  expect(
+    await coordinator.handle({ ...t.detect, fresh: true }, {}),
+  ).toMatchObject({ state: 'UNKNOWN', reason: 'ambiguity' });
+  expect(t.sent).toEqual([]);
+  coordinator.dispose();
+});

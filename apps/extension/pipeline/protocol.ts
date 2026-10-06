@@ -111,7 +111,7 @@ export function parseWorker(value: unknown): WorkerMessage | null {
     value.type === 'release' &&
     keys === 'code,expectedLength,expiresAt,groupId,requestId,type' &&
     typeof value.code === 'string' &&
-    /^[0-9]{4,8}$/.test(value.code) &&
+    /^[A-Za-z0-9]{4,8}$/.test(value.code) &&
     value.code.length === value.expectedLength
   )
     return value as unknown as WorkerMessage;

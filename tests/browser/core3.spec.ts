@@ -477,98 +477,109 @@ for (const layout of ['blocks', 'inline'] as const)
     await expect(page.locator('input')).toHaveValue('003719');
   });
 
-test('trusted resend cancels approval and starts a fresh request on the same fields', async ({
-  page,
-}) => {
-  await page.route('https://login.fixture.invalid/**', (r) =>
-    r.fulfill({
-      contentType: 'text/html',
-      body: '<!doctype html><section><p>Check your email person@fixture.invalid for a code</p><input autocomplete="one-time-code" maxlength="6"><button>Resend code</button></section>',
-    }),
-  );
-  await page.goto('https://login.fixture.invalid/');
-  await page.evaluate(() => {
-    const messages: unknown[] = [];
-    const listeners: ((
-      v: unknown,
-      s: unknown,
-      reply: (v: unknown) => void,
-    ) => void)[] = [];
-    Object.assign(window, {
-      __resend: { messages, listeners },
-      chrome: {
-        runtime: {
-          id: 'fixture',
-          sendMessage: async (v: unknown) => {
-            messages.push(v);
-          },
-          onMessage: {
-            addListener: (listener: (typeof listeners)[number]) =>
-              listeners.push(listener),
+for (const resendLabel of [
+  'Resend code',
+  'Request a new code',
+  'Send another code',
+])
+  test(`trusted ${resendLabel} starts a fresh request on the same fields`, async ({
+    page,
+  }) => {
+    await page.route('https://login.fixture.invalid/**', (r) =>
+      r.fulfill({
+        contentType: 'text/html',
+        body: `<!doctype html><section><p>Check your email person@fixture.invalid for a code</p><input autocomplete="one-time-code" maxlength="6"><button>${resendLabel}</button></section>`,
+      }),
+    );
+    await page.goto('https://login.fixture.invalid/');
+    await page.evaluate(() => {
+      const messages: unknown[] = [];
+      const listeners: ((
+        v: unknown,
+        s: unknown,
+        reply: (v: unknown) => void,
+      ) => void)[] = [];
+      Object.assign(window, {
+        __resend: { messages, listeners },
+        chrome: {
+          runtime: {
+            id: 'fixture',
+            sendMessage: async (v: unknown) => {
+              messages.push(v);
+            },
+            onMessage: {
+              addListener: (listener: (typeof listeners)[number]) =>
+                listeners.push(listener),
+            },
           },
         },
-      },
+      });
     });
-  });
-  await page.addScriptTag({
-    content: readFileSync(artifact + '/content.js', 'utf8'),
-  });
-  await page.evaluate(() => {
-    const t = Reflect.get(window, '__resend');
-    t.listeners[0](
-      {
-        type: 'prepare',
-        requestId: 'old',
-        groupId: 'fields-1',
-        expectedLength: 6,
-        expiresAt: Date.now() + 20000,
-      },
-      { id: 'fixture' },
-      () => {},
+    await page.addScriptTag({
+      content: readFileSync(artifact + '/content.js', 'utf8'),
+    });
+    await page.evaluate(() => {
+      const t = Reflect.get(window, '__resend');
+      t.listeners[0](
+        {
+          type: 'prepare',
+          requestId: 'old',
+          groupId: 'fields-1',
+          expectedLength: 6,
+          expiresAt: Date.now() + 20000,
+        },
+        { id: 'fixture' },
+        () => {},
+      );
+    });
+    await page.locator('button').evaluate((button) => {
+      if (button instanceof HTMLButtonElement) button.click();
+    });
+    expect(
+      await page.evaluate(() => Reflect.get(window, '__resend').messages),
+    ).toMatchObject([{ type: 'detect' }]);
+    await page.getByRole('button', { name: resendLabel }).click();
+    const messages = await page.evaluate(
+      () => Reflect.get(window, '__resend').messages,
     );
-  });
-  await page.getByRole('button', { name: 'Resend code' }).click();
-  const messages = await page.evaluate(
-    () => Reflect.get(window, '__resend').messages,
-  );
-  expect(messages).toMatchObject([
-    { type: 'detect', recipient: 'person@fixture.invalid' },
-    { type: 'cancel', requestId: 'old' },
-    {
-      type: 'detect',
-      fresh: true,
-      groupId: 'fields-1',
-      allowedLengths: [4, 5, 6],
-    },
-  ]);
-  await expect(page.locator('input')).toHaveValue('');
-  await page.evaluate(() => {
-    const t = Reflect.get(window, '__resend');
-    t.listeners[0](
-      {
-        type: 'prepare',
-        requestId: 'resent',
-        groupId: 'fields-1',
-        expectedLength: 6,
-        expiresAt: Date.now() + 20000,
-      },
-      { id: 'fixture' },
-      () => {},
-    );
-    const field = document.querySelector('input')!;
-    field.replaceWith(field.cloneNode());
-  });
-  await expect
-    .poll(() => page.evaluate(() => Reflect.get(window, '__resend').messages))
-    .toMatchObject([
-      { type: 'detect' },
+    expect(messages).toMatchObject([
+      { type: 'detect', recipient: 'person@fixture.invalid' },
       { type: 'cancel', requestId: 'old' },
-      { type: 'detect', fresh: true },
-      { type: 'cancel', requestId: 'resent' },
-      { type: 'detect', replacement: true, groupId: 'fields-2' },
+      {
+        type: 'detect',
+        fresh: true,
+        groupId: 'fields-1',
+        allowedLengths: [4, 5, 6],
+      },
     ]);
-  await expect(page.locator('input')).toHaveValue('');
-});
+    await expect(page.locator('input')).toHaveValue('');
+    await page.evaluate(() => {
+      const t = Reflect.get(window, '__resend');
+      t.listeners[0](
+        {
+          type: 'prepare',
+          requestId: 'resent',
+          groupId: 'fields-1',
+          expectedLength: 6,
+          expiresAt: Date.now() + 20000,
+        },
+        { id: 'fixture' },
+        () => {},
+      );
+      const field = document.querySelector('input')!;
+      field.replaceWith(field.cloneNode());
+    });
+    await expect
+      .poll(() => page.evaluate(() => Reflect.get(window, '__resend').messages))
+      .toMatchObject([
+        { type: 'detect' },
+        { type: 'cancel', requestId: 'old' },
+        { type: 'detect', fresh: true },
+        { type: 'cancel', requestId: 'resent' },
+        { type: 'detect', replacement: true, groupId: 'fields-2' },
+      ]);
+    await expect(page.locator('input')).toHaveValue('');
+  });
 
 test('timestamps an email-request gesture before detecting the resulting code form', async ({
   page,

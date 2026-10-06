@@ -3,6 +3,7 @@ import {
   pipelineStatus,
   acceptFill,
   retryPage,
+  confirmEmailRecovery,
 } from './pipeline/worker';
 import {
   parseSettingsAction,
@@ -33,6 +34,16 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
   )
     return false;
   if (message && typeof message === 'object' && 'type' in message) {
+    if (
+      message.type === 'pipeline-confirm-email' &&
+      Object.keys(message).length === 2 &&
+      'requestId' in message
+    ) {
+      void confirmEmailRecovery(message.requestId).then(respond, () =>
+        respond(false),
+      );
+      return true;
+    }
     if (
       message.type === 'pipeline-status' &&
       Object.keys(message).length === 1

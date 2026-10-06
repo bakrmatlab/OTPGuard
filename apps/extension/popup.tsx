@@ -51,10 +51,12 @@ export default function Popup() {
     progress?: ProgressSnapshot;
     requestId?: string;
     reason?: string;
+    replay?: 'already-used' | 'unavailable';
     retrievalIssue?: RetrievalIssue;
     cancellation?: CancellationReason;
     prompt?: 'requested' | 'unavailable' | 'manual';
   }>({ state: 'IDLE' });
+  const requestedFill = useRef<string | undefined>(undefined);
   const [permission, setPermission] = useState('');
   const [siteAccess, setSiteAccess] = useState<boolean | null>(null);
   useEffect(() => {
@@ -88,7 +90,11 @@ export default function Popup() {
       void chrome.runtime
         .sendMessage({ type: 'pipeline-status' })
         .then((v) => {
-          if (active && v) setPipeline(v);
+          if (active && v) {
+            if (v.state === 'READY' && v.requestId === requestedFill.current)
+              return;
+            setPipeline(v);
+          }
         })
         .catch(() => {});
     read();
@@ -212,7 +218,11 @@ export default function Popup() {
   const requestState =
     status.state === 'SIGN_IN_REQUIRED'
       ? 'ACCOUNT_UNAVAILABLE'
-      : pipeline.state;
+      : pipeline.state === 'UNKNOWN' && pipeline.replay
+        ? pipeline.replay === 'already-used'
+          ? 'REPLAY_REFUSED'
+          : 'REPLAY_UNAVAILABLE'
+        : pipeline.state;
   const config = configuredAccount();
   useEffect(() => {
     let active = true;
@@ -304,7 +314,11 @@ export default function Popup() {
                   'requests-ambiguous',
                   'retrieval-incomplete',
                 ].includes(pipeline.progress.stage)
-                ? stageText[pipeline.progress.stage] + '. No code was released.'
+                ? stageText[pipeline.progress.stage] +
+                  '. No code was released.' +
+                  (pipeline.progress.stage === 'messages-ambiguous'
+                    ? ' Request one new code on this site, wait for its email, then retry.'
+                    : '')
                 : 'More than one code or login request may match. Finish other login requests, then request a fresh code and retry.'
               : requestState === 'CANCELLED' && pipeline.cancellation
                 ? `Request cancelled: ${cancellationMessages[pipeline.cancellation]}`
@@ -341,29 +355,55 @@ export default function Popup() {
           <button
             className="primary"
             disabled={requestState !== 'READY'}
-            onClick={() =>
+            onClick={() => {
+              const requestId = pipeline.requestId;
+              if (!requestId) {
+                setPipeline({ state: 'CANCELLED' });
+                return;
+              }
+              requestedFill.current = requestId;
+              setPipeline({ state: 'FILLING', requestId });
               void chrome.runtime
-                .sendMessage({
-                  type: 'pipeline-fill',
-                  requestId: pipeline.requestId,
+                .sendMessage({ type: 'pipeline-fill', requestId })
+                .then((accepted) => {
+                  if (accepted !== true)
+                    setPipeline((current) =>
+                      current.requestId === requestId
+                        ? { state: 'CANCELLED' }
+                        : current,
+                    );
                 })
-                .then(() => setPipeline({ state: 'SEARCHING' }))
-                .catch(() => setPipeline({ state: 'ERROR' }))
-            }
+                .catch(() =>
+                  setPipeline((current) =>
+                    current.requestId === requestId
+                      ? { state: 'DELIVERY_UNCONFIRMED' }
+                      : current,
+                  ),
+                );
+            }}
           >
             Fill
           </button>
           <button
             onClick={() =>
               void chrome.runtime
-                .sendMessage({ type: 'pipeline-retry' })
+                .sendMessage(
+                  pipeline.state === 'EMAIL_CONFIRMATION_REQUIRED'
+                    ? {
+                        type: 'pipeline-confirm-email',
+                        requestId: pipeline.requestId,
+                      }
+                    : { type: 'pipeline-retry' },
+                )
                 .then((v) =>
-                  setPipeline({ state: v ? 'SEARCHING' : 'UNAVAILABLE' }),
+                  setPipeline({ state: v ? 'SEARCHING' : 'NO_CHALLENGE' }),
                 )
                 .catch(() => setPipeline({ state: 'ERROR' }))
             }
           >
-            Find code / Retry
+            {pipeline.state === 'EMAIL_CONFIRMATION_REQUIRED'
+              ? 'This is an email code'
+              : 'Find code / Retry'}
           </button>
         </div>
         <p className="muted fill-note">
@@ -832,6 +872,7 @@ const activityReason: Record<ActivityEvent['reason'], string> = {
 };
 
 const requestTitle: Record<string, string> = {
+  EMAIL_CONFIRMATION_REQUIRED: 'Is this an email code?',
   ACCOUNT_UNAVAILABLE: 'Sign in to find your code',
   MAILBOX_UNAVAILABLE: 'Reconnect Gmail',
   PAGE_UNAVAILABLE: 'Return to the login page',
@@ -840,6 +881,10 @@ const requestTitle: Record<string, string> = {
   IDLE: 'Ready when you need a code',
   READY: 'Code found',
   SEARCHING: 'Looking for your code',
+  CANDIDATE: 'Completing your request',
+  VERIFIED: 'Completing your request',
+  FILLING: 'Inserting your code',
+  DELIVERY_UNCONFIRMED: 'Insertion could not be confirmed',
   FILLED: 'Code inserted',
   CANCELLED: 'Request stopped',
   NO_CODE: 'No eligible code found',
@@ -847,9 +892,17 @@ const requestTitle: Record<string, string> = {
   MISMATCH: 'Destination does not match',
   BLOCKED: 'This site is blocked',
   ERROR: 'Could not complete the request',
+  REPLAY_REFUSED: 'Request a fresh code',
+  REPLAY_UNAVAILABLE: 'Local protection unavailable',
   UNAVAILABLE: 'Request unavailable',
 };
 const requestText: Record<string, string> = {
+  REPLAY_REFUSED:
+    'This email was reserved for an earlier fill attempt. Request a new code on the site, wait for its email, then retry. An earlier attempt does not prove login succeeded.',
+  REPLAY_UNAVAILABLE:
+    'OTPGuard could not safely read or save its used-email record. No code was released. Retry when local storage is available; if this persists, report this status.',
+  EMAIL_CONFIRMATION_REQUIRED:
+    'Confirm only if this field is for a code sent by email. Gmail has not been searched for this request. You will still need to click Fill after a code is found.',
   ACCOUNT_UNAVAILABLE:
     'Sign in to your OTPGuard account using Set up your account below, then return here and choose Find code / Retry. Gmail access is separate.',
   MAILBOX_UNAVAILABLE:
@@ -863,6 +916,14 @@ const requestText: Record<string, string> = {
   READY: 'Click Fill before this request expires.',
   SEARCHING:
     'Searching recent verification mail… Late mail is checked during this bounded search.',
+  CANDIDATE:
+    'The code was selected. OTPGuard is completing the current request and waiting for insertion confirmation.',
+  VERIFIED:
+    'The code was selected. OTPGuard is completing the current request and waiting for insertion confirmation.',
+  FILLING:
+    'Fill was requested. Waiting for the page to acknowledge insertion; the site may react to input events.',
+  DELIVERY_UNCONFIRMED:
+    'The page may have changed after Fill. Check the site before requesting another code. OTPGuard could not confirm insertion.',
   FILLED:
     'Code inserted. Continue on the site to complete login. Insertion does not confirm login.',
   CANCELLED:

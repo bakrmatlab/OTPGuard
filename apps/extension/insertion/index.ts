@@ -24,7 +24,7 @@ export function insertCode(
   const reject = (
     reason: Extract<FillResult, { status: 'rejected' }>['reason'],
   ): FillResult => ({ status: 'rejected', reason });
-  if (!/^[0-9]{4,8}$/.test(code)) return reject('invalid-code');
+  if (!/^[A-Za-z0-9]{4,8}$/.test(code)) return reject('invalid-code');
   if (!Number.isInteger(expectedLength) || code.length !== expectedLength)
     return reject('length');
   const fields = [...group.fields];
@@ -55,8 +55,22 @@ export function insertCode(
         fields[0]!.minLength > expectedLength
   )
     return reject('length');
+  const formatCompatible = () =>
+    fields.every((field) => {
+      if (field.type === 'number' && /[A-Za-z]/.test(code)) return false;
+      if (!field.pattern) return true;
+      if (field.pattern.length > 256) return false;
+      try {
+        const value = fields.length === 1 ? code : code[fields.indexOf(field)]!;
+        return new RegExp(`^(?:${field.pattern})$`, 'v').test(value);
+      } catch {
+        return false;
+      }
+    });
+  if (!formatCompatible()) return reject('unsupported');
   const compatible = () =>
     codeLengths(group).includes(code.length) &&
+    formatCompatible() &&
     fields.every(
       (field) =>
         ['text', 'tel', 'password', 'number'].includes(field.type) &&

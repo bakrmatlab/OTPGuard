@@ -8,7 +8,9 @@ const handle = vi.hoisted(() =>
     ) => Promise<LocalStatus>
   >(async () => ({ state: 'IDLE' })),
 );
+const confirmEmailRecovery = vi.hoisted(() => vi.fn(async () => true));
 vi.mock('../apps/extension/pipeline/worker', () => ({
+  confirmEmailRecovery,
   pagePipeline: { handle },
   pipelineStatus: vi.fn(),
   acceptFill: vi.fn(),
@@ -136,4 +138,45 @@ it('carries an early request across a delayed unfamiliar-site form through the a
   } finally {
     coordinator.dispose();
   }
+});
+
+it('email recovery confirmation is accepted only from the exact extension popup', async () => {
+  const addListener = vi.fn();
+  vi.stubGlobal('chrome', {
+    runtime: {
+      id: 'fixture-extension',
+      getURL: (path: string) => 'chrome-extension://fixture-extension/' + path,
+      onMessage: { addListener },
+    },
+  });
+  await import('../apps/extension/background');
+  const listener = addListener.mock.calls[0]![0];
+  const message = { type: 'pipeline-confirm-email', requestId: 'intent' };
+  const reply = vi.fn();
+  for (const sender of [
+    { id: 'fixture-extension', tab: { id: 1 }, url: 'https://fixture.invalid' },
+    {
+      id: 'other-extension',
+      url: 'chrome-extension://fixture-extension/popup.html',
+    },
+    {
+      id: 'fixture-extension',
+      url: 'chrome-extension://fixture-extension/options.html',
+    },
+  ])
+    listener(message, sender, reply);
+  expect(confirmEmailRecovery).not.toHaveBeenCalled();
+  expect(
+    listener(
+      message,
+      {
+        id: 'fixture-extension',
+        url: 'chrome-extension://fixture-extension/popup.html',
+      },
+      reply,
+    ),
+  ).toBe(true);
+  await Promise.resolve();
+  expect(confirmEmailRecovery).toHaveBeenCalledExactlyOnceWith('intent');
+  expect(reply).toHaveBeenCalledWith(true);
 });

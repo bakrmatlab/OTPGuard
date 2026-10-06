@@ -48,9 +48,11 @@ walkthrough, configured-artifact precautions, test commands and troubleshooting.
 | Parser, bounded MIME/retrieval, account cancellation, backend ownership/retention | Unit and offline backend evidence; no validated live connected flow                 |
 | Supported real services/origins                                                   | **Zero**: production registry is empty, sender UNKNOWN, receipt unverified          |
 
-Numeric 4–8-character English synthetic templates and top-level light-DOM single/split
-fixtures are exercised. Real GitHub, Google, Microsoft, Discord and Amazon flows are not
-supported. Iframes, shadow roots, alphanumeric codes, magic links, copy/reveal overrides,
+Generic user-confirmed matching supports numeric, letter-only and mixed ASCII
+codes of 4–8 characters with English code wording. Exact case and leading zeros
+are preserved; a three-plus-three hyphen display becomes six characters for
+filling. Single/split light-DOM fixtures are exercised. Real GitHub, Google, Microsoft, Discord and Amazon flows are not
+supported. Iframes, shadow roots, symbol-containing or longer codes, magic links, copy/reveal overrides,
 auto-submit, multiple mailboxes, incognito and Firefox are outside current coverage.
 Email OTPs are not phishing-resistant; any page receiving an input value can read it.
 

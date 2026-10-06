@@ -69,6 +69,12 @@ export interface Adapter {
   cancelled?(reason: CancellationReason): void;
   /** Trusted readiness failures only; no page content or identity metadata. */
   contextFailure?(reason: 'account' | 'mailbox' | 'page' | null): void;
+  /** Presentation only; never authorizes retrieval or release. */
+  detected?(
+    sender: chrome.runtime.MessageSender,
+    groupId: string,
+    signal: AbortSignal,
+  ): Promise<void>;
   unavailable?(
     sender: chrome.runtime.MessageSender,
     automatic: boolean,
@@ -93,7 +99,10 @@ export interface Adapter {
     signal: AbortSignal,
     automatic: boolean,
   ): Promise<boolean | 'confirmation-expired'>;
-  reserve?(context: Context, messageId: string): Promise<boolean>;
+  reserve?(
+    context: Context,
+    messageId: string,
+  ): Promise<boolean | 'already-used' | 'unavailable'>;
   now(): number;
   id(): string;
   context(
@@ -119,6 +128,11 @@ export type LocalStatus =
         | 'FILLED'
         | 'CANCELLED'
         | 'ERROR';
+    }
+  | {
+      state: 'UNKNOWN';
+      reason: 'message-binding';
+      replay: 'already-used' | 'unavailable';
     }
   | Decision
   | CandidateDecision;
@@ -237,6 +251,15 @@ export function createCoordinator(adapter: Adapter) {
         admission.reason = 'deadline';
         admission.abort.abort();
       }, 60_000);
+      if (
+        message.type === 'detect' &&
+        !message.manual &&
+        message.emailFlow &&
+        message.groupCount === 1
+      )
+        void adapter
+          .detected?.(sender, message.groupId, admission.abort.signal)
+          .catch(() => {});
       let suppliedContext: Context | null;
       try {
         suppliedContext = await new Promise<Context | null>(
@@ -615,11 +638,21 @@ export function createCoordinator(adapter: Adapter) {
         const parsed = messages[0]!.parsed;
         if (parsed.status !== 'candidate') return (status = { state: 'ERROR' });
         adapter.progress?.('replay');
-        if (
-          adapter.reserve &&
-          !(await adapter.reserve(context, messages[0]!.messageId))
-        )
-          return (status = { state: 'UNKNOWN', reason: 'message-binding' });
+        if (adapter.reserve) {
+          const reserved = await adapter.reserve(
+            context,
+            messages[0]!.messageId,
+          );
+          if (reserved !== true)
+            return (status =
+              reserved === 'already-used' || reserved === 'unavailable'
+                ? {
+                    state: 'UNKNOWN',
+                    reason: 'message-binding',
+                    replay: reserved,
+                  }
+                : { state: 'UNKNOWN', reason: 'message-binding' });
+        }
         if (!(await alive(request))) return stop(request, 'current-changed');
         if (adapter.now() >= expiresAt) return stop(request, 'binding-expired');
         if (!message.manual && !preferences().autofillEnabled)

@@ -99,8 +99,28 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
         prompt: 'manual',
       };
       const actions: string[] = [];
+      let holdFill = false;
+      let statusReads = 0;
+      let rejectFill: (() => void) | undefined;
+      let finishFill: ((value: boolean) => void) | undefined;
       Object.defineProperty(window, 'syntheticPopup', {
         value: {
+          delayFill() {
+            holdFill = true;
+            statusReads = 0;
+          },
+          reads() {
+            return statusReads;
+          },
+          failFill() {
+            rejectFill?.();
+            holdFill = false;
+          },
+          finishFill(value: boolean) {
+            state = { ...state, state: value ? 'FILLED' : 'CANCELLED' };
+            finishFill?.(value);
+            holdFill = false;
+          },
           update(value: typeof state) {
             state = value;
           },
@@ -111,7 +131,10 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
         type: string;
         requestId?: string;
       }) => {
-        if (message.type === 'pipeline-status') return Promise.resolve(state);
+        if (message.type === 'pipeline-status') {
+          statusReads++;
+          return Promise.resolve(state);
+        }
         if (message.type === 'account-status')
           return Promise.resolve({
             state: 'SIGNED_IN',
@@ -132,8 +155,14 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
           return Promise.resolve({ state: 'LOCAL', count: 0 });
         actions.push(message.type);
         if (message.type === 'pipeline-fill') {
-          if (message.requestId !== 'synthetic-request')
+          if (message.requestId !== state.requestId)
             throw new Error('Wrong request binding');
+          if (holdFill)
+            return new Promise<boolean>((resolve, reject) => {
+              finishFill = resolve;
+              rejectFill = () =>
+                reject(new Error('Synthetic handoff response lost'));
+            });
           state = { ...state, state: 'FILLED' };
         }
         return Promise.resolve(true);
@@ -225,6 +254,10 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
     ).toBeVisible();
     const states: [string, string][] = [
       ['SEARCHING', 'Looking for your code'],
+      ['CANDIDATE', 'Completing your request'],
+      ['VERIFIED', 'Completing your request'],
+      ['FILLING', 'Inserting your code'],
+      ['DELIVERY_UNCONFIRMED', 'Insertion could not be confirmed'],
       ['NO_CODE', 'No eligible code found'],
       ['UNKNOWN', 'Could not select a code'],
       ['ACCOUNT_UNAVAILABLE', 'Sign in to find your code'],
@@ -267,10 +300,7 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
     }
     for (const [stage, text] of [
       ['messages-ambiguous', 'Multiple recent emails contain plausible codes'],
-      [
-        'codes-ambiguous',
-        'One email contains multiple plausible numeric codes',
-      ],
+      ['codes-ambiguous', 'One email contains multiple plausible codes'],
       [
         'requests-ambiguous',
         'Competing login requests or code field groups were detected',
@@ -295,7 +325,11 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
         stage,
       );
       await expect(popup.getByRole('status')).toHaveText(
-        text + '. No code was released.',
+        text +
+          '. No code was released.' +
+          (stage === 'messages-ambiguous'
+            ? ' Request one new code on this site, wait for its email, then retry.'
+            : ''),
       );
       await expect(fill).toBeDisabled();
     }
@@ -331,6 +365,124 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
     expect(
       await popup.evaluate(() => Reflect.get(window, 'syntheticPopup').actions),
     ).toEqual(['pipeline-fill']);
+    await popup.evaluate(() =>
+      Reflect.get(window, 'syntheticPopup').update({
+        state: 'EMAIL_CONFIRMATION_REQUIRED',
+        requestId: 'synthetic-request',
+      }),
+    );
+    await expect(popup.getByText('Is this an email code?')).toBeVisible();
+    await expect(
+      popup.getByRole('button', { name: 'Fill', exact: true }),
+    ).toBeDisabled();
+    const confirmEmail = popup.getByRole('button', {
+      name: 'This is an email code',
+      exact: true,
+    });
+    await confirmEmail.focus();
+    await popup.keyboard.press('Enter');
+    expect(
+      await popup.evaluate(() => Reflect.get(window, 'syntheticPopup').actions),
+    ).toEqual(['pipeline-fill', 'pipeline-confirm-email']);
+    await popup.evaluate(() => {
+      const fixture = Reflect.get(window, 'syntheticPopup');
+      fixture.update({
+        state: 'READY',
+        requestId: 'second-request',
+        prompt: 'manual',
+      });
+      fixture.delayFill();
+    });
+    await expect(fill).toBeEnabled();
+    await fill.click();
+    expect(await fill.isDisabled()).toBe(true);
+    await expect(
+      popup.getByRole('heading', { name: 'Inserting your code', exact: true }),
+    ).toBeVisible();
+    // Wait for an actual stale READY response during this pending handoff.
+    await expect
+      .poll(() =>
+        popup.evaluate(() => Reflect.get(window, 'syntheticPopup').reads()),
+      )
+      .toBeGreaterThan(0);
+    await expect(fill).toBeDisabled();
+    await popup.evaluate(() =>
+      Reflect.get(window, 'syntheticPopup').update({ state: 'CANDIDATE' }),
+    );
+    await expect(
+      popup.getByRole('heading', {
+        name: 'Completing your request',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      popup.getByRole('heading', { name: 'Request unavailable', exact: true }),
+    ).not.toBeVisible();
+    await popup.evaluate(() =>
+      Reflect.get(window, 'syntheticPopup').finishFill(true),
+    );
+    await expect(
+      popup.getByRole('heading', { name: 'Code inserted', exact: true }),
+    ).toBeVisible();
+    await expect(fill).toBeDisabled();
+    for (const outcome of ['declined', 'lost-response']) {
+      await popup.evaluate((outcome) => {
+        const fixture = Reflect.get(window, 'syntheticPopup');
+        fixture.update({
+          state: 'READY',
+          requestId: outcome + '-request',
+          prompt: 'manual',
+        });
+        fixture.delayFill();
+      }, outcome);
+      await expect(fill).toBeEnabled();
+      await fill.click();
+      expect(await fill.isDisabled()).toBe(true);
+      await popup.evaluate((outcome) => {
+        const fixture = Reflect.get(window, 'syntheticPopup');
+        if (outcome === 'declined') fixture.finishFill(false);
+        else fixture.failFill();
+      }, outcome);
+      await expect(
+        popup.getByRole('heading', {
+          name:
+            outcome === 'declined'
+              ? 'Request stopped'
+              : 'Insertion could not be confirmed',
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        popup.getByRole('heading', { name: 'Code inserted', exact: true }),
+      ).not.toBeVisible();
+      await expect(fill).toBeDisabled();
+    }
+    for (const replay of ['already-used', 'unavailable']) {
+      await popup.evaluate(
+        (replay) =>
+          Reflect.get(window, 'syntheticPopup').update({
+            state: 'UNKNOWN',
+            reason: 'message-binding',
+            replay,
+          }),
+        replay,
+      );
+      await expect(
+        popup.getByRole('heading', {
+          name:
+            replay === 'already-used'
+              ? 'Request a fresh code'
+              : 'Local protection unavailable',
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(fill).toBeDisabled();
+      await expect(popup.getByRole('status')).toContainText(
+        replay === 'already-used'
+          ? 'earlier fill attempt'
+          : 'No code was released',
+      );
+    }
     // Reproduce the owner's combined state: stale UNKNOWN plus signed-out account.
     await popup.addInitScript(() => {
       const send = chrome.runtime.sendMessage;

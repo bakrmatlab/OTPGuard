@@ -8,8 +8,12 @@ const pipeline = vi.hoisted(() => ({
 vi.mock('../apps/extension/gmail/retrieval', () => ({
   createGmailPageCoordinator: () => pipeline,
 }));
-vi.mock('../apps/extension/gmail/worker', () => ({ gmailLifecycle: {} }));
-vi.mock('../apps/extension/account/worker', () => ({ accountGate: {} }));
+vi.mock('../apps/extension/gmail/worker', () => ({
+  gmailLifecycle: { subscribe: () => () => {} },
+}));
+vi.mock('../apps/extension/account/worker', () => ({
+  accountGate: { subscribe: () => () => {} },
+}));
 vi.mock('../apps/extension/gmail/authenticated-worker', () => ({
   authenticatedMailbox: { check: async () => ({ state: 'DISCONNECTED' }) },
 }));

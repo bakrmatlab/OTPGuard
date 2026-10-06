@@ -1,4 +1,5 @@
 import { createProgress } from './progress';
+import { createEmailRecovery } from './email-recovery';
 import {
   createGmailPageCoordinator,
   type RetrievalIssue,
@@ -19,7 +20,10 @@ const progress = createProgress();
 let displayCurrent = true;
 let admitting = false;
 let displayTab: number | undefined;
+let detectionPromptKey: string | undefined;
 function clearDisplay() {
+  detectionPromptKey = undefined;
+  emailRecovery.clear();
   displayCurrent = false;
   admitting = false;
   progress.reset();
@@ -70,6 +74,33 @@ async function current(context: Context) {
     (await foreground(context.tabId))
   );
 }
+const emailRecovery = createEmailRecovery({
+  now: Date.now,
+  id: () => crypto.randomUUID(),
+  async current(context) {
+    return (
+      !!context.accountSession &&
+      (await accountGate.current(context.accountSession)) &&
+      gmailLifecycle.snapshot().state === 'CONNECTED' &&
+      gmailLifecycle.snapshot().mailbox === context.mailboxId &&
+      !localSettings.snapshot().blockedOrigins.includes(context.origin) &&
+      (await current(context))
+    );
+  },
+  async scan(context, groupId) {
+    return (
+      (await chrome.tabs.sendMessage(
+        context.tabId,
+        { type: 'confirm-email', groupId },
+        { documentId: context.documentId },
+      )) === true
+    );
+  },
+});
+accountGate.subscribe(emailRecovery.clear);
+gmailLifecycle.subscribe(emailRecovery.clear);
+localSettings.subscribe(emailRecovery.clear);
+export const confirmEmailRecovery = emailRecovery.confirm;
 async function openBoundPopup(
   context: Context,
   valid: () => boolean = () => true,
@@ -102,6 +133,7 @@ export const pagePipeline = createGmailPageCoordinator(
     },
     contextFailure(reason) {
       if (reason === null) {
+        emailRecovery.clear();
         displayCurrent = true;
         admitting = true;
         progress.reset();
@@ -114,6 +146,69 @@ export const pagePipeline = createGmailPageCoordinator(
       }
       contextFailure = reason;
       retryFailure = null;
+    },
+    async detected(sender, groupId, signal) {
+      await localSettings.initialized;
+      if (
+        signal.aborted ||
+        !localSettings.available() ||
+        !localSettings.snapshot().autofillEnabled ||
+        sender.id !== chrome.runtime.id ||
+        sender.frameId !== 0 ||
+        sender.documentLifecycle !== 'active' ||
+        !sender.documentId ||
+        sender.tab?.id === undefined ||
+        !sender.url
+      )
+        return;
+      const origin = normalizeOrigin(sender.url);
+      if (!origin || localSettings.snapshot().blockedOrigins.includes(origin))
+        return;
+      const frame = await chrome.webNavigation.getFrame({
+        tabId: sender.tab.id,
+        frameId: 0,
+      });
+      if (
+        signal.aborted ||
+        !frame ||
+        frame.documentId !== sender.documentId ||
+        normalizeOrigin(frame.url) !== origin
+      )
+        return;
+      const context: Context = {
+        accountId: '',
+        mailboxId: '',
+        tabId: sender.tab.id,
+        documentId: sender.documentId,
+        origin,
+        browserUrl: frame.url,
+        policyUrl: frame.url,
+        serviceId: 'generic',
+        foreground: true,
+      };
+      const key = JSON.stringify([
+        context.tabId,
+        context.documentId,
+        context.browserUrl,
+        groupId,
+      ]);
+      if (
+        !(await current(context)) ||
+        signal.aborted ||
+        detectionPromptKey === key
+      )
+        return;
+      detectionPromptKey = key;
+      displayTab = context.tabId;
+      await openBoundPopup(
+        context,
+        () =>
+          !signal.aborted &&
+          detectionPromptKey === key &&
+          localSettings.available() &&
+          localSettings.snapshot().autofillEnabled &&
+          !localSettings.snapshot().blockedOrigins.includes(origin),
+      );
     },
     async unavailable(sender, automatic) {
       if (
@@ -233,8 +328,14 @@ export const pagePipeline = createGmailPageCoordinator(
       chrome.tabs.sendMessage(context.tabId, message, {
         documentId: context.documentId,
       }),
-    reserve: (context, id) =>
-      ledger.reserve(context.accountId, context.mailboxId, id),
+    async reserve(context, id) {
+      const result = await ledger.reserveDetailed(
+        context.accountId,
+        context.mailboxId,
+        id,
+      );
+      return result === 'reserved' ? true : result;
+    },
     confirm(context, binding, signal, automatic) {
       if (pending) return Promise.resolve(false);
       return new Promise<boolean | 'confirmation-expired'>((resolve) => {
@@ -285,6 +386,8 @@ export const pagePipeline = createGmailPageCoordinator(
 
 export function pipelineStatus() {
   if (!displayCurrent) return { state: 'IDLE' };
+  const recovery = emailRecovery.status();
+  if (recovery) return recovery;
   const value = admitting ? { state: 'SEARCHING' } : readPipelineStatus();
   return { ...value, progress: progress.snapshot() };
 }
@@ -322,6 +425,7 @@ export async function acceptFill(requestId: unknown) {
   return true;
 }
 export async function retryPage() {
+  emailRecovery.clear();
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const origin = normalizeOrigin(tab?.url ?? '');
   if (!origin || tab?.id === undefined || !(await permitted(origin)))
@@ -333,10 +437,54 @@ export async function retryPage() {
     displayTab = tab.id;
     progress.reset();
     progress.update('detection');
-    const detected = await chrome.tabs.sendMessage(tab.id, {
-      type: 'scan',
-      manual: true,
+    const frame = await chrome.webNavigation.getFrame({
+      tabId: tab.id,
+      frameId: 0,
     });
+    if (!frame?.documentId || normalizeOrigin(frame.url) !== origin)
+      return false;
+    const detected = await chrome.tabs.sendMessage(
+      tab.id,
+      {
+        type: 'scan',
+        manual: true,
+      },
+      { documentId: frame.documentId },
+    );
+    if (
+      detected &&
+      typeof detected === 'object' &&
+      Object.keys(detected).length === 2 &&
+      detected.state === 'EMAIL_CONFIRMATION_REQUIRED'
+    ) {
+      const account = await accountGate.refresh(true);
+      const mailbox =
+        gmailLifecycle.snapshot().state === 'CONNECTED'
+          ? await gmailLifecycle.check()
+          : await authenticatedMailbox.check();
+      if (!account || mailbox.state !== 'CONNECTED' || !mailbox.mailbox) {
+        contextFailure = !account ? 'account' : 'mailbox';
+        return false;
+      }
+      const context: Context = {
+        accountId: account.userId,
+        accountSession: account,
+        mailboxId: mailbox.mailbox,
+        tabId: tab.id,
+        documentId: frame.documentId,
+        origin,
+        browserUrl: frame.url,
+        policyUrl: frame.url,
+        serviceId: 'generic',
+        foreground: true,
+      };
+      if (
+        !(await current(context)) ||
+        localSettings.snapshot().blockedOrigins.includes(origin)
+      )
+        return false;
+      return emailRecovery.offer(context, detected.groupId);
+    }
     if (detected !== true) retryFailure = 'NO_CHALLENGE';
     return detected === true;
   } catch {
@@ -366,6 +514,7 @@ export async function registerSites() {
 }
 void registerSites().catch(() => {});
 chrome.permissions.onRemoved.addListener(() => {
+  emailRecovery.clear();
   pagePipeline.cancelAll('permissions-changed');
   void registerSites().catch(() => {});
 });
@@ -384,9 +533,10 @@ chrome.webNavigation.onHistoryStateUpdated.addListener(({ tabId, frameId }) => {
     if (tabId === displayTab) clearDisplay();
   }
 });
-chrome.tabs.onRemoved.addListener((tabId) =>
-  pagePipeline.cancelTab(tabId, 'navigation'),
-);
+chrome.tabs.onRemoved.addListener((tabId) => {
+  pagePipeline.cancelTab(tabId, 'navigation');
+  if (tabId === displayTab) clearDisplay();
+});
 chrome.tabs.onActivated.addListener(() => {
   pagePipeline.cancelAll('tab-changed');
   clearDisplay();

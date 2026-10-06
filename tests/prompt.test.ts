@@ -17,16 +17,23 @@ vi.mock('../apps/extension/gmail/retrieval', () => ({
 }));
 vi.mock('../apps/extension/gmail/worker', () => ({
   gmailLifecycle: {
+    subscribe: () => () => {},
     snapshot: () => ({ state: 'CONNECTED', mailbox: 'synthetic' }),
   },
 }));
 vi.mock('../apps/extension/gmail/authenticated-worker', () => ({
   authenticatedMailbox: {},
 }));
-vi.mock('../apps/extension/account/worker', () => ({ accountGate: {} }));
+vi.mock('../apps/extension/account/worker', () => ({
+  accountGate: { subscribe: () => () => {} },
+}));
 vi.mock('../apps/extension/settings/worker', () => ({
   localSettings: {
-    snapshot: () => ({ installationId: 'fixture' }),
+    snapshot: () => ({
+      installationId: 'fixture',
+      autofillEnabled: true,
+      blockedOrigins: [] as string[],
+    }),
     subscribe: () => () => {},
     available: () => true,
   },
@@ -281,4 +288,98 @@ it('reading a previous terminal status does not freeze a new admission clock', a
   expect(t.worker.pipelineStatus()).toMatchObject({
     progress: { stage: 'mailbox', elapsedSeconds: 5 },
   });
+});
+it('opens detection prompting before any code confirmation is available', async () => {
+  const open = vi.fn(async () => {});
+  const t = await setup(open);
+  await captured.browser!.detected!(
+    {
+      id: 'fixture',
+      frameId: 0,
+      documentLifecycle: 'active',
+      documentId: 'doc',
+      tab: await chrome.tabs.get(1),
+      url: t.context.browserUrl,
+    },
+    'fields-1',
+    new AbortController().signal,
+  );
+  expect(open).toHaveBeenCalledExactlyOnceWith({ windowId: 17 });
+  expect(t.worker.pipelineStatus().state).not.toBe('READY');
+});
+it('deduplicates early prompting for the same document and fields', async () => {
+  const open = vi.fn(async () => {});
+  const t = await setup(open);
+  const sender: chrome.runtime.MessageSender = {
+    id: 'fixture',
+    frameId: 0,
+    documentLifecycle: 'active',
+    documentId: 'doc',
+    tab: await chrome.tabs.get(1),
+    url: t.context.browserUrl,
+  };
+  await Promise.all([
+    captured.browser!.detected!(
+      sender,
+      'fields-1',
+      new AbortController().signal,
+    ),
+    captured.browser!.detected!(
+      sender,
+      'fields-1',
+      new AbortController().signal,
+    ),
+  ]);
+  expect(open).toHaveBeenCalledTimes(1);
+});
+it.each([
+  'aborted',
+  'disabled',
+  'blocked',
+  'permission',
+  'background',
+  'sender',
+  'document',
+])('does not open early for %s detection', async (scenario) => {
+  const open = vi.fn(async () => {});
+  const t = await setup(open);
+  const controller = new AbortController();
+  const { localSettings } = await import('../apps/extension/settings/worker');
+  const sender: chrome.runtime.MessageSender = {
+    id: 'fixture',
+    frameId: 0,
+    documentLifecycle: 'active',
+    documentId: 'doc',
+    tab: await chrome.tabs.get(1),
+    url: t.context.browserUrl,
+  };
+  if (scenario === 'aborted') controller.abort();
+  if (scenario === 'disabled')
+    vi.spyOn(localSettings, 'snapshot').mockReturnValue({
+      version: 1,
+      installationId: 'fixture',
+      autofillEnabled: false,
+      blockedOrigins: [],
+    });
+  if (scenario === 'blocked')
+    vi.spyOn(localSettings, 'snapshot').mockReturnValue({
+      version: 1,
+      installationId: 'fixture',
+      autofillEnabled: true,
+      blockedOrigins: [t.context.origin],
+    });
+  if (scenario === 'permission')
+    chrome.permissions.contains = vi.fn(async () => false);
+  if (scenario === 'background')
+    Object.assign(chrome.tabs, {
+      get: async () => ({ ...sender.tab!, active: false }),
+    });
+  if (scenario === 'sender') sender.id = 'other-extension';
+  if (scenario === 'document') sender.documentId = 'old-document';
+  try {
+    await captured.browser!.detected!(sender, 'fields-1', controller.signal);
+  } finally {
+    vi.restoreAllMocks();
+  }
+  expect(open).not.toHaveBeenCalled();
 });

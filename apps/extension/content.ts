@@ -1,11 +1,17 @@
-import { createDetector, codeLengths, type FieldGroup } from './detection';
+import {
+  createDetector,
+  codeLengths,
+  canConfirmEmail,
+  type FieldGroup,
+} from './detection';
 import { insertCodeRetained } from './insertion';
-import { parseWorker, type Binding } from './pipeline/protocol';
+import { parseWorker, identifier, type Binding } from './pipeline/protocol';
 
 const detector = createDetector(document);
 
 let approval: Binding | null = null;
 let selected: FieldGroup | undefined;
+let emailConfirmed = false;
 let stopped = false;
 let disconnected = false;
 // Chrome can throw before returning a promise after an extension reload. An old
@@ -40,7 +46,8 @@ const current = () => {
     snapshot.groups.some(
       (group) =>
         group.id === selected!.id &&
-        group.flow === 'email' &&
+        (group.flow === 'email' ||
+          (emailConfirmed && canConfirmEmail(group))) &&
         group.fields.length === selected!.fields.length &&
         group.fields.every((field, index) => field === selected!.fields[index]),
     ) &&
@@ -111,7 +118,7 @@ chrome.runtime.onMessage.addListener((value: unknown, sender, reply) => {
 });
 // Each scan is bounded; a late SPA challenge must not depend on page-load age.
 const attempted = new WeakSet<HTMLInputElement>();
-function scan(manual = false, fresh = false) {
+function scan(manual = false, fresh = false, confirmedGroupId?: string) {
   if (fresh && approval) cancel();
   if (disconnected || approval || document.visibilityState !== 'visible')
     return false;
@@ -119,17 +126,26 @@ function scan(manual = false, fresh = false) {
   if (snapshot.limited || snapshot.groups.length !== 1) return false;
   const group = snapshot.groups[0]!;
   if (
-    group.flow !== 'email' ||
     group.fields.some((f) => f.value !== '') ||
     (!manual && !fresh && attempted.has(group.fields[0]!))
   )
     return false;
   const lengths = codeLengths(group);
   if (!lengths.length) return false;
+  if (
+    confirmedGroupId !== undefined &&
+    (!manual || confirmedGroupId !== group.id || !canConfirmEmail(group))
+  )
+    return false;
+  if (group.flow !== 'email' && confirmedGroupId === undefined)
+    return manual && canConfirmEmail(group)
+      ? { state: 'EMAIL_CONFIRMATION_REQUIRED', groupId: group.id }
+      : false;
   const length = lengths.length === 1 ? lengths[0]! : 0;
   const replacement = !!selected && selected.id !== group.id;
   const recipient = recipientHint(group);
   selected = group;
+  emailConfirmed = confirmedGroupId !== undefined;
   stopped = false;
   attempted.add(group.fields[0]!);
   return send({
@@ -146,6 +162,20 @@ function scan(manual = false, fresh = false) {
   });
 }
 chrome.runtime.onMessage.addListener((value: unknown, sender, reply) => {
+  if (
+    sender.id === chrome.runtime.id &&
+    !sender.tab &&
+    value &&
+    typeof value === 'object' &&
+    Object.keys(value).length === 2 &&
+    'type' in value &&
+    value.type === 'confirm-email' &&
+    'groupId' in value &&
+    identifier(value.groupId)
+  ) {
+    reply(scan(true, false, value.groupId));
+    return;
+  }
   if (
     sender.id === chrome.runtime.id &&
     !sender.tab &&
@@ -243,7 +273,7 @@ document.addEventListener(
     const target = event.target.closest('button, a, [role="button"]');
     if (
       !target ||
-      !/\b(resend|send (?:a |the )?(?:new )?code again|send again)\b/i.test(
+      !/\b(?:resend|(?:request|get|send|email)\s+(?:(?:a|the)\s+)?(?:new|another)\s+(?:verification\s+)?code|send\s+(?:(?:a|the)\s+)?(?:verification\s+)?code\s+again|send\s+again)\b/i.test(
         target.textContent ?? '',
       )
     )

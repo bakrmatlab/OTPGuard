@@ -57,7 +57,7 @@ export function assessGenericCandidate(
   if (m.parsed.status === 'ambiguous') return refuse('ambiguity');
   if (
     m.parsed.status !== 'candidate' ||
-    !/^[0-9]{4,8}$/.test(m.parsed.candidate.code) ||
+    !/^[A-Za-z0-9]{4,8}$/.test(m.parsed.candidate.code) ||
     (r.expectedLength !== 0 &&
       m.parsed.candidate.code.length !== r.expectedLength)
   )

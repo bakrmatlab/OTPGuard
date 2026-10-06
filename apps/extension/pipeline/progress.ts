@@ -17,7 +17,7 @@ export const stageText = {
   length: 'A recent message was excluded: code length does not fit the field',
   selecting: 'Checking code candidates for ambiguity',
   'messages-ambiguous': 'Multiple recent emails contain plausible codes',
-  'codes-ambiguous': 'One email contains multiple plausible numeric codes',
+  'codes-ambiguous': 'One email contains multiple plausible codes',
   'requests-ambiguous':
     'Competing login requests or code field groups were detected',
   'retrieval-incomplete':
