@@ -383,3 +383,32 @@ it.each([
   }
   expect(open).not.toHaveBeenCalled();
 });
+
+it('records a timely Fill click without waiting for the page query; release authority belongs to the coordinator', async () => {
+  const t = await setup(async () => {});
+  const controller = new AbortController();
+  const result = t.confirm(t.context, t.binding, controller.signal, false);
+  const read = vi.fn(
+    async () =>
+      new Promise<chrome.webNavigation.GetFrameResultDetails>(() => {}),
+  );
+  chrome.webNavigation.getFrame = read;
+  vi.setSystemTime(129999);
+  expect(await t.worker.acceptFill(t.binding.requestId)).toBe(true);
+  expect(await result).toBe(true);
+  expect(read).not.toHaveBeenCalled();
+});
+
+it('a status read expires suspended-worker confirmation even before its timer runs', async () => {
+  const t = await setup(async () => {});
+  const result = t.confirm(
+    t.context,
+    t.binding,
+    new AbortController().signal,
+    false,
+  );
+  vi.setSystemTime(130000);
+  expect(t.worker.pipelineStatus().state).not.toBe('READY');
+  expect(await result).toBe('confirmation-expired');
+  expect(await t.worker.acceptFill(t.binding.requestId)).toBe(false);
+});

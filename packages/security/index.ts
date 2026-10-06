@@ -91,6 +91,8 @@ export interface AuthorizationInput {
     /** Generic-only receipt floor; coordinator-owned, not sender time. */
     receiptNotBefore?: number;
     deadline: number;
+    /** Generic-only worker-observed phases; a click does not replace current authority. */
+    confirmation?: { offeredAt: number; clickedAt?: number };
     url: string;
     topLevel: boolean;
     current: boolean;

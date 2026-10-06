@@ -143,3 +143,12 @@ boundary or erase replay reservations. This metadata, displayed-recipient hints 
 all mail/code data remain outside new persistent storage, backend payloads and logs.
 No additional permission, provider request, grant or cloud transport is added.
 See [ADR0026](adr/0026-volatile-challenge-ordering.md).
+
+The bounded timing revision separates 60-second admission/search, 30-second Fill
+confirmation and a maximum 15-second post-click release phase. Approved candidate
+material can remain in volatile memory for at most 45 seconds after being offered,
+with earlier processing bounded by the search phase. Worker-observed phase times
+are memory-only; no new data is persisted or uploaded. Late provider/Chrome results
+are detached on cancellation, though underlying calls may still finish. Already
+sent page values cannot be retracted; uncertain delivery retains replay reservation.
+See [ADR0027](adr/0027-bounded-confirmation-and-release.md).

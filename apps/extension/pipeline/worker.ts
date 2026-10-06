@@ -35,7 +35,7 @@ let retryFailure: 'NO_CHALLENGE' | 'CONTENT_UNAVAILABLE' | null = null;
 let pending: {
   binding: Binding;
   context: Context;
-  finish: (v: boolean) => void;
+  finish: (v: boolean | 'confirmation-expired') => void;
   prompt: 'requested' | 'unavailable' | 'manual';
 } | null = null;
 const ledger = createReleaseLedger({
@@ -392,6 +392,8 @@ export function pipelineStatus() {
   return { ...value, progress: progress.snapshot() };
 }
 function readPipelineStatus() {
+  if (pending && Date.now() >= pending.binding.expiresAt)
+    pending.finish('confirmation-expired');
   return pending
     ? {
         state: 'READY',
@@ -417,10 +419,13 @@ export async function acceptFill(requestId: unknown) {
     !selected ||
     selected.binding.requestId !== requestId ||
     Date.now() >= selected.binding.expiresAt ||
-    !(await current(selected.context))
+    !localSettings.available() ||
+    localSettings.snapshot().blockedOrigins.includes(selected.context.origin)
   )
     return false;
   if (pending !== selected) return false;
+  // Record the timely click now. The coordinator performs fresh account/mailbox/
+  // browser checks under its separate release budget before sending any code.
   selected.finish(true);
   return true;
 }

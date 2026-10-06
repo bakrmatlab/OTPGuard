@@ -10,7 +10,7 @@ Repository instructions require one reviewable scope at a time.
 | 1     | Parser false refusals         | Owner-approved for merge            | Metadata/disclaimer successes; genuine ambiguity and unsupported-purpose refusal; composed click-bound retrieval |
 | 2     | Detection and manual recovery | Owner-approved for merge            | Active-challenge context; safe explicit recovery for uncertain email flows; payment/TOTP refusal                 |
 | 3     | Challenge/resend tracking     | Local implementation for review     | Fresh/resend/retry separation; cancellation; concurrent-request refusal without unrelated interference           |
-| 4     | Timing and provider checks    | Queued                              | Slow authority/delivery cases; usable approval budget; no stale-authority release                                |
+| 4     | Timing and provider checks    | Local implementation for review     | Slow authority/delivery cases; usable approval budget; no stale-authority release                                |
 | 5     | Retrieval/MIME coverage       | Queued                              | Bounded complete plausible sets; busy mailbox and decoder failures; no hidden competition                        |
 | 6     | Recipient parsing             | Queued                              | Structured address variants and aliases; conservative uncertainty; real contradiction refusal                    |
 | 7     | Input compatibility           | Queued                              | Framework state, split/replaced controls, delayed clearing, user typing and site-driven submission               |
@@ -67,3 +67,12 @@ Challenge/resend tracking is now implemented locally for review in its own branc
 [ADR0026](adr/0026-volatile-challenge-ordering.md). This does not resolve server
 transaction identity, same-mailbox concurrent login ambiguity or late old-mail
 identity. Timing/provider changes are not started.
+
+The owner's subsequent instruction authorized committing, merging and pushing the
+CI/challenge scopes and then starting timing/provider work. Those first scopes are
+integrated; the separate timing scope is implemented locally for review. See
+[timing acceptance](timing-provider-acceptance.md) and
+[ADR0027](adr/0027-bounded-confirmation-and-release.md). Retrieval/MIME backlog work
+has not started. The current delegated rank numbers include CI as rank 1, challenge
+tracking as rank 2 and timing as rank 3; the historical table above preserves its
+original parser-first numbering.

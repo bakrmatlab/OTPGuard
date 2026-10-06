@@ -1,3 +1,4 @@
+import { SEARCH_MS, CONFIRM_MS, RELEASE_MS } from './timing';
 import {
   normalizeOrigin,
   type AuthorizationInput,
@@ -30,9 +31,26 @@ export function assessGenericCandidate(
     r.startedAt < 0 ||
     input.now < r.startedAt ||
     input.now >= r.deadline ||
-    r.deadline - r.startedAt > 60000
+    (!r.confirmation && r.deadline - r.startedAt > SEARCH_MS)
   )
     return refuse('request');
+  const phase = r.confirmation;
+  if (phase) {
+    if (
+      !Number.isSafeInteger(phase.offeredAt) ||
+      phase.offeredAt < r.startedAt ||
+      phase.offeredAt >= r.startedAt + SEARCH_MS ||
+      input.now < phase.offeredAt ||
+      (phase.clickedAt === undefined
+        ? r.deadline > phase.offeredAt + CONFIRM_MS
+        : !Number.isSafeInteger(phase.clickedAt) ||
+          phase.clickedAt < phase.offeredAt ||
+          phase.clickedAt >= phase.offeredAt + CONFIRM_MS ||
+          input.now < phase.clickedAt ||
+          r.deadline > phase.clickedAt + RELEASE_MS)
+    )
+      return refuse('request');
+  }
   if (r.competingChallenges !== 0 || input.messages.length !== 1)
     return refuse('ambiguity');
   if (

@@ -1,4 +1,9 @@
 import {
+  SEARCH_MS,
+  CONFIRM_MS,
+  RELEASE_MS,
+} from '../../../packages/security/timing';
+import {
   parseVerificationCode,
   parseGenericCode,
   type NormalizedEmail,
@@ -143,6 +148,8 @@ interface Request {
   length: number;
   startedAt: number;
   deadline: number;
+  expiration: CancellationReason;
+  confirmation?: { offeredAt: number; clickedAt?: number };
   ambiguous: boolean;
   abort: AbortController;
   cancellation?: CancellationReason;
@@ -191,22 +198,65 @@ export function createCoordinator(adapter: Adapter) {
     if (requests.get(request.id) === request) requests.delete(request.id);
     stop(request, reason);
   };
+  const bounded = <T>(
+    request: Request,
+    operation: () => Promise<T>,
+  ): Promise<T> =>
+    new Promise((resolve, reject) => {
+      const signal = request.abort.signal;
+      if (adapter.now() >= request.deadline)
+        cancel(request, request.expiration);
+      if (signal.aborted) {
+        reject(new Error('Request expired'));
+        return;
+      }
+      const aborted = () => reject(new Error('Request cancelled'));
+      signal.addEventListener('abort', aborted, { once: true });
+      try {
+        void operation().then(
+          (value) => {
+            signal.removeEventListener('abort', aborted);
+            resolve(value);
+          },
+          (error) => {
+            signal.removeEventListener('abort', aborted);
+            reject(error);
+          },
+        );
+      } catch (error) {
+        signal.removeEventListener('abort', aborted);
+        reject(error);
+      }
+    });
   const alive = async (request: Request) => {
-    const current = await adapter.current(request.context);
-    // Browser queries yield: cancellation/deadlines must be checked after they settle.
-    return (
-      current &&
-      requests.get(request.id) === request &&
-      !request.abort.signal.aborted &&
-      adapter.now() < request.deadline
-    );
+    if (adapter.now() >= request.deadline) cancel(request, request.expiration);
+    if (
+      requests.get(request.id) !== request ||
+      request.abort.signal.aborted ||
+      adapter.now() >= request.deadline
+    )
+      return false;
+    try {
+      const current = await bounded(request, () =>
+        adapter.current(request.context),
+      );
+      return (
+        current &&
+        requests.get(request.id) === request &&
+        !request.abort.signal.aborted &&
+        adapter.now() < request.deadline
+      );
+    } catch {
+      return false;
+    }
   };
   const coordinator = {
     status: () => {
       // MV3 timers can be delayed while a worker is suspended. A popup status
       // read must enforce the same deadline instead of reporting stale work.
       for (const request of [...requests.values()])
-        if (adapter.now() >= request.deadline) cancel(request, 'deadline');
+        if (adapter.now() >= request.deadline)
+          cancel(request, request.expiration);
       return status;
     },
     cancelAll(reason: CancellationReason = 'invalidated') {
@@ -287,7 +337,7 @@ export function createCoordinator(adapter: Adapter) {
       const admissionTimer = setTimeout(() => {
         admission.reason = 'deadline';
         admission.abort.abort();
-      }, 60_000);
+      }, SEARCH_MS);
       if (
         message.type === 'detect' &&
         !message.manual &&
@@ -328,7 +378,7 @@ export function createCoordinator(adapter: Adapter) {
       }
       if (
         admission.abort.signal.aborted ||
-        adapter.now() >= observedAt + 60_000
+        adapter.now() >= observedAt + SEARCH_MS
       ) {
         if (
           admission.reason === 'account-changed' ||
@@ -516,7 +566,8 @@ export function createCoordinator(adapter: Adapter) {
         groupId: message.groupId,
         length: message.expectedLength,
         startedAt,
-        deadline: observedAt + 60_000,
+        deadline: observedAt + SEARCH_MS,
+        expiration: 'deadline',
         ambiguous: message.groupCount !== 1,
         abort: new AbortController(),
       };
@@ -533,17 +584,26 @@ export function createCoordinator(adapter: Adapter) {
       requests.set(request.id, request);
       latestRequest = request;
       status = { state: 'SEARCHING' };
-      const timer = setTimeout(
-        () => cancel(request, 'deadline'),
-        Math.max(0, request.deadline - adapter.now()),
-      );
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const setDeadline = (deadline: number, reason: CancellationReason) => {
+        clearTimeout(timer);
+        request.deadline = deadline;
+        request.expiration = reason;
+        timer = setTimeout(
+          () => cancel(request, reason),
+          Math.max(0, deadline - adapter.now()),
+        );
+      };
+      setDeadline(request.deadline, 'deadline');
       try {
         if (blocked())
           return (status = { state: 'BLOCKED', reason: 'local-block' });
         if (!message.manual && !preferences().autofillEnabled)
           return stop(request, 'automatic-disabled');
         adapter.progress?.('polling');
-        const envelopes = await adapter.retrieve(context, request.abort.signal);
+        const envelopes = await bounded(request, () =>
+          adapter.retrieve(context, request.abort.signal),
+        );
         if (!(await alive(request))) return stop(request, 'current-changed');
         if (!envelopes || envelopes.length > 10) {
           adapter.progress?.('retrieval-incomplete');
@@ -627,6 +687,9 @@ export function createCoordinator(adapter: Adapter) {
                   ? { receiptNotBefore: context.requestWindow!.notBefore }
                   : {}),
                 deadline: request.deadline,
+                ...(request.confirmation
+                  ? { confirmation: request.confirmation }
+                  : {}),
                 url: context.policyUrl,
                 topLevel: true,
                 current: true,
@@ -659,7 +722,13 @@ export function createCoordinator(adapter: Adapter) {
           return status;
         if (adapter.mode === 'user-confirmed' && !adapter.confirm)
           return (status = { state: 'UNKNOWN', reason: 'request' });
-        const expiresAt = Math.min(adapter.now() + 30_000, request.deadline);
+        if (adapter.mode === 'user-confirmed') {
+          if (adapter.now() >= request.deadline)
+            return stop(request, 'deadline');
+          request.confirmation = { offeredAt: adapter.now() };
+          setDeadline(adapter.now() + CONFIRM_MS, 'confirmation-expired');
+        }
+        let expiresAt = Math.min(adapter.now() + CONFIRM_MS, request.deadline);
         const binding = {
           requestId: request.id,
           groupId: request.groupId,
@@ -671,11 +740,13 @@ export function createCoordinator(adapter: Adapter) {
         };
         if (adapter.confirm) {
           adapter.progress?.('approval');
-          const confirmed = await adapter.confirm(
-            context,
-            binding,
-            request.abort.signal,
-            !message.manual,
+          const confirmed = await bounded(request, () =>
+            adapter.confirm!(
+              context,
+              binding,
+              request.abort.signal,
+              !message.manual,
+            ),
           );
           if (confirmed !== true)
             return stop(
@@ -683,13 +754,27 @@ export function createCoordinator(adapter: Adapter) {
               confirmed === 'confirmation-expired' ? confirmed : 'confirmation',
             );
         }
+        if (adapter.now() >= expiresAt || request.abort.signal.aborted)
+          return stop(request, 'confirmation-expired');
+        if (request.confirmation) {
+          request.confirmation.clickedAt = adapter.now();
+          expiresAt = adapter.now() + RELEASE_MS;
+          binding.expiresAt = expiresAt;
+          setDeadline(expiresAt, 'binding-expired');
+        }
         if (!(await alive(request))) return stop(request, 'current-changed');
         if (adapter.now() >= expiresAt) return stop(request, 'binding-expired');
+        if (blocked())
+          return (status = { state: 'BLOCKED', reason: 'local-block' });
+        if (!message.manual && !preferences().autofillEnabled)
+          return stop(request, 'automatic-disabled');
         adapter.progress?.('preparing');
-        const ready = await adapter.send(context, {
-          ...binding,
-          type: 'prepare',
-        });
+        const ready = await bounded(request, () =>
+          adapter.send(context, {
+            ...binding,
+            type: 'prepare',
+          }),
+        );
         if (ready !== true) return stop(request, 'prepare-refused');
         if (!(await alive(request))) return stop(request, 'current-changed');
         if (adapter.now() >= expiresAt) return stop(request, 'binding-expired');
@@ -702,9 +787,8 @@ export function createCoordinator(adapter: Adapter) {
         if (parsed.status !== 'candidate') return (status = { state: 'ERROR' });
         adapter.progress?.('replay');
         if (adapter.reserve) {
-          const reserved = await adapter.reserve(
-            context,
-            messages[0]!.messageId,
+          const reserved = await bounded(request, () =>
+            adapter.reserve!(context, messages[0]!.messageId),
           );
           if (reserved !== true)
             return (status =
@@ -724,11 +808,13 @@ export function createCoordinator(adapter: Adapter) {
         if (status.state !== 'VERIFIED' && status.state !== 'CANDIDATE')
           return status;
         adapter.progress?.('filling');
-        const result = await adapter.send(context, {
-          ...binding,
-          type: 'release',
-          code: parsed.candidate.code,
-        });
+        const result = await bounded(request, () =>
+          adapter.send(context, {
+            ...binding,
+            type: 'release',
+            code: parsed.candidate.code,
+          }),
+        );
         return result === true
           ? (status = { state: 'FILLED' })
           : stop(request, 'release-refused');

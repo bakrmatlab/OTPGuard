@@ -217,9 +217,7 @@ describe('worker authorization boundary', () => {
         finish = resolve;
       });
     const pending = s.coordinator.handle(detect, {});
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
     s.coordinator.cancelAll();
     finish(true);
     await pending;
@@ -233,8 +231,7 @@ describe('worker authorization boundary', () => {
         finish = resolve;
       });
     const pending = s.coordinator.handle(detect, {});
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
     s.coordinator.cancelAll();
     const restarted = createCoordinator(s.adapter);
     expect(restarted.status()).toEqual({ state: 'IDLE' });
@@ -274,8 +271,11 @@ describe('connected account release boundary', () => {
       const coordinator = createConnectedCoordinator(fixture.adapter, gate);
       const status = await coordinator.handle(detect, {});
       expect(status.state).toBe(switchAccount ? 'CANCELLED' : 'FILLED');
-      expect(fixture.sends).toEqual(
-        switchAccount ? ['prepare'] : ['prepare', 'release'],
+      // Cancellation now settles without waiting for this late adapter result.
+      await vi.waitFor(() =>
+        expect(fixture.sends).toEqual(
+          switchAccount ? ['prepare'] : ['prepare', 'release'],
+        ),
       );
       coordinator.dispose();
       gate.invalidate();
