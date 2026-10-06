@@ -28,9 +28,9 @@ for (const width of [1440, 768, 375]) {
         .evaluate((body) => getComputedStyle(body).backgroundColor),
     ).toBe('rgb(8, 11, 11)');
     await page.getByRole('link', { name: 'Install for Chrome' }).click();
-    await expect(page).toHaveURL(/\/setup/);
+    await expect(page).toHaveURL(/\/install/);
     await expect(
-      page.getByRole('heading', { name: 'Set up OTPGuard', exact: true }),
+      page.getByRole('heading', { name: 'Coming soon.', exact: true }),
     ).toBeVisible();
     await expect(
       page.getByText('Public store installation is not available yet.', {
