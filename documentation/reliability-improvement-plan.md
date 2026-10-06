@@ -9,7 +9,7 @@ Repository instructions require one reviewable scope at a time.
 | ----- | ----------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | 1     | Parser false refusals         | Owner-approved for merge            | Metadata/disclaimer successes; genuine ambiguity and unsupported-purpose refusal; composed click-bound retrieval |
 | 2     | Detection and manual recovery | Owner-approved for merge            | Active-challenge context; safe explicit recovery for uncertain email flows; payment/TOTP refusal                 |
-| 3     | Challenge/resend tracking     | Queued                              | Fresh/resend/retry separation; cancellation; concurrent-request refusal without unrelated interference           |
+| 3     | Challenge/resend tracking     | Local implementation for review     | Fresh/resend/retry separation; cancellation; concurrent-request refusal without unrelated interference           |
 | 4     | Timing and provider checks    | Queued                              | Slow authority/delivery cases; usable approval budget; no stale-authority release                                |
 | 5     | Retrieval/MIME coverage       | Queued                              | Bounded complete plausible sets; busy mailbox and decoder failures; no hidden competition                        |
 | 6     | Recipient parsing             | Queued                              | Structured address variants and aliases; conservative uncertainty; real contradiction refusal                    |
@@ -58,3 +58,12 @@ On October 5, 2026, the owner explicitly authorized committing, merging and push
 all completed local reliability and follow-up fixes. That authorization covers the
 implemented changes and acceptance reports, not the queued reliability scopes,
 live mailbox access or deployment.
+
+## Ranked backlog continuation — October 5, 2026
+
+After the separate local CI assertion repair, the owner requested continuation.
+Challenge/resend tracking is now implemented locally for review in its own branch:
+[acceptance](challenge-tracking-acceptance.md) and
+[ADR0026](adr/0026-volatile-challenge-ordering.md). This does not resolve server
+transaction identity, same-mailbox concurrent login ambiguity or late old-mail
+identity. Timing/provider changes are not started.

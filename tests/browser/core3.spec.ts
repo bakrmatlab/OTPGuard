@@ -545,10 +545,11 @@ for (const resendLabel of [
     expect(messages).toMatchObject([
       { type: 'detect', recipient: 'person@fixture.invalid' },
       { type: 'cancel', requestId: 'old' },
+      { type: 'challenge' },
       {
         type: 'detect',
         fresh: true,
-        groupId: 'fields-1',
+        groupId: 'fields-1-challenge-1',
         allowedLengths: [4, 5, 6],
       },
     ]);
@@ -559,7 +560,7 @@ for (const resendLabel of [
         {
           type: 'prepare',
           requestId: 'resent',
-          groupId: 'fields-1',
+          groupId: 'fields-1-challenge-1',
           expectedLength: 6,
           expiresAt: Date.now() + 20000,
         },
@@ -574,9 +575,10 @@ for (const resendLabel of [
       .toMatchObject([
         { type: 'detect' },
         { type: 'cancel', requestId: 'old' },
+        { type: 'challenge' },
         { type: 'detect', fresh: true },
         { type: 'cancel', requestId: 'resent' },
-        { type: 'detect', replacement: true, groupId: 'fields-2' },
+        { type: 'detect', replacement: true, groupId: 'fields-2-challenge-1' },
       ]);
     await expect(page.locator('input')).toHaveValue('');
   });
@@ -662,5 +664,84 @@ test('invalidated content context stops messaging without uncaught errors', asyn
   await page.waitForTimeout(1100);
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => Reflect.get(window, '__calls'))).toBe(1);
+  await expect(page.locator('input')).toHaveValue('');
+});
+
+test('resend records a challenge while fields are nonempty and rejects an old binding after delayed clearing', async ({
+  page,
+}) => {
+  await page.route('https://login.fixture.invalid/**', (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><section><p>Check your email for a code</p><input autocomplete="one-time-code" maxlength="6"><button>Resend code</button></section>',
+    }),
+  );
+  await page.goto('https://login.fixture.invalid/');
+  await page.evaluate(() => {
+    const messages: unknown[] = [];
+    const listeners: ((
+      value: unknown,
+      sender: unknown,
+      reply: (value: unknown) => void,
+    ) => void)[] = [];
+    Object.assign(window, {
+      __delayedResend: { messages, listeners },
+      chrome: {
+        runtime: {
+          id: 'fixture',
+          sendMessage: async (value: unknown) => {
+            messages.push(value);
+          },
+          onMessage: {
+            addListener: (listener: (typeof listeners)[number]) =>
+              listeners.push(listener),
+          },
+        },
+      },
+    });
+  });
+  await page.addScriptTag({
+    content: readFileSync(artifact + '/content.js', 'utf8'),
+  });
+  await page.locator('input').fill('9');
+  await page.getByRole('button', { name: 'Resend code' }).click();
+  expect(
+    await page.evaluate(() => Reflect.get(window, '__delayedResend').messages),
+  ).toMatchObject([
+    { type: 'detect', groupId: 'fields-1' },
+    { type: 'challenge' },
+  ]);
+  await expect(page.locator('input')).toHaveValue('9');
+  // The site, not OTPGuard, clears its field after the request gesture.
+  await page.locator('input').evaluate((input) => {
+    (input as HTMLInputElement).value = '';
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => Reflect.get(window, '__delayedResend').messages),
+    )
+    .toMatchObject([
+      { type: 'detect', groupId: 'fields-1' },
+      { type: 'challenge' },
+      { type: 'detect', groupId: 'fields-1-challenge-1', fresh: true },
+    ]);
+  const oldPrepare = await page.evaluate(() => {
+    let result: unknown;
+    Reflect.get(window, '__delayedResend').listeners[0](
+      {
+        type: 'prepare',
+        requestId: 'old',
+        groupId: 'fields-1',
+        expectedLength: 6,
+        expiresAt: Date.now() + 20000,
+      },
+      { id: 'fixture' },
+      (value: unknown) => {
+        result = value;
+      },
+    );
+    return result;
+  });
+  expect(oldPrepare).toBe(false);
   await expect(page.locator('input')).toHaveValue('');
 });

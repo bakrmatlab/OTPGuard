@@ -158,6 +158,15 @@ export function createCoordinator(adapter: Adapter) {
   const requests = new Map<string, Request>();
   const used = new Set<string>();
   const challengeStarts = new Map<string, number>();
+  // Admission completion order is not gesture order: authority checks can stall.
+  const documentOrders = new Map<string, number>();
+  let nextOrder = 0;
+  const browserChallenges = new Map<
+    string,
+    { startedAt: number; order: number; browserUrl?: string }
+  >();
+  const browserKey = (tabId: number, documentId: string) =>
+    JSON.stringify([tabId, documentId]);
   const windows = new Map<string, { startedAt: number; notBefore: number }>();
   const admissions = new Set<{
     tabId: number | undefined;
@@ -208,8 +217,12 @@ export function createCoordinator(adapter: Adapter) {
       for (const request of requests.values()) cancel(request, reason);
       windows.clear();
       challengeStarts.clear();
+      browserChallenges.clear();
     },
     cancelTab(tabId: number, reason: CancellationReason = 'navigation') {
+      if (reason === 'navigation')
+        for (const key of browserChallenges.keys())
+          if (JSON.parse(key)[0] === tabId) browserChallenges.delete(key);
       for (const admission of admissions)
         if (admission.tabId === tabId) {
           admission.reason = reason;
@@ -236,8 +249,32 @@ export function createCoordinator(adapter: Adapter) {
     ): Promise<LocalStatus> {
       if (disposed) return { state: 'CANCELLED' };
       const observedAt = adapter.now();
+      const order = ++nextOrder;
       const message = parseClient(value);
       if (!message) return { state: 'UNKNOWN', reason: 'request' };
+      const senderKey =
+        sender.tab?.id !== undefined &&
+        sender.documentId &&
+        sender.frameId === 0
+          ? browserKey(sender.tab.id, sender.documentId)
+          : undefined;
+      // Browser metadata permits immediate cancellation, never immediate release.
+      // Save the worker-observed gesture before provider checks can reorder events.
+      if (
+        adapter.mode === 'user-confirmed' &&
+        message.type === 'challenge' &&
+        senderKey
+      ) {
+        if (!browserChallenges.has(senderKey) && browserChallenges.size >= 1000)
+          return { state: 'UNKNOWN', reason: 'request' };
+        browserChallenges.set(senderKey, { startedAt: observedAt, order });
+        for (const existing of [...requests.values()])
+          if (
+            browserKey(existing.context.tabId, existing.context.documentId) ===
+            senderKey
+          )
+            cancel(existing, 'page-cancelled');
+      }
       if (message.type === 'detect') adapter.contextFailure?.(null);
       // Admission includes provider/browser awaits. Bound it before those checks,
       // and detach late results without admitting a stale document or request.
@@ -331,7 +368,28 @@ export function createCoordinator(adapter: Adapter) {
         context.tabId,
         context.documentId,
         context.origin,
+        context.browserUrl,
       ]);
+      const observedChallenge =
+        senderKey === browserKey(context.tabId, context.documentId)
+          ? browserChallenges.get(senderKey)
+          : undefined;
+      const browserChallenge =
+        observedChallenge &&
+        (!observedChallenge.browserUrl ||
+          observedChallenge.browserUrl === context.browserUrl)
+          ? observedChallenge
+          : undefined;
+      if (browserChallenge) browserChallenge.browserUrl ??= context.browserUrl;
+      if (adapter.mode === 'user-confirmed') {
+        if (order < (browserChallenge?.order ?? 0))
+          return { state: 'CANCELLED' };
+        if (order < (documentOrders.get(challengeKey) ?? 0))
+          return { state: 'CANCELLED' };
+        if (!documentOrders.has(challengeKey) && documentOrders.size >= 1000)
+          return { state: 'UNKNOWN', reason: 'request' };
+        documentOrders.set(challengeKey, order);
+      }
       if (message.type === 'challenge') {
         if (adapter.mode === 'user-confirmed' && context.foreground) {
           if (
@@ -340,6 +398,13 @@ export function createCoordinator(adapter: Adapter) {
           )
             challengeStarts.delete(challengeStarts.keys().next().value!);
           challengeStarts.set(challengeKey, observedAt);
+          for (const existing of [...requests.values()])
+            if (same(existing.context, context))
+              cancel(existing, 'page-cancelled');
+          windows.set(challengeKey, {
+            startedAt: observedAt,
+            notBefore: Math.max(0, observedAt - 1000),
+          });
         }
         return status;
       }
@@ -412,18 +477,16 @@ export function createCoordinator(adapter: Adapter) {
       const startedAt = adapter.now();
       if (adapter.mode === 'user-confirmed') {
         const previous = windows.get(challengeKey);
-        const hint = challengeStarts.get(challengeKey);
+        const hint =
+          browserChallenge?.startedAt ?? challengeStarts.get(challengeKey);
         challengeStarts.delete(challengeKey);
         const earlyStart =
           hint !== undefined && hint <= observedAt && observedAt - hint < 240000
             ? hint
             : undefined;
-        const epoch = message.fresh ? observedAt : (earlyStart ?? observedAt);
+        const epoch = earlyStart ?? observedAt;
         const window =
-          !message.fresh &&
-          earlyStart === undefined &&
-          previous &&
-          startedAt - previous.startedAt < 240000
+          !message.fresh && earlyStart === undefined && previous
             ? previous
             : {
                 startedAt: epoch,
@@ -700,6 +763,8 @@ export function createCoordinator(adapter: Adapter) {
       coordinator.cancelAll();
       windows.clear();
       challengeStarts.clear();
+      documentOrders.clear();
+      browserChallenges.clear();
     },
   };
 }

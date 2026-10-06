@@ -12,6 +12,12 @@ const detector = createDetector(document);
 let approval: Binding | null = null;
 let selected: FieldGroup | undefined;
 let emailConfirmed = false;
+let challengeGeneration = 0;
+let freshPending = false;
+const boundGroupId = (group: FieldGroup) =>
+  challengeGeneration
+    ? `${group.id}-challenge-${challengeGeneration}`
+    : group.id;
 let stopped = false;
 let disconnected = false;
 // Chrome can throw before returning a promise after an extension reload. An old
@@ -73,7 +79,7 @@ chrome.runtime.onMessage.addListener((value: unknown, sender, reply) => {
   if (
     !message ||
     !current() ||
-    message.groupId !== selected?.id ||
+    message.groupId !== (selected && boundGroupId(selected)) ||
     !codeLengths(selected!).includes(message.expectedLength) ||
     Date.now() >= message.expiresAt ||
     message.expiresAt > Date.now() + 30_000
@@ -119,6 +125,7 @@ chrome.runtime.onMessage.addListener((value: unknown, sender, reply) => {
 // Each scan is bounded; a late SPA challenge must not depend on page-load age.
 const attempted = new WeakSet<HTMLInputElement>();
 function scan(manual = false, fresh = false, confirmedGroupId?: string) {
+  fresh ||= freshPending;
   if (fresh && approval) cancel();
   if (disconnected || approval || document.visibilityState !== 'visible')
     return false;
@@ -134,12 +141,14 @@ function scan(manual = false, fresh = false, confirmedGroupId?: string) {
   if (!lengths.length) return false;
   if (
     confirmedGroupId !== undefined &&
-    (!manual || confirmedGroupId !== group.id || !canConfirmEmail(group))
+    (!manual ||
+      confirmedGroupId !== boundGroupId(group) ||
+      !canConfirmEmail(group))
   )
     return false;
   if (group.flow !== 'email' && confirmedGroupId === undefined)
     return manual && canConfirmEmail(group)
-      ? { state: 'EMAIL_CONFIRMATION_REQUIRED', groupId: group.id }
+      ? { state: 'EMAIL_CONFIRMATION_REQUIRED', groupId: boundGroupId(group) }
       : false;
   const length = lengths.length === 1 ? lengths[0]! : 0;
   const replacement = !!selected && selected.id !== group.id;
@@ -148,9 +157,9 @@ function scan(manual = false, fresh = false, confirmedGroupId?: string) {
   emailConfirmed = confirmedGroupId !== undefined;
   stopped = false;
   attempted.add(group.fields[0]!);
-  return send({
+  const sent = send({
     type: 'detect',
-    groupId: group.id,
+    groupId: boundGroupId(group),
     expectedLength: length,
     allowedLengths: lengths,
     emailFlow: true,
@@ -160,6 +169,8 @@ function scan(manual = false, fresh = false, confirmedGroupId?: string) {
     ...(replacement ? { replacement: true } : {}),
     ...(recipient ? { recipient } : {}),
   });
+  if (sent) freshPending = false;
+  return sent;
 }
 chrome.runtime.onMessage.addListener((value: unknown, sender, reply) => {
   if (
@@ -289,6 +300,11 @@ document.addEventListener(
       depth++, root = root.parentElement
     ) {
       if (root.contains(target)) {
+        // Invalidate the old binding even when the site clears/replaces fields later.
+        cancel();
+        challengeGeneration++;
+        freshPending = true;
+        send({ type: 'challenge' });
         scan(false, true);
         return;
       }
@@ -315,6 +331,9 @@ function noteEmailRequest(event: Event, root: Element) {
     )
   )
     return;
+  cancel();
+  challengeGeneration++;
+  freshPending = true;
   send({ type: 'challenge' });
 }
 document.addEventListener(
