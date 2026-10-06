@@ -74,3 +74,18 @@ quota/offline and timeout failures cannot fall back to a partial or newest-code 
 Live coverage and late-old-mail/server challenge identity remain unverified/limited.
 See [acceptance](retrieval-mime-acceptance.md) and
 [ADR0028](adr/0028-bounded-complete-generic-retrieval.md).
+
+## Rank-5 recipient evidence
+
+Visible To/Cc/Bcc headers support bounded structured ASCII mailbox lists/groups,
+quoted/display names, nested comments, unfolding, full dot-atom characters and quoted
+local parts. Display-name/comment text is never an address. Malformed/unsupported
+members, duplicate fields or undisclosed empty groups make the whole recipient hint
+uncertain, preserving competing codes and unreadable-mail refusal. Personal Gmail
+ASCII dot/plus variants compare locally; custom domains retain literal dots/tags.
+Non-Gmail case-only differences are uncertain. Page hints accept complete standalone
+rendered tokens; malformed/masked/multiple tokens omit the hint without stopping
+ordinary detection. Unicode addr-specs, domain literals, obsolete routes, over-limit
+lists and page-wrapped/space-containing quoted addresses are unsupported evidence.
+No sender verification or delivery/server transaction identity is implied.
+See [rank-5 acceptance](recipient-parsing-acceptance.md) and [ADR0029](adr/0029-structured-recipient-hints.md).

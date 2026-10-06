@@ -266,3 +266,13 @@ refuses visible set changes. Aggregate response bytes and cycle/request time are
 bounded (8 MiB / thirty seconds / ten seconds); no partial set can reach selection.
 The historical reviewed transport retains its ten-body/no-pagination behavior.
 See [ADR0028](adr/0028-bounded-complete-generic-retrieval.md).
+
+Rank 5 shares bounded address syntax in `packages/otp/addresses.ts` across raw recipient
+hints, rendered page tokens, the detection schema and security comparison. Whole visible
+To/Cc/Bcc lists produce addresses only when fully understood; malformed/unsupported
+members and undisclosed groups supply no exclusion. Both retrieval and coordinator
+require `recipientContradiction` rather than negating a boolean alias match. Non-Gmail
+case-only differences are uncertain; personal Gmail dot/plus rules do not apply to
+custom domains. Missing/uncertain evidence keeps mail plausible. Sender/service hints,
+required Fill, authority, replay, timing and retrieval bounds remain unchanged.
+See [ADR0029](adr/0029-structured-recipient-hints.md).

@@ -1,3 +1,4 @@
+import { displayedRecipient } from '../../packages/otp/addresses';
 import {
   createDetector,
   codeLengths,
@@ -265,13 +266,7 @@ function recipientHint(group: FieldGroup): string | undefined {
     // fragments retain their displayed spelling.
     const text = container instanceof HTMLElement ? container.innerText : '';
     if (text.length > 4000 || /[*•]/.test(text)) return undefined;
-    const addresses = [
-      ...text.matchAll(
-        /(?<![A-Za-z0-9._%+*•-])[A-Za-z0-9._%+-]{1,128}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,126}[A-Za-z0-9])?/g,
-      ),
-    ].map((match) => match[0].toLowerCase());
-    if (addresses.length)
-      return new Set(addresses).size === 1 ? addresses[0] : undefined;
+    if (text.includes('@')) return displayedRecipient(text);
   }
   return undefined;
 }

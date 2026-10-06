@@ -84,3 +84,14 @@ rank 4 bounded retrieval/MIME coverage is implemented locally for review on
 See [rank-4 acceptance](retrieval-mime-acceptance.md) and
 [ADR0028](adr/0028-bounded-complete-generic-retrieval.md). No subsequent recipient,
 input/recovery/scope work, publication, provider action or live success claim is included.
+
+## Delegated rank 5 — recipient parsing
+
+Rank 4 is integrated and published as `5d527f6`; prerequisite Linux CI
+[37404175125](https://github.com/bakrmatlab/OTPGuard/actions/runs/37404175125) passed
+all steps on that exact commit, including browser/packaging. The owner requested local
+rank 5 in this new chat. It corresponds to historical recipient row 6 above and is
+implemented on `codex/recipient-parsing` for review. See
+[acceptance](recipient-parsing-acceptance.md) and
+[ADR0029](adr/0029-structured-recipient-hints.md). No later input/recovery/scope work,
+rank-5 publication, provider/live profile access or deployment is authorized/performed.

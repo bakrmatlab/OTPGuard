@@ -1,4 +1,5 @@
 /* eslint-disable no-control-regex -- Reject untrusted controls. */
+import { parseAddressList } from './addresses';
 import { decodeHTMLStrict } from 'entities/decode';
 import type { NormalizedEmail } from './index';
 export type RawEmailIssue =
@@ -343,7 +344,7 @@ export function rawEmailHints(
       .replace(/\r\n[ \t]+/g, ' ')
       .split('\r\n');
     const subjects = headers.filter((line) => /^subject:/i.test(line));
-    const recipients = headers.filter((line) => /^(to|cc):/i.test(line));
+    const recipients = headers.filter((line) => /^(to|cc|bcc):/i.test(line));
     if (
       subjects.length > 1 ||
       headers.some((line) => !/^[A-Za-z0-9-]+:/.test(line))
@@ -365,13 +366,25 @@ export function rawEmailHints(
       ...(fromAddresses.length === 1
         ? { senderDomain: fromAddresses[0]![1]!.toLowerCase() }
         : {}),
-      recipients: [
-        ...recipients
-          .join(' ')
-          .matchAll(
-            /[A-Za-z0-9._%+-]{1,128}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,126}[A-Za-z0-9])?/g,
-          ),
-      ].map((match) => match[0].toLowerCase()),
+      recipients: (() => {
+        // A bad/unsupported member invalidates the whole visible recipient set.
+        // Missing/empty groups cannot establish an explicit contradiction.
+        if (
+          ['to', 'cc', 'bcc'].some(
+            (name) =>
+              recipients.filter((line) =>
+                line.toLowerCase().startsWith(name + ':'),
+              ).length > 1,
+          )
+        )
+          return [];
+        const lists = recipients.map((line) =>
+          parseAddressList(line.slice(line.indexOf(':') + 1)),
+        );
+        return lists.some((list) => list === null || list.length === 0)
+          ? []
+          : [...new Set(lists.flatMap((list) => list!))];
+      })(),
     };
   } catch {
     return null;

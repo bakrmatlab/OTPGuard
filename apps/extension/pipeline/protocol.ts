@@ -1,3 +1,4 @@
+import { parseMailboxAddress } from '../../../packages/otp/addresses';
 /** Closed, minimal runtime protocol. No page-provided account, origin or evidence. */
 export type DetectionMessage = {
   type: 'detect';
@@ -57,9 +58,7 @@ export function parseClient(value: unknown): ClientMessage | null {
       typeof value.replacement !== 'boolean') ||
     (value.recipient !== undefined &&
       (typeof value.recipient !== 'string' ||
-        !/^[A-Za-z0-9._%+-]{1,128}@[A-Za-z0-9.-]{1,128}$/.test(
-          value.recipient,
-        ))) ||
+        !parseMailboxAddress(value.recipient))) ||
     (value.allowedLengths !== undefined &&
       (!Array.isArray(value.allowedLengths) ||
         value.allowedLengths.length < 1 ||

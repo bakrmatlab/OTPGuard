@@ -1,4 +1,4 @@
-import { recipientMatches } from '../../../packages/security/generic';
+import { recipientContradiction } from '../../../packages/security/generic';
 import type { Context, Envelope, Adapter } from '../pipeline/coordinator';
 import type { AccountGate } from '../account/gate';
 import type { createGmailLifecycle } from './lifecycle';
@@ -283,10 +283,9 @@ export function createGmailPageCoordinator(
         }
         const hints = rawEmailHints(bytes);
         if (
-          context.requestWindow?.recipient &&
-          hints?.recipients.length &&
-          !hints.recipients.some((recipient) =>
-            recipientMatches(recipient, context.requestWindow!.recipient!),
+          recipientContradiction(
+            hints?.recipients,
+            context.requestWindow?.recipient,
           )
         ) {
           browser.progress?.('recipient');

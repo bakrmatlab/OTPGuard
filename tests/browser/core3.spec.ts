@@ -745,3 +745,56 @@ test('resend records a challenge while fields are nonempty and rejects an old bi
   expect(oldPrepare).toBe(false);
   await expect(page.locator('input')).toHaveValue('');
 });
+
+for (const [label, displayed, recipient] of [
+  ['punctuation', 'person!tag@fixture.invalid', 'person!tag@fixture.invalid'],
+  [
+    'quoted local',
+    '&quot;person&quot;@fixture.invalid',
+    'person@fixture.invalid',
+  ],
+  [
+    'personal alias',
+    'First.Last+login@gmail.com',
+    'First.Last+login@gmail.com',
+  ],
+  ['unicode unsupported', 'pérson@fixture.invalid', undefined],
+  ['malformed suffix', 'person@fixture.invalid/bad', undefined],
+  ['masked', 'p***@fixture.invalid', undefined],
+  ['multiple', 'person@fixture.invalid or other@fixture.invalid', undefined],
+] as const)
+  test(`production recipient hint preserves uncertainty: ${label}`, async ({
+    page,
+  }) => {
+    await page.route('https://recipient.example/**', (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: `<!doctype html><main><section><h2>Check your email</h2><p>We sent a verification code to ${displayed}</p><label>Verification code<input autocomplete="one-time-code" maxlength="6"></label></section></main>`,
+      }),
+    );
+    await page.goto('https://recipient.example/login');
+    await page.evaluate(() => {
+      const messages: unknown[] = [];
+      Object.assign(window, {
+        __recipientMessages: messages,
+        chrome: {
+          runtime: {
+            id: 'fixture',
+            sendMessage: async (value: unknown) => {
+              messages.push(value);
+            },
+            onMessage: { addListener: () => {} },
+          },
+        },
+      });
+    });
+    await page.addScriptTag({
+      content: readFileSync(artifact + '/content.js', 'utf8'),
+    });
+    const messages = await page.evaluate(() =>
+      Reflect.get(window, '__recipientMessages'),
+    );
+    expect(messages).toMatchObject([{ type: 'detect', emailFlow: true }]);
+    expect(Reflect.get(messages[0] as object, 'recipient')).toBe(recipient);
+    await expect(page.locator('input')).toHaveValue('');
+  });

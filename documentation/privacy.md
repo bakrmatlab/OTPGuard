@@ -161,3 +161,11 @@ IDs/page tokens/raw mail and candidate material are transient only. Search queri
 contain only time bounds; no page text, code, recipient or sender is added. No new
 storage, permission, OAuth scope or cloud transport is introduced. More mail is read
 locally and provider calls can increase. See [ADR0028](adr/0028-bounded-complete-generic-retrieval.md).
+
+Rank 5 replaces substring recipient extraction with bounded whole-list parsing of
+visible To/Cc/Bcc fields and validated rendered page tokens. Parsed addresses, display
+names/comments and uncertainty stay in transient worker/content memory; no new stored
+field, hint log, provider query parameter, permission or backend traffic is added.
+Personal Gmail alias comparisons are local hints, not recipient authentication or
+server challenge identity. Unknown syntax keeps plausible competition visible.
+See [ADR0029](adr/0029-structured-recipient-hints.md).

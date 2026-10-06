@@ -17,7 +17,7 @@ import {
 } from '../../../packages/security';
 import {
   assessGenericCandidate,
-  recipientMatches,
+  recipientContradiction,
   genericServiceHint,
   type CandidateDecision,
 } from '../../../packages/security/generic';
@@ -556,9 +556,7 @@ export function createCoordinator(adapter: Adapter) {
           ...(message.allowedLengths
             ? { allowedLengths: message.allowedLengths }
             : {}),
-          ...(message.recipient
-            ? { recipient: message.recipient.toLowerCase() }
-            : {}),
+          ...(message.recipient ? { recipient: message.recipient } : {}),
         };
       }
       const request: Request = {
@@ -627,11 +625,7 @@ export function createCoordinator(adapter: Adapter) {
                 )
                   return false;
                 if (
-                  window.recipient &&
-                  envelope.recipients?.length &&
-                  !envelope.recipients.some((recipient) =>
-                    recipientMatches(recipient, window.recipient!),
-                  )
+                  recipientContradiction(envelope.recipients, window.recipient)
                 )
                   return false;
                 const parsed = parseGenericCode(envelope.email);

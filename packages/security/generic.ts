@@ -1,3 +1,4 @@
+import { parseMailboxAddress } from '../otp/addresses';
 import { SEARCH_MS, CONFIRM_MS, RELEASE_MS } from './timing';
 import {
   normalizeOrigin,
@@ -83,16 +84,54 @@ export function assessGenericCandidate(
   return { state: 'CANDIDATE' };
 }
 
-/** Recipient matching is a local hint. Gmail dot/plus aliases describe the same
- * personal mailbox; other providers retain their literal local-part spelling. */
-export function recipientMatches(a: string, b: string): boolean {
-  const canonical = (address: string) => {
-    const [local, domain] = address.toLowerCase().split('@');
-    return ['gmail.com', 'googlemail.com'].includes(domain ?? '')
-      ? local!.split('+')[0]!.replace(/\./g, '') + '@gmail.com'
-      : address.toLowerCase();
+/** Three-way hint comparison. Uncertainty never establishes a contradiction. */
+function compareRecipients(
+  a: string,
+  b: string,
+): 'match' | 'different' | 'unknown' {
+  const left = parseMailboxAddress(a);
+  const right = parseMailboxAddress(b);
+  if (!left || !right) return 'unknown';
+  if (left === right) return 'match';
+  const parts = (address: string) => {
+    const at = address.lastIndexOf('@');
+    return { local: address.slice(0, at), domain: address.slice(at + 1) };
   };
-  return canonical(a) === canonical(b);
+  const x = parts(left),
+    y = parts(right);
+  const personal = (domain: string) =>
+    ['gmail.com', 'googlemail.com'].includes(domain);
+  const canonical = (local: string) =>
+    /^[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*(?:\+.+)?$/.test(local)
+      ? local.split('+')[0]!.replace(/\./g, '').toLowerCase()
+      : null;
+  if (personal(x.domain) && personal(y.domain)) {
+    const cx = canonical(x.local),
+      cy = canonical(y.local);
+    return cx && cy ? (cx === cy ? 'match' : 'different') : 'unknown';
+  }
+  // Providers differ on local-part casing; case alone is not exclusion evidence.
+  if (left.toLowerCase() === right.toLowerCase()) return 'unknown';
+  return 'different';
+}
+
+export function recipientMatches(a: string, b: string): boolean {
+  return compareRecipients(a, b) === 'match';
+}
+
+/** Both page addr-spec and every message recipient must be understood. */
+export function recipientContradiction(
+  recipients: readonly string[] | undefined,
+  page: string | undefined,
+): boolean {
+  return (
+    !!page &&
+    !!recipients?.length &&
+    recipients.length <= 100 &&
+    recipients.every(
+      (recipient) => compareRecipients(recipient, page) === 'different',
+    )
+  );
 }
 
 /** Matching hints, never sender trust. A different brand is excluded only when
