@@ -67,9 +67,12 @@ for (const phase of ['startup', 'action'] as const) {
         ).toHaveCount(0);
       }
       await expect(
-        popup.getByText('Finding is automatic. Filling always needs your click.', {
-          exact: false,
-        }),
+        popup.getByText(
+          'Finding is automatic. Filling always needs your click.',
+          {
+            exact: false,
+          },
+        ),
       ).toBeVisible();
       expect(errors).toEqual([]);
     } finally {
