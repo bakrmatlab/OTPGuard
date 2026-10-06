@@ -33,6 +33,12 @@ for (const width of [1440, 768, 375]) {
       page.getByRole('heading', { name: 'Coming soon.', exact: true }),
     ).toBeVisible();
     await expect(
+      page.getByText('Public installation isn’t available yet.', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await page.goto('http://127.0.0.1:3100/setup');
+    await expect(
       page.getByText('Public store installation is not available yet.', {
         exact: false,
       }),
