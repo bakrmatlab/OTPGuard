@@ -66,9 +66,8 @@ for (const phase of ['startup', 'action'] as const) {
           popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }),
         ).toHaveCount(0);
       }
-      await popup.getByText('How code matching works', { exact: true }).click();
       await expect(
-        popup.getByText('Every insertion requires your click', {
+        popup.getByText('Finding is automatic. Filling always needs your click.', {
           exact: false,
         }),
       ).toBeVisible();
