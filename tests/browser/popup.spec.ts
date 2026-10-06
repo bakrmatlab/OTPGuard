@@ -555,15 +555,9 @@ test('Chrome native action popup keeps 380px content without clipping', async ()
               if (!main) { requestAnimationFrame(read); return; }
               requestAnimationFrame(() => requestAnimationFrame(() => {
                 const root = document.documentElement;
-                const probe = document.createElement('div');
-                probe.style.cssText = 'position:fixed;visibility:hidden;width:100px;height:100px;overflow:scroll';
-                document.body.append(probe);
-                const scrollbarWidth = probe.offsetWidth - probe.clientWidth;
-                probe.remove();
                 resolve(JSON.stringify({
                   width: innerWidth,
                   clientWidth: root.clientWidth,
-                  scrollbar: scrollbarWidth,
                   body: document.body.getBoundingClientRect().width,
                   mainLeft: main.getBoundingClientRect().left,
                   mainRight: main.getBoundingClientRect().right,
@@ -581,13 +575,10 @@ test('Chrome native action popup keeps 380px content without clipping', async ()
       }),
     });
     const dimensions = JSON.parse(await response);
-    // Chrome may reserve classic-scrollbar space when sizing the native popup,
-    // even when no root scrollbar is active. Overlay-scrollbar platforms reserve 0.
-    // The document's content must stay 380px and entirely inside the usable viewport.
-    expect(
-      [380, 380 + dimensions.scrollbar],
-      JSON.stringify(dimensions),
-    ).toContain(dimensions.width);
+    // Pinned Chromium's native host is 380px on macOS and 395px on Linux,
+    // including when DOM scrollbars overlay. Assert the observed host sizes and
+    // independently require exactly 380px of document content without clipping.
+    expect([380, 395], JSON.stringify(dimensions)).toContain(dimensions.width);
     expect(dimensions.clientWidth).toBeGreaterThanOrEqual(380);
     expect(dimensions.clientWidth).toBeLessThanOrEqual(dimensions.width);
     expect(dimensions.body).toBe(380);

@@ -88,3 +88,11 @@ allowance when no root scrollbar is active. Body/main width remains exactly 380,
 main left edge is zero, its right edge must fit inside root client width, and
 horizontal overflow and undersized Fill still fail. Failure messages include only
 synthetic layout dimensions. No production layout or permission changed.
+
+Run 37401362875 supplied complete Linux geometry: viewport/client 395, body/main
+380, main edges 0–380, no horizontal overflow, Fill 149, DOM scrollbar probe zero.
+This disproves the probe-based explanation: the native host width differs even
+with overlay DOM scrollbars. Final acceptance uses the two observed host widths
+(380 macOS / 395 Linux) for pinned Chromium and independently enforces exact
+380px content and complete containment. The unnecessary DOM probe is removed.
+This records observed platform behavior without asserting an unmeasured cause.
