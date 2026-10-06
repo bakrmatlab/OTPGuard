@@ -798,3 +798,100 @@ for (const [label, displayed, recipient] of [
     expect(Reflect.get(messages[0] as object, 'recipient')).toBe(recipient);
     await expect(page.locator('input')).toHaveValue('');
   });
+
+for (const phase of ['searching', 'prepared'])
+  test(`production ${phase} binding is consumed by typing even when immediately cleared`, async ({
+    page,
+  }) => {
+    await page.route('https://input.example.test/**', (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<form><p>Email verification code</p><input autocomplete="one-time-code" maxlength="6"></form>',
+      }),
+    );
+    await page.goto('https://input.example.test/');
+    await page.evaluate(() => {
+      const messages: unknown[] = [];
+      const listeners: ((
+        v: unknown,
+        s: unknown,
+        r: (v: unknown) => void,
+      ) => void)[] = [];
+      Object.assign(window, {
+        __inputTest: { messages, listeners },
+        chrome: {
+          runtime: {
+            id: 'fixture',
+            sendMessage: async (v: unknown) => {
+              messages.push(v);
+            },
+            onMessage: {
+              addListener: (fn: (typeof listeners)[number]) =>
+                listeners.push(fn),
+            },
+          },
+        },
+      });
+    });
+    await page.addScriptTag({
+      content: readFileSync(artifact + '/content.js', 'utf8'),
+    });
+    const result = await page.evaluate((phase) => {
+      const t = (
+        window as unknown as {
+          __inputTest: {
+            messages: unknown[];
+            listeners: ((
+              v: unknown,
+              s: unknown,
+              r: (v: unknown) => void,
+            ) => void)[];
+          };
+        }
+      ).__inputTest;
+      const binding = {
+        requestId: 'request-edit',
+        groupId: 'fields-1',
+        expectedLength: 6,
+        expiresAt: Date.now() + 20000,
+      };
+      let prepared: unknown;
+      let released: unknown;
+      if (phase === 'prepared')
+        t.listeners[0]!(
+          { type: 'prepare', ...binding },
+          { id: 'fixture' },
+          (v) => {
+            prepared = v;
+          },
+        );
+      const field = document.querySelector('input')!;
+      field.value = '9';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.value = '';
+      if (phase === 'searching')
+        t.listeners[0]!(
+          { type: 'prepare', ...binding },
+          { id: 'fixture' },
+          (v) => {
+            prepared = v;
+          },
+        );
+      t.listeners[0]!(
+        { type: 'release', ...binding, code: '042681' },
+        { id: 'fixture' },
+        (v) => {
+          released = v;
+        },
+      );
+      return { prepared, released, value: field.value, messages: t.messages };
+    }, phase);
+    expect(result.prepared).toBe(phase === 'prepared');
+    expect(result.released).toBe(false);
+    expect(result.value).toBe('');
+    if (phase === 'prepared')
+      expect(result.messages).toContainEqual({
+        type: 'cancel',
+        requestId: 'request-edit',
+      });
+  });

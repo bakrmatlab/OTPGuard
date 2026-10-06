@@ -150,20 +150,53 @@ export async function insertCodeRetained(
   if (result.status !== 'filled') return result;
   const document = group.fields[0]!.ownerDocument;
   const view = document.defaultView!;
-  await new Promise<void>((resolve) => view.setTimeout(resolve, 100));
   const values = group.fields.length === 1 ? [code] : [...code];
-  const snapshot = createDetector(document).scan();
-  const same = snapshot.groups.some(
-    (candidate) =>
-      candidate.fields.length === group.fields.length &&
-      candidate.fields.every((field, index) => field === group.fields[index]),
-  );
-  return !snapshot.limited &&
-    same &&
-    codeLengths(group).includes(code.length) &&
-    group.fields.every(
-      (field, index) => field.isConnected && field.value === values[index],
-    )
-    ? { status: 'filled' }
-    : { status: 'rejected', reason: 'page-interference' };
+  let interfered = false;
+  const edit = (event: Event) => {
+    if (group.fields.includes(event.target as HTMLInputElement))
+      interfered = true;
+  };
+  const retained = () => {
+    const snapshot = createDetector(document).scan();
+    return (
+      document.visibilityState === 'visible' &&
+      !snapshot.limited &&
+      snapshot.groups.some(
+        (candidate) =>
+          candidate.fields.length === group.fields.length &&
+          candidate.fields.every(
+            (field, index) => field === group.fields[index],
+          ),
+      ) &&
+      codeLengths(group).includes(code.length) &&
+      group.fields.every((field, index) => {
+        if (!field.isConnected || field.value !== values[index]) return false;
+        if (field.type === 'number' && /[A-Za-z]/.test(code)) return false;
+        if (!field.pattern) return true;
+        if (field.pattern.length > 256) return false;
+        try {
+          return new RegExp(`^(?:${field.pattern})$`, 'v').test(values[index]!);
+        } catch {
+          return false;
+        }
+      })
+    );
+  };
+  // A bounded observation window, not proof of server acceptance or permanence.
+  // Observe edits even if a framework restores the expected value before a poll.
+  document.addEventListener('input', edit, true);
+  document.addEventListener('beforeinput', edit, true);
+  document.addEventListener('change', edit, true);
+  try {
+    for (let elapsed = 0; elapsed < 500; elapsed += 25) {
+      await new Promise<void>((resolve) => view.setTimeout(resolve, 25));
+      if (interfered || !retained())
+        return { status: 'rejected', reason: 'page-interference' };
+    }
+    return { status: 'filled' };
+  } finally {
+    document.removeEventListener('input', edit, true);
+    document.removeEventListener('beforeinput', edit, true);
+    document.removeEventListener('change', edit, true);
+  }
 }

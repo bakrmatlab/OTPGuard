@@ -66,6 +66,21 @@ const cancel = () => {
   if (approval) send({ type: 'cancel', requestId: approval.requestId });
   approval = null;
 };
+// An edit consumes the pending approval even if the field is cleared again before
+// the periodic scan. A later Fill must obtain a fresh worker-owned binding.
+for (const type of ['beforeinput', 'input', 'change']) {
+  document.addEventListener(
+    type,
+    (event) => {
+      if (
+        !stopped &&
+        selected?.fields.includes(event.target as HTMLInputElement)
+      )
+        cancel();
+    },
+    true,
+  );
+}
 addEventListener('pagehide', cancel, { once: true });
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') cancel();

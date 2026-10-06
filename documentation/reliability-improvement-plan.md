@@ -102,3 +102,12 @@ foreground admission, preserving the completed rank-5 recipient scope and all re
 rules. See [acceptance](popup-admission-repair-acceptance.md) and
 [ADR0030](adr/0030-finished-and-bounded-admission-display.md). This is not the next
 queued input-compatibility rank or permission to publish/deploy. Live retest is pending.
+
+## Delegated rank 6 — input compatibility
+
+The owner requested historical row 7 in a new chat after published popup/default
+follow-up `a103a6d`. Local implementation on `codex/input-compatibility` is ready for
+validation/review; see [acceptance](input-compatibility-acceptance.md) and
+[ADR0032](adr/0032-bounded-input-retention.md). Rank-5 CI passed; exact a103a6d CI failed
+on prior report formatting, corrected locally. No rank-7 recovery/updates, publication,
+provider/live profile access or deployment is included.

@@ -309,3 +309,19 @@ it('fresh release checks reject a candidate that ages out while confirmation wai
     c.dispose();
   }
 });
+
+it('phase deadlines use the recorded offer and click even when the clock advances between reads', async () => {
+  const t = setup();
+  let clock = 100000;
+  t.adapter.now = () => clock++;
+  const c = createCoordinator(t.adapter);
+  try {
+    expect(await c.handle(t.detect, {})).toEqual({ state: 'FILLED' });
+    expect(t.sent.map((message) => message.type)).toEqual([
+      'prepare',
+      'release',
+    ]);
+  } finally {
+    c.dispose();
+  }
+});

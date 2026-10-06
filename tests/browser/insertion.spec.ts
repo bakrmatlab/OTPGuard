@@ -296,3 +296,101 @@ test('maxLength is an upper bound, exact patterns are enforced, and retained num
     value: '042681',
   });
 });
+
+for (const interference of ['late-clear', 'constraint', 'transient-edit']) {
+  test(`retention refuses ${interference} without a second insertion`, async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async (scenario) => {
+      const modulePath = '/insertion.js';
+      const { createDetector, insertCodeRetained } = await import(modulePath);
+      const field = document.querySelector<HTMLInputElement>('#plain input')!;
+      const group = createDetector(document)
+        .scan()
+        .groups.find(
+          (g: { fields: HTMLInputElement[] }) => g.fields[0] === field,
+        );
+      let inputs = 0;
+      field.addEventListener('input', () => inputs++);
+      field.addEventListener(
+        'input',
+        () => {
+          setTimeout(
+            () => {
+              if (scenario === 'late-clear') field.value = '';
+              if (scenario === 'constraint') field.pattern = '[A-Z]{6}';
+              if (scenario === 'transient-edit') {
+                field.value = '9';
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+                field.value = '042681';
+              }
+            },
+            scenario === 'late-clear' ? 200 : 0,
+          );
+        },
+        { once: true },
+      );
+      const result = await insertCodeRetained(group, '042681', 6);
+      return { result, inputs, value: field.value };
+    }, interference);
+    expect(result.result).toEqual({
+      status: 'rejected',
+      reason: 'page-interference',
+    });
+    expect(result.inputs).toBe(interference === 'transient-edit' ? 2 : 1);
+    expect(result.value).toBe(interference === 'late-clear' ? '' : '042681');
+  });
+}
+
+for (const target of ['react-single', 'react-split']) {
+  test(`${target} retains framework state through the observation window`, async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async (id) => {
+      const path = '/insertion.js';
+      const { createDetector, insertCodeRetained } = await import(path);
+      const group = createDetector(document)
+        .scan()
+        .groups.find(
+          (g: { fields: HTMLInputElement[] }) =>
+            g.fields[0]?.closest('form')?.id === id,
+        );
+      return insertCodeRetained(group, '042681', 6);
+    }, target);
+    expect(result).toEqual({ status: 'filled' });
+    await expect(page.locator(`#${target} output`)).toHaveText('042681');
+    await expect(page.locator('#submissions')).toHaveText('0');
+  });
+}
+
+test('site completion removes fields and is reported as interference without extension submission', async ({
+  page,
+}) => {
+  const result = await page.evaluate(async () => {
+    const path = '/insertion.js';
+    const { createDetector, insertCodeRetained } = await import(path);
+    const field = document.querySelector<HTMLInputElement>('#plain input')!;
+    const group = createDetector(document)
+      .scan()
+      .groups.find(
+        (g: { fields: HTMLInputElement[] }) => g.fields[0] === field,
+      );
+    let completed = false;
+    field.addEventListener(
+      'input',
+      () => {
+        // A site's completion handler may transition without a form submission.
+        completed = field.value === '042681';
+        field.closest('form')!.remove();
+      },
+      { once: true },
+    );
+    return { result: await insertCodeRetained(group, '042681', 6), completed };
+  });
+  expect(result).toEqual({
+    result: { status: 'rejected', reason: 'page-interference' },
+    completed: true,
+  });
+  await expect(page.locator('#submissions')).toHaveText('0');
+  await expect(page.locator('#submit-clicks')).toHaveText('0');
+});

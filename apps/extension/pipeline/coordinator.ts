@@ -739,7 +739,10 @@ export function createCoordinator(adapter: Adapter) {
           if (adapter.now() >= request.deadline)
             return stop(request, 'deadline');
           request.confirmation = { offeredAt: adapter.now() };
-          setDeadline(adapter.now() + CONFIRM_MS, 'confirmation-expired');
+          setDeadline(
+            request.confirmation.offeredAt + CONFIRM_MS,
+            'confirmation-expired',
+          );
         }
         let expiresAt = Math.min(adapter.now() + CONFIRM_MS, request.deadline);
         const binding = {
@@ -771,7 +774,7 @@ export function createCoordinator(adapter: Adapter) {
           return stop(request, 'confirmation-expired');
         if (request.confirmation) {
           request.confirmation.clickedAt = adapter.now();
-          expiresAt = adapter.now() + RELEASE_MS;
+          expiresAt = request.confirmation.clickedAt + RELEASE_MS;
           binding.expiresAt = expiresAt;
           setDeadline(expiresAt, 'binding-expired');
         }
