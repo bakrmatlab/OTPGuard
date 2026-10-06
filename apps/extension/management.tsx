@@ -218,6 +218,100 @@ export default function Management() {
             <p>Control how OTPGuard finds codes.</p>
           </div>
         </div>
+        <section className="setup-card" aria-labelledby="setup-title">
+          <p className="context">
+            {status.state === 'SIGNED_IN' &&
+            mailbox.state === 'CONNECTED' &&
+            siteAccess
+              ? 'Setup complete'
+              : `Step ${status.state !== 'SIGNED_IN' ? 1 : mailbox.state !== 'CONNECTED' ? 3 : 4} of 4`}
+          </p>
+          <h2 id="setup-title">
+            {status.state === 'CHECKING' ||
+            mailbox.state === 'CHECKING' ||
+            siteAccess === null
+              ? 'Checking setup…'
+              : status.state !== 'SIGNED_IN'
+                ? 'Sign in to OTPGuard'
+                : mailbox.state !== 'CONNECTED'
+                  ? 'Connect Gmail'
+                  : !siteAccess
+                    ? 'Enable website access'
+                    : 'You’re ready'}
+          </h2>
+          {status.state !== 'CHECKING' &&
+            mailbox.state !== 'CHECKING' &&
+            siteAccess !== null &&
+            (status.state !== 'SIGNED_IN' ? (
+              <>
+                <p>
+                  Sign in on the website, then return here. Gmail access is a
+                  separate step.
+                </p>
+                <a
+                  className="button primary"
+                  href={
+                    (config?.webOrigin ?? 'https://otpguard.net') + '/dashboard'
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Sign in
+                </a>
+              </>
+            ) : mailbox.state !== 'CONNECTED' ? (
+              <>
+                <p>
+                  {[
+                    'UNCONFIGURED',
+                    'ACCOUNT_CHANGED',
+                    'MAILBOX_CHANGED',
+                  ].includes(mailbox.state)
+                    ? 'Resolve the Gmail connection in Connections below before continuing.'
+                    : 'Choose the Gmail mailbox that receives your codes.'}
+                </p>
+                {![
+                  'UNCONFIGURED',
+                  'ACCOUNT_CHANGED',
+                  'MAILBOX_CHANGED',
+                ].includes(mailbox.state) && (
+                  <button
+                    className="button primary"
+                    disabled={busy}
+                    onClick={() => void mailboxAction('gmail-connect')}
+                  >
+                    {busy ? 'Connecting…' : 'Connect Gmail'}
+                  </button>
+                )}
+              </>
+            ) : !siteAccess ? (
+              <>
+                <p>
+                  Gmail is connected. Allow website access separately so
+                  OTPGuard can detect code fields. Approve Chrome’s permission
+                  prompt, then return to the website or reload your login page.
+                </p>
+                <button
+                  className="button primary"
+                  type="button"
+                  onClick={enableSites}
+                >
+                  Enable website access
+                </button>
+              </>
+            ) : (
+              <p>
+                {settings.autofillEnabled
+                  ? 'Open a page asking for an email code. OTPGuard finds it; you click Fill.'
+                  : 'Automatic finding is off. Choose Find code in the popup, or enable it below.'}
+              </p>
+            ))}
+          {permission && <p role="status">{permission}</p>}
+          <p className="fine">
+            Only choose Fill on a page you intended to use. Recent-mail matching
+            does not verify that a code belongs to that website.
+          </p>
+        </section>
         <section
           className="settings-section"
           aria-labelledby="connections-title"
@@ -241,35 +335,37 @@ export default function Management() {
                         : 'Sign in on the website.'}
               </p>
             </div>
-            {config && (
-              <a
-                className="button secondary"
-                href={config.webOrigin + '/sign-in'}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {status.state === 'SIGNED_IN' ? 'Manage account' : 'Sign in'}
-              </a>
-            )}
-            {(status.state === 'SIGNED_IN' ||
-              status.state === 'SIGN_OUT_FAILED') && (
-              <button
-                className="button secondary"
-                type="button"
-                onClick={() => {
-                  setStatus({ state: 'CHECKING' });
-                  setMailbox({ state: 'SIGN_IN_REQUIRED' });
-                  void chrome.runtime
-                    .sendMessage({ type: 'account-sign-out' })
-                    .then((value: Status | undefined) =>
-                      setStatus(value ?? { state: 'SIGN_OUT_FAILED' }),
-                    )
-                    .catch(() => setStatus({ state: 'SIGN_OUT_FAILED' }));
-                }}
-              >
-                Sign out
-              </button>
-            )}
+            <div className="row-actions">
+              {config && (
+                <a
+                  className="button secondary"
+                  href={config.webOrigin + '/sign-in'}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {status.state === 'SIGNED_IN' ? 'Manage account' : 'Sign in'}
+                </a>
+              )}
+              {(status.state === 'SIGNED_IN' ||
+                status.state === 'SIGN_OUT_FAILED') && (
+                <button
+                  className="button secondary"
+                  type="button"
+                  onClick={() => {
+                    setStatus({ state: 'CHECKING' });
+                    setMailbox({ state: 'SIGN_IN_REQUIRED' });
+                    void chrome.runtime
+                      .sendMessage({ type: 'account-sign-out' })
+                      .then((value: Status | undefined) =>
+                        setStatus(value ?? { state: 'SIGN_OUT_FAILED' }),
+                      )
+                      .catch(() => setStatus({ state: 'SIGN_OUT_FAILED' }));
+                  }}
+                >
+                  Sign out
+                </button>
+              )}
+            </div>
           </div>
           <div className="setting-row" aria-busy={busy}>
             <div className="row-copy">
@@ -284,24 +380,28 @@ export default function Management() {
             </div>
             {mailbox.state !== 'UNCONFIGURED' && (
               <div className="row-actions">
-                {mailbox.state !== 'CONNECTED' && (
-                  <button
-                    className="button primary"
-                    type="button"
-                    disabled={
-                      busy ||
-                      mailbox.state === 'CHECKING' ||
-                      mailbox.state === 'ACCOUNT_CHANGED' ||
-                      status.state !== 'SIGNED_IN'
-                    }
-                    onClick={() => void mailboxAction('gmail-connect')}
-                  >
-                    {mailbox.state === 'RECONNECT_REQUIRED' ||
-                    mailbox.state === 'SCOPE_REQUIRED'
-                      ? 'Reconnect Gmail'
-                      : 'Connect Gmail'}
-                  </button>
-                )}
+                {mailbox.state !== 'CONNECTED' &&
+                  (status.state !== 'SIGNED_IN' ||
+                    ['CHECKING', 'ACCOUNT_CHANGED', 'MAILBOX_CHANGED'].includes(
+                      mailbox.state,
+                    )) && (
+                    <button
+                      className="button primary"
+                      type="button"
+                      disabled={
+                        busy ||
+                        mailbox.state === 'CHECKING' ||
+                        mailbox.state === 'ACCOUNT_CHANGED' ||
+                        status.state !== 'SIGNED_IN'
+                      }
+                      onClick={() => void mailboxAction('gmail-connect')}
+                    >
+                      {mailbox.state === 'RECONNECT_REQUIRED' ||
+                      mailbox.state === 'SCOPE_REQUIRED'
+                        ? 'Reconnect Gmail'
+                        : 'Connect Gmail'}
+                    </button>
+                  )}
                 <button
                   className="button secondary"
                   type="button"
@@ -367,13 +467,13 @@ export default function Management() {
                     : 'Website detection is not enabled.'}
               </p>
             </div>
-            {siteAccess === false && (
+            {siteAccess === false && mailbox.state !== 'CONNECTED' && (
               <button
                 className="button secondary"
                 type="button"
                 onClick={enableSites}
               >
-                Enable on websites
+                Enable website access
               </button>
             )}
           </div>
@@ -383,7 +483,6 @@ export default function Management() {
             a page you intended to use. The page can read the code and may
             continue automatically.
           </p>
-          {permission && <p role="status">{permission}</p>}
         </section>
         <section className="settings-section" aria-labelledby="blocks-title">
           <div className="settings-heading">

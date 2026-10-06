@@ -66,3 +66,19 @@ it('keeps the popup minimal and explains uncertainty without exposing secrets', 
     popupPresentation({ state: 'SEARCHING' }, 'SIGNED_IN', true),
   ).toMatchObject({ fill: false, retry: false, busy: true });
 });
+it('offers an actionable website-access explanation and avoids retrying Gmail failures', () => {
+  expect(
+    popupPresentation({ state: 'IDLE' }, 'SIGNED_IN', false),
+  ).toMatchObject({
+    title: 'Website access needed',
+    fill: false,
+    retry: false,
+  });
+  expect(
+    popupPresentation(
+      { state: 'UNKNOWN', retrievalIssue: 'mailbox' },
+      'SIGNED_IN',
+      true,
+    ).retry,
+  ).toBe(false);
+});

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { setupProgress } from '../../../packages/shared/setup-progress';
 import { sendBrowserAction } from './browser-transport';
 import type {
   BrowserAction,
@@ -103,7 +104,7 @@ function BrowserSession({
         setExportJson(result.exportJson ?? '');
         setMessage(
           action.type === 'open-options'
-            ? 'Browser settings opened. Choose Enable website detection there, then refresh here.'
+            ? 'Browser settings opened. Choose Enable website access and approve Chrome’s prompt, then return here.'
             : 'Connected to this Chrome profile. Changes stay in your extension.',
         );
       } else {
@@ -151,31 +152,115 @@ function BrowserSession({
 export function BrowserConnection() {
   const { snapshot, busy, message, run, canConnect } =
     useContext(BrowserContext);
+  const progress = setupProgress(canConnect, snapshot);
+  // Refresh after returning from Chrome's permission screen, only after explicit connection.
+  useEffect(() => {
+    if (!snapshot) return;
+    const refresh = () => {
+      if (document.visibilityState === 'visible')
+        void run({ type: 'browser-status' });
+    };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [snapshot, run]);
+  const ready = progress.action === 'ready';
+  const mailboxBlocked = [
+    'UNCONFIGURED',
+    'SIGN_IN_REQUIRED',
+    'ACCOUNT_CHANGED',
+    'MAILBOX_CHANGED',
+  ].includes(snapshot?.mailbox.state ?? '');
   return (
-    <div className="browser-connection">
-      <p role="status" aria-live="polite">
-        {message}
+    <section
+      className="browser-connection setup-card"
+      aria-labelledby="setup-title"
+      aria-busy={busy}
+    >
+      <p className="context">
+        {ready ? 'Setup complete' : `Step ${progress.step} of 4`}
       </p>
-      {canConnect ? (
+      <h2 id="setup-title">{progress.title}</h2>
+      <ol className="setup-checklist" aria-label="Setup progress">
+        {['Sign in', 'Connect browser', 'Connect Gmail', 'Website access'].map(
+          (label, index) => (
+            <li
+              key={label}
+              aria-current={
+                !ready && progress.step === index + 1 ? 'step' : undefined
+              }
+            >
+              {index + 1}. {label}
+              {ready || index + 1 < progress.step ? ' — Done' : ''}
+            </li>
+          ),
+        )}
+      </ol>
+      <p>
+        {ready
+          ? snapshot?.settings.autofillEnabled
+            ? 'Open a page asking for an email code. OTPGuard finds it; you click Fill.'
+            : 'Automatic finding is off. Open an email-code field and choose Find code in the popup, or turn automatic finding on in Preferences.'
+          : progress.action === 'gmail-connect'
+            ? 'Choose the mailbox that receives your codes. Gmail permission lets OTPGuard read recent mail.'
+            : progress.action === 'open-options'
+              ? 'Gmail is connected. Website access is a separate permission that lets OTPGuard detect code fields. We’ll open the extension’s settings; choose Enable website access there.'
+              : progress.action === 'browser-status'
+                ? 'Connect your installed OTPGuard extension in this Chrome profile.'
+                : 'Your OTPGuard account signs you in. Gmail access comes next.'}
+      </p>
+      {progress.action === 'sign-in' ? (
+        <a className="button primary" href="/sign-in">
+          Sign in
+        </a>
+      ) : (
         <button
           className="button primary"
           type="button"
           disabled={busy}
-          onClick={() => void run({ type: 'browser-status' })}
+          onClick={() =>
+            void run({
+              type: ready
+                ? 'browser-status'
+                : mailboxBlocked && progress.action === 'gmail-connect'
+                  ? 'open-options'
+                  : progress.action,
+            })
+          }
         >
-          {snapshot ? 'Refresh browser status' : 'Connect this browser'}
+          {busy
+            ? 'Checking this browser…'
+            : ready
+              ? 'Refresh browser status'
+              : mailboxBlocked && progress.action === 'gmail-connect'
+                ? 'Resolve Gmail connection'
+                : progress.title}
         </button>
-      ) : (
-        <a className="button primary" href="https://otpguard.net/dashboard">
-          Sign in to connect this browser
-        </a>
       )}
-      <p className="fine">
-        This shares mailbox connection status, preferences, blocked sites and
-        your last activity result with this page. Codes, mail and tokens stay in
-        the extension.
+      {mailboxBlocked && (
+        <p>
+          {mailboxLabels[snapshot?.mailbox.state ?? '']} Open browser settings
+          to resolve it before continuing.
+        </p>
+      )}
+      <p role="status" aria-live="polite">
+        {message}
       </p>
-    </div>
+      <p className="fine">
+        Connecting shares mailbox connection status, preferences, blocked sites
+        and your last activity result with this page. Codes, mail and tokens
+        stay in the extension.
+      </p>
+      {progress.action === 'browser-status' && (
+        <details>
+          <summary>Extension not installed or not responding?</summary>
+          <p>
+            In Chrome, open chrome://extensions. Load the provided unpacked
+            OTPGuard folder, or Reload an existing installation, then return and
+            connect. A public store download is not available yet.
+          </p>
+        </details>
+      )}
+    </section>
   );
 }
 export function BrowserMailbox() {
@@ -291,7 +376,7 @@ export function BrowserPreferences() {
         >
           {snapshot?.siteAccess
             ? 'Open browser permissions'
-            : 'Enable website detection'}
+            : 'Enable website access'}
         </button>
         <p className="fine">
           Chrome asks for site access in its extension screen. Recent-mail

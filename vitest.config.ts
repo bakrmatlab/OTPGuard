@@ -9,5 +9,11 @@ export default defineConfig({
       ),
     },
   },
-  test: { include: ['tests/**/*.test.ts', 'apps/web/app/**/*.test.ts'] },
+  test: {
+    include: [
+      'tests/**/*.test.ts',
+      'apps/web/app/**/*.test.ts',
+      'apps/extension/popup-setup.test.ts',
+    ],
+  },
 });

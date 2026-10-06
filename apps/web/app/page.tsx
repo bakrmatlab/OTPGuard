@@ -9,10 +9,6 @@ export default function Home() {
       <main id="main" tabIndex={-1}>
         <section className="hero">
           <div className="hero-copy">
-            <p className="context">
-              <span className="small-mark" aria-hidden="true"></span> Gmail
-              codes, in Chrome
-            </p>
             <h1>
               Find the code.
               <br />
@@ -30,7 +26,6 @@ export default function Home() {
                 Try the demo <span aria-hidden="true">↓</span>
               </a>
             </div>
-            <p className="fine">No code is filled without your click.</p>
           </div>
           <div className="handoff-art" aria-hidden="true">
             <div className="orbit orbit-one"></div>
@@ -68,7 +63,6 @@ export default function Home() {
               <br />
               No mailbox. No sign-in. No submission.
             </p>
-            <span className="demo-label">Synthetic demo</span>
           </div>
           <FillDemo />
         </section>

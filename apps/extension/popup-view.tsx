@@ -7,6 +7,7 @@ export function PopupView({
   website,
   onFill,
   onRetry,
+  onSetup,
 }: {
   pipeline: PopupSnapshot;
   account: string;
@@ -14,8 +15,20 @@ export function PopupView({
   website: string;
   onFill: () => void;
   onRetry: () => void;
+  onSetup?: () => void;
 }) {
   const view = popupPresentation(pipeline, account, siteAccess);
+  const setupLabel =
+    account === 'CHECKING'
+      ? null
+      : account !== 'SIGNED_IN' || pipeline.state === 'ACCOUNT_UNAVAILABLE'
+        ? 'Sign in'
+        : view.title === 'Website access needed'
+          ? 'Enable website access'
+          : pipeline.state === 'MAILBOX_UNAVAILABLE' ||
+              pipeline.retrievalIssue === 'mailbox'
+            ? 'Connect Gmail'
+            : null;
   return (
     <main className="popup">
       <header className="popup-brand">
@@ -36,6 +49,21 @@ export function PopupView({
           {view.title}
         </h2>
         <p role="status">{view.detail}</p>
+        {setupLabel &&
+          (setupLabel === 'Sign in' ? (
+            <a
+              className="button primary"
+              href={website}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Sign in
+            </a>
+          ) : (
+            <button className="button primary" type="button" onClick={onSetup}>
+              {setupLabel}
+            </button>
+          ))}
         {view.fill && (
           <button className="button primary" type="button" onClick={onFill}>
             Fill <span aria-hidden="true">↗</span>
@@ -58,7 +86,7 @@ export function PopupView({
         )}
       </section>
       <a className="popup-site" href={website} target="_blank" rel="noreferrer">
-        Open OTPGuard <span aria-hidden="true">↗</span>
+        Browser settings <span aria-hidden="true">↗</span>
       </a>
     </main>
   );

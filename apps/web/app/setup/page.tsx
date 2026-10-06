@@ -13,6 +13,15 @@ export default function Page() {
               <p>Connect once. Choose Fill each time.</p>
             </div>
           </div>
+          <div className="guide-end">
+            <p>
+              Your workspace checks each step and shows what to do next.
+              Existing connections are kept.
+            </p>
+            <a className="button primary" href="/dashboard">
+              Continue guided setup
+            </a>
+          </div>
           <ol className="setup-steps">
             <li>
               <div>
@@ -61,7 +70,7 @@ export default function Page() {
             </li>
             <li>
               <div>
-                <h2>Allow website detection</h2>
+                <h2>Enable website access</h2>
                 <p>
                   Optional HTTPS website access lets OTPGuard find code fields.
                   A recent code can still belong to a different sign-in: Fill

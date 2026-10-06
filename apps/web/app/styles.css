@@ -1676,3 +1676,35 @@ button:disabled {
     font-size: 48px;
   }
 }
+
+.setup-card {
+  display: grid;
+  gap: 12px;
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid var(--line, #34413a);
+  background: var(--surface, #141b18);
+  margin-bottom: 32px;
+}
+.setup-card h2 {
+  margin: 0;
+}
+.setup-card p {
+  max-width: 68ch;
+}
+.setup-card .button {
+  justify-self: start;
+  margin: 4px 0;
+}
+.setup-checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  color: var(--muted);
+}
+.setup-checklist [aria-current='step'] {
+  color: var(--text);
+  font-weight: 700;
+}

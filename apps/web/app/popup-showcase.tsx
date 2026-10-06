@@ -35,7 +35,6 @@ export function PopupShowcase() {
           <h2 id="extension-title">Just the current action.</h2>
           <p>Four states. One place for everything else.</p>
         </div>
-        <span className="demo-label">Synthetic states</span>
       </div>
       <div className="popup-grid">
         {states.map((state) => (
@@ -76,16 +75,6 @@ export function PopupShowcase() {
             </div>
           </article>
         ))}
-      </div>
-      <div className="popup-notes">
-        <p>
-          No code preview, copy action, account panel or preferences inside the
-          popup.
-        </p>
-        <p>
-          These are examples. Try the actions in the synthetic demo above. Your
-          real extension shows one current state.
-        </p>
       </div>
     </section>
   );

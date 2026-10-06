@@ -35,7 +35,7 @@ const titles: Record<string, string> = {
   CONTENT_UNAVAILABLE: 'Reload the login page',
 };
 const descriptions: Record<string, string> = {
-  IDLE: 'Open an email code field.',
+  IDLE: 'Open a page asking for an email code.',
   READY: '',
   SEARCHING: 'Checking recent email.',
   FILLING: 'Waiting for the page.',
@@ -52,7 +52,7 @@ const descriptions: Record<string, string> = {
   DELIVERY_UNCONFIRMED: 'Check the site before trying again.',
   EMAIL_CONFIRMATION_REQUIRED: 'Confirm only if this code comes by email.',
   ACCOUNT_UNAVAILABLE: 'Open OTPGuard to sign in.',
-  MAILBOX_UNAVAILABLE: 'Reconnect in the extension’s Options page.',
+  MAILBOX_UNAVAILABLE: 'Connect the Gmail mailbox that receives your codes.',
   PAGE_UNAVAILABLE: 'Keep your login page active, then retry.',
   NO_CHALLENGE: 'Open a supported empty email code field.',
   CONTENT_UNAVAILABLE: 'Reload the page, then retry.',
@@ -77,7 +77,7 @@ export function popupPresentation(
     return {
       title:
         account === 'UNCONFIGURED' ? 'Setup needed' : 'Sign in to find a code',
-      detail: 'Open OTPGuard for account setup.',
+      detail: 'Sign in with your OTPGuard account to continue.',
       fill: false,
       retry: false,
       busy: false,
@@ -85,7 +85,8 @@ export function popupPresentation(
   if (siteAccess === false && !busy && pipeline.state !== 'READY')
     return {
       title: 'Website access needed',
-      detail: 'Open the extension’s Options page to enable detection.',
+      detail:
+        'Allow OTPGuard to detect code fields on websites. Gmail access is separate.',
       fill: false,
       retry: false,
       busy: false,
@@ -150,7 +151,11 @@ export function popupPresentation(
         'ACCOUNT_UNAVAILABLE',
         'MAILBOX_UNAVAILABLE',
       ].includes(pipeline.state) &&
-      !(pipeline.state === 'UNKNOWN' && pipeline.reason === 'ambiguity'),
+      !(
+        pipeline.state === 'UNKNOWN' &&
+        (pipeline.reason === 'ambiguity' ||
+          pipeline.retrievalIssue === 'mailbox')
+      ),
     busy,
   };
 }

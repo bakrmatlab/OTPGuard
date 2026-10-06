@@ -225,7 +225,7 @@ label {
 }
 .text-link {
   display: inline-flex;
-  gap: 18px;
+  gap: 16px;
   align-items: center;
   min-height: 44px;
   font-size: 14px;
@@ -236,7 +236,7 @@ label {
   line-height: 1.6;
 }
 .workspace-content {
-  padding: 50px 5%;
+  padding: 40px 32px 64px;
   max-width: 1130px;
 }
 .page-heading {
@@ -244,35 +244,34 @@ label {
   justify-content: space-between;
   align-items: flex-start;
   gap: 24px;
-  margin-bottom: 34px;
+  margin-bottom: 28px;
 }
 .page-heading h1 {
   font-family: Shoulders, sans-serif;
-  font-size: 60px;
+  font-size: clamp(40px, 5vw, 56px);
   letter-spacing: -1px;
   margin-bottom: 14px;
 }
 .settings-section {
   border-top: 1px solid var(--line);
-  margin-top: 34px;
-  padding-top: 26px;
+  margin-top: 32px;
+  padding-top: 24px;
 }
 .settings-heading {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .settings-heading h2 {
   font-size: 21px;
   margin-bottom: 10px;
 }
 .settings-heading p {
-  font-size: 13px;
+  font-size: 14px;
 }
 .setting-row {
   display: flex;
-  gap: 18px;
+  gap: 16px;
   align-items: center;
   padding: 20px 0;
-  min-height: 90px;
   border-bottom: 1px solid #28352d;
 }
 .row-copy {
@@ -280,12 +279,12 @@ label {
   min-width: 0;
 }
 .row-copy h3 {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .row-copy p {
-  font-size: 12px;
+  font-size: 14px;
   margin-top: 6px;
   max-width: 410px;
   overflow-wrap: anywhere;
@@ -294,8 +293,9 @@ label {
   min-height: 44px;
   padding: 11px 14px;
   gap: 10px;
-  white-space: nowrap;
-  font-size: 12px;
+  max-width: 100%;
+  white-space: normal;
+  font-size: 14px;
 }
 .block-form {
   max-width: 500px;
@@ -401,19 +401,19 @@ label {
   }
 }
 .management-page {
-  max-width: 1120px;
+  max-width: 1040px;
   margin: auto;
 }
 .management-page .workspace-content {
   margin: auto;
-  max-width: 1000px;
+  max-width: 960px;
 }
 .management-page .site-header {
-  padding: 24px 5%;
+  padding: 24px 32px;
 }
 .row-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 .preference-toggle {
@@ -421,7 +421,8 @@ label {
   grid-template-columns: 24px 1fr;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 16px;
+  margin: 0;
 }
 .preference-toggle input {
   width: 18px;
@@ -431,7 +432,7 @@ label {
 }
 .preference-toggle span {
   grid-column: 2;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 button:disabled {
@@ -458,4 +459,86 @@ textarea {
   display: block;
   color: var(--muted);
   margin-top: 8px;
+}
+
+.setup-card {
+  display: grid;
+  gap: 12px;
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid var(--line, #34413a);
+  background: var(--surface, #141b18);
+  margin-bottom: 32px;
+}
+.setup-card h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+.setup-card p {
+  max-width: 68ch;
+}
+.setup-card .button {
+  justify-self: start;
+  margin: 4px 0;
+}
+.setup-checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+  color: var(--muted);
+}
+.setup-checklist [aria-current='step'] {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.settings-section > .fine,
+.settings-section > [role='status'] {
+  margin-top: 12px;
+}
+.settings-section > .row-actions {
+  margin-top: 16px;
+}
+.row-actions {
+  align-items: center;
+}
+.setup-card .fine {
+  margin-top: 4px;
+}
+.setup-card .context {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+@media (max-width: 760px) {
+  .management-page .site-header {
+    padding: 20px 24px;
+  }
+  .management-page .workspace-content {
+    padding: 28px 24px 48px;
+  }
+  .setting-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  .row-copy {
+    flex-basis: auto;
+  }
+  .row-copy p {
+    max-width: none;
+    font-size: 14px;
+  }
+  .setting-row .button {
+    white-space: normal;
+  }
+  .settings-heading p {
+    font-size: 14px;
+  }
+  .page-heading h1 {
+    font-size: clamp(40px, 10vw, 51px);
+  }
 }

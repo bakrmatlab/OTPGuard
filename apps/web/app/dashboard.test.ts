@@ -70,7 +70,8 @@ describe('dashboard presentation without live transport', () => {
   });
   it('renders browser management controls without pretending to have local data', () => {
     const html = renderToStaticMarkup(createElement(Dashboard));
-    expect(html).toContain('connect this browser');
+    expect(html).toContain('Step 1 of 4');
+    expect(html).toContain('Sign in to OTPGuard');
     expect(html).toContain('Automatic finding');
     expect(html).toContain('Block site');
     expect(html).toContain('Export local history');

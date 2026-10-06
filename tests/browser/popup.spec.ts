@@ -51,7 +51,7 @@ test('minimal dark popup keeps Fill bound and suppresses repeated READY after a 
       popup.getByRole('heading', { name: 'Code found', exact: true }),
     ).toBeVisible();
     await expect(
-      popup.getByRole('link', { name: 'Open OTPGuard' }),
+      popup.getByRole('link', { name: 'Browser settings' }),
     ).toHaveAttribute('href', 'https://otpguard.net/dashboard');
     await expect(popup.locator('input, textarea, details')).toHaveCount(0);
     expect(
@@ -175,7 +175,7 @@ test('account uncertainty and permission failure keep setup outside the popup', 
     ).toBeVisible();
     await expect(popup.getByRole('button')).toHaveCount(0);
     await expect(
-      popup.getByRole('link', { name: 'Open OTPGuard' }),
+      popup.getByRole('link', { name: 'Browser settings' }),
     ).toBeVisible();
   } finally {
     await context.close();
@@ -340,12 +340,12 @@ test('one-time website setup explains generic matching and enables automatic fin
       ),
     ).toBeVisible();
     await popup
-      .getByRole('button', { name: 'Enable on websites', exact: true })
+      .getByRole('button', { name: 'Enable website access', exact: true })
       .first()
       .click();
     await expect(
       popup
-        .getByRole('button', { name: 'Enable on websites', exact: true })
+        .getByRole('button', { name: 'Enable website access', exact: true })
         .first(),
     ).not.toBeVisible();
     expect(

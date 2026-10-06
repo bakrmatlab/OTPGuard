@@ -115,6 +115,7 @@ export default function Popup() {
       }
       onFill={fill}
       onRetry={retry}
+      onSetup={() => void chrome.runtime.openOptionsPage()}
     />
   );
 }

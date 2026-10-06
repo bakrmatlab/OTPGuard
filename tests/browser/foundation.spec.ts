@@ -20,7 +20,7 @@ test('web entry points expose the approved UI without configured accounts', asyn
     page.getByText('Account authentication is unconfigured.', { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Sign in to connect this browser' }),
+    page.getByRole('link', { name: 'Sign in', exact: true }),
   ).toBeVisible();
   for (const [route, title] of [
     ['sign-in', 'OTPGuard account sign-in'],
@@ -174,7 +174,7 @@ test('unpacked extension worker, popup and management load without page access',
       popup.getByRole('button', { name: 'Fill', exact: true }),
     ).toHaveCount(0);
     await expect(
-      popup.getByRole('button', { name: 'Enable on websites' }),
+      popup.getByRole('button', { name: 'Enable website access' }),
     ).toBeEnabled();
     await automatic.focus();
     await expect(automatic).toBeFocused();
