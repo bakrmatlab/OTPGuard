@@ -89,6 +89,9 @@ export function createLocalSettings(
     if (stored !== undefined) return;
     const fresh = parseLocal({
       ...defaultSettings,
+      // New installations find codes automatically once site/provider authority
+      // is granted. Existing saved preferences and unavailable storage stay intact.
+      autofillEnabled: true,
       version: 1,
       installationId: id(),
       blockedOrigins: [],

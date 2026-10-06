@@ -276,3 +276,16 @@ case-only differences are uncertain; personal Gmail dot/plus rules do not apply 
 custom domains. Missing/uncertain evidence keeps mail plausible. Sender/service hints,
 required Fill, authority, replay, timing and retrieval bounds remain unchanged.
 See [ADR0029](adr/0029-structured-recipient-hints.md).
+
+Admission display follow-up (ADR0030): the worker returns a browser context only after
+its final live `current` check, without a contradictory earlier foreground snapshot.
+Explicit foreground/email-flow refusal completes the admitting display. Popup status
+reads enforce the 60-second admission deadline even if a suspended-worker timer has
+not run; coordinator admission signals are aborted without clearing challenge windows
+or replay reservations. Progress labels precede later fresh provider/browser reads.
+This repairs reproduced indefinite-search diagnostics without changing release authority.
+
+Owner-requested fresh-install default (ADR0031): `createLocalSettings` saves automatic
+finding enabled only when the existing settings record is absent. Pre-init/unavailable
+state remains disabled; stored opt-outs and blocks are retained. Shared/inactive cloud
+defaults are unchanged. No automatic grant, consent, insertion or submission is added.

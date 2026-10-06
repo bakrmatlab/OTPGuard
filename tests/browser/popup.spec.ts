@@ -667,3 +667,46 @@ test('one-time website setup explains generic matching and enables automatic fin
     await context.close();
   }
 });
+
+test('fresh installation finds codes by default and retains an explicit opt-out', async () => {
+  const extension = resolve('apps/extension/build/chrome-mv3-prod');
+  const context = await chromium.launchPersistentContext('', {
+    channel: 'chromium',
+    headless: true,
+    args: [
+      `--disable-extensions-except=${extension}`,
+      `--load-extension=${extension}`,
+    ],
+  });
+  try {
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker'));
+    const popup = await context.newPage();
+    await popup.goto(
+      `chrome-extension://${new URL(worker.url()).host}/popup.html`,
+    );
+    await popup.locator('.management > summary').click();
+    await popup.locator('#settings-summary').click();
+    const automatic = popup.getByRole('checkbox', {
+      name: 'Automatically find codes and show the Fill prompt',
+    });
+    await expect(automatic).toBeChecked();
+    expect(
+      await popup.evaluate(() =>
+        chrome.permissions.contains({ origins: ['https://*/*'] }),
+      ),
+    ).toBe(false);
+    await expect(
+      popup.getByRole('button', { name: 'Fill', exact: true }),
+    ).toBeDisabled();
+    await automatic.click();
+    await expect(automatic).not.toBeChecked();
+    await popup.reload();
+    await popup.locator('.management > summary').click();
+    await popup.locator('#settings-summary').click();
+    await expect(automatic).not.toBeChecked();
+  } finally {
+    await context.close();
+  }
+});

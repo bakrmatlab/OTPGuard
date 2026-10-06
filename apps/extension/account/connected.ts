@@ -18,6 +18,7 @@ export function createConnectedCoordinator(
       const context = await adapter.context(sender, signal);
       if (signal?.aborted) return null;
       if (!context) return null;
+      adapter.progress?.('account');
       const current = await gate.current(bound);
       if (signal?.aborted) return null;
       if (!current) {
@@ -27,6 +28,7 @@ export function createConnectedCoordinator(
       return { ...context, accountId: bound.userId, accountSession: bound };
     },
     async retrieve(context, signal) {
+      adapter.progress?.('account');
       if (
         !context.accountSession ||
         signal.aborted ||
@@ -40,6 +42,7 @@ export function createConnectedCoordinator(
       if (!context.accountSession || !gate.matches(context.accountSession))
         return false;
       if (!(await adapter.current(context))) return false;
+      adapter.progress?.('account');
       return gate.current(context.accountSession);
     },
   });

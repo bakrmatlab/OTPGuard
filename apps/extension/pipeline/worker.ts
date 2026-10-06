@@ -1,3 +1,4 @@
+import { SEARCH_MS } from '../../../packages/security/timing';
 import { createProgress } from './progress';
 import { createEmailRecovery } from './email-recovery';
 import {
@@ -19,6 +20,7 @@ import { isForeground as foreground } from './foreground';
 const progress = createProgress();
 let displayCurrent = true;
 let admitting = false;
+let admissionDeadline = 0;
 let displayTab: number | undefined;
 let detectionPromptKey: string | undefined;
 function clearDisplay() {
@@ -60,6 +62,7 @@ async function permitted(origin: string) {
   );
 }
 async function current(context: Context) {
+  progress.update('page');
   const frame = await chrome.webNavigation.getFrame({
     tabId: context.tabId,
     frameId: 0,
@@ -136,6 +139,7 @@ export const pagePipeline = createGmailPageCoordinator(
         emailRecovery.clear();
         displayCurrent = true;
         admitting = true;
+        admissionDeadline = Date.now() + SEARCH_MS;
         progress.reset();
         cancellation = undefined;
         retrievalIssue = undefined;
@@ -314,7 +318,9 @@ export const pagePipeline = createGmailPageCoordinator(
         browserUrl: frame.url,
         policyUrl: frame.url,
         serviceId: 'generic',
-        foreground: await foreground(sender.tab.id),
+        // current() below performs the final live foreground check. An earlier
+        // focus snapshot can disagree when the owned popup opens in between.
+        foreground: true,
       };
       if (!(await current(context))) {
         if (signal?.aborted) return null;
@@ -388,6 +394,15 @@ export function pipelineStatus() {
   if (!displayCurrent) return { state: 'IDLE' };
   const recovery = emailRecovery.status();
   if (recovery) return recovery;
+  // Admission is displayed before a coordinator request exists. Enforce its
+  // deadline on status reads too: MV3 timers can be delayed by suspension.
+  if (admitting && Date.now() >= admissionDeadline) {
+    // status() expires pending admissions without clearing challenge windows.
+    pagePipeline.status();
+    cancellation = 'deadline';
+    admitting = false;
+    progress.freeze();
+  }
   const value = admitting ? { state: 'SEARCHING' } : readPipelineStatus();
   return { ...value, progress: progress.snapshot() };
 }
@@ -411,7 +426,9 @@ function readPipelineStatus() {
               page: 'PAGE_UNAVAILABLE',
             }[contextFailure],
           }
-        : { ...pagePipeline.status(), cancellation, retrievalIssue };
+        : cancellation === 'deadline'
+          ? { state: 'CANCELLED', cancellation, retrievalIssue }
+          : { ...pagePipeline.status(), cancellation, retrievalIssue };
 }
 export async function acceptFill(requestId: unknown) {
   const selected = pending;

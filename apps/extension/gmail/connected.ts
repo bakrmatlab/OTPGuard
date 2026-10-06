@@ -28,6 +28,7 @@ export function createMailboxCoordinator(
           : null;
       },
       async retrieve(context, signal) {
+        adapter.progress?.('mailbox');
         const status = await mailbox.check();
         if (
           signal.aborted ||
@@ -38,6 +39,7 @@ export function createMailboxCoordinator(
         return adapter.retrieve(context, signal);
       },
       async current(context) {
+        adapter.progress?.('mailbox');
         const before = generation;
         const status = await mailbox.check();
         return (

@@ -95,3 +95,10 @@ implemented on `codex/recipient-parsing` for review. See
 [acceptance](recipient-parsing-acceptance.md) and
 [ADR0029](adr/0029-structured-recipient-hints.md). No later input/recovery/scope work,
 rank-5 publication, provider/live profile access or deployment is authorized/performed.
+
+The owner reported a configured popup still searching at 117 seconds after reinstall.
+A separate local follow-up repairs reproduced refusal/display-expiry and inconsistent
+foreground admission, preserving the completed rank-5 recipient scope and all release
+rules. See [acceptance](popup-admission-repair-acceptance.md) and
+[ADR0030](adr/0030-finished-and-bounded-admission-display.md). This is not the next
+queued input-compatibility rank or permission to publish/deploy. Live retest is pending.

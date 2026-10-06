@@ -178,6 +178,7 @@ export function createCoordinator(adapter: Adapter) {
   const windows = new Map<string, { startedAt: number; notBefore: number }>();
   const admissions = new Set<{
     tabId: number | undefined;
+    deadline: number;
     abort: AbortController;
     reason: CancellationReason | undefined;
   }>();
@@ -255,6 +256,14 @@ export function createCoordinator(adapter: Adapter) {
     status: () => {
       // MV3 timers can be delayed while a worker is suspended. A popup status
       // read must enforce the same deadline instead of reporting stale work.
+      for (const admission of admissions)
+        if (
+          !admission.abort.signal.aborted &&
+          adapter.now() >= admission.deadline
+        ) {
+          admission.reason = 'deadline';
+          admission.abort.abort();
+        }
       for (const request of [...requests.values()])
         if (adapter.now() >= request.deadline)
           cancel(request, request.expiration);
@@ -331,6 +340,7 @@ export function createCoordinator(adapter: Adapter) {
       // and detach late results without admitting a stale document or request.
       const admission = {
         tabId: sender.tab?.id,
+        deadline: observedAt + SEARCH_MS,
         abort: new AbortController(),
         reason: undefined as CancellationReason | undefined,
       };
@@ -459,8 +469,10 @@ export function createCoordinator(adapter: Adapter) {
         }
         return status;
       }
-      if (!context.foreground || !message.emailFlow)
-        return { state: 'UNKNOWN', reason: 'request' };
+      if (!context.foreground || !message.emailFlow) {
+        adapter.contextFailure?.('page');
+        return (status = { state: 'UNKNOWN', reason: 'request' });
+      }
       const preferences = () =>
         adapter.settings?.() ?? { autofillEnabled: true, blockedOrigins: [] };
       const blocked = () =>

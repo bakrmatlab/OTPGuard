@@ -54,6 +54,28 @@ function syncFixture(transport: SyncTransport | null = null) {
 }
 afterEach(() => vi.useRealTimers());
 describe('local settings persistence and cloud boundary', () => {
+  it('enables automatic finding on a fresh durable installation', async () => {
+    const f = localFixture();
+    expect(f.local.available()).toBe(false);
+    expect(f.local.snapshot().autofillEnabled).toBe(false);
+    await f.local.initialized;
+    expect(f.local.available()).toBe(true);
+    expect(f.local.snapshot().autofillEnabled).toBe(true);
+    expect(f.persisted()).toMatchObject({ autofillEnabled: true });
+  });
+  it('preserves a previously saved opt-out across initialization', async () => {
+    const stored = {
+      version: 1,
+      installationId: id,
+      autofillEnabled: false,
+      blockedOrigins: ['https://site.fixture.invalid'],
+    };
+    const f = localFixture(stored);
+    await f.local.initialized;
+    expect(f.local.snapshot()).toEqual(stored);
+    expect(f.write).not.toHaveBeenCalled();
+  });
+
   it('persists only explicit settings and an installation UUID, and restores local blocks', async () => {
     const f = localFixture();
     await f.local.initialized;
@@ -114,8 +136,8 @@ describe('local settings persistence and cloud boundary', () => {
     const good = localFixture();
     await good.local.initialized;
     good.write.mockRejectedValueOnce(new Error('write failed'));
-    await expect(good.local.setAutofill(true)).rejects.toThrow();
-    expect(good.local.snapshot().autofillEnabled).toBe(false);
+    await expect(good.local.setAutofill(false)).rejects.toThrow();
+    expect(good.local.snapshot().autofillEnabled).toBe(true);
   });
   it('rejects full URLs, insecure origins and extra stored/cloud fields', () => {
     for (const origin of [
@@ -339,6 +361,7 @@ describe('local settings persistence and cloud boundary', () => {
     };
     const f = syncFixture(transport);
     await f.local.initialized;
+    await f.local.setAutofill(false);
     f.sync.enable(true);
     await f.sync.synchronize('CONNECTED');
     expect(f.sync.status()).toBe('UNAVAILABLE');

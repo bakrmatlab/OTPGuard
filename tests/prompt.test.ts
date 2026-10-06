@@ -1,15 +1,25 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import type { Adapter, Context } from '../apps/extension/pipeline/coordinator';
+import type {
+  Adapter,
+  Context,
+  CancellationReason,
+} from '../apps/extension/pipeline/coordinator';
 const captured = vi.hoisted(() => ({
   state: 'IDLE',
+  live: null as {
+    status: () => { state: string };
+    cancelAll: (reason?: CancellationReason) => void;
+  } | null,
   browser: null as Omit<Adapter, 'retrieve' | 'registry'> | null,
 }));
 vi.mock('../apps/extension/gmail/retrieval', () => ({
   createGmailPageCoordinator: (browser: typeof captured.browser) => {
     captured.browser = browser;
     return {
-      status: () => ({ state: captured.state }),
-      cancelAll: vi.fn(),
+      status: () => captured.live?.status() ?? { state: captured.state },
+      cancelAll: vi.fn((reason?: CancellationReason) =>
+        captured.live?.cancelAll(reason),
+      ),
       cancelTab: vi.fn(),
       recheckAll: vi.fn(),
     };
@@ -41,6 +51,7 @@ vi.mock('../apps/extension/settings/worker', () => ({
 vi.mock('../apps/extension/activity/worker', () => ({ localHistory: {} }));
 afterEach(() => {
   captured.state = 'IDLE';
+  captured.live = null;
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.resetModules();
@@ -411,4 +422,233 @@ it('a status read expires suspended-worker confirmation even before its timer ru
   expect(t.worker.pipelineStatus().state).not.toBe('READY');
   expect(await result).toBe('confirmation-expired');
   expect(await t.worker.acceptFill(t.binding.requestId)).toBe(false);
+});
+
+it('finishes admission display when a browser admission is refused', async () => {
+  const t = await setup(async () => {});
+  const { createCoordinator } =
+    await import('../apps/extension/pipeline/coordinator');
+  const retrieve = vi.fn(async () => []);
+  const coordinator = createCoordinator({
+    ...captured.browser!,
+    mode: 'user-confirmed',
+    registry: [],
+    retrieve,
+    context: async () => ({ ...t.context, foreground: false }),
+  });
+  try {
+    expect(
+      await coordinator.handle(
+        {
+          type: 'detect',
+          groupId: 'fields',
+          expectedLength: 6,
+          emailFlow: true,
+          groupCount: 1,
+          manual: true,
+        },
+        {},
+      ),
+    ).toEqual({ state: 'UNKNOWN', reason: 'request' });
+    expect(t.worker.pipelineStatus().state).toBe('PAGE_UNAVAILABLE');
+    vi.setSystemTime(217000);
+    expect(t.worker.pipelineStatus().state).toBe('PAGE_UNAVAILABLE');
+    expect(retrieve).not.toHaveBeenCalled();
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it('uses the final browser foreground check when focus changes during admission', async () => {
+  const t = await setup(async () => {});
+  let checks = 0;
+  Object.assign(chrome.windows, {
+    getLastFocused: vi.fn(async () => ({ id: 17, focused: ++checks > 1 })),
+  });
+  const context = await captured.browser!.context({
+    id: 'fixture',
+    frameId: 0,
+    documentLifecycle: 'active',
+    documentId: 'doc',
+    tab: await chrome.tabs.get(1),
+    url: t.context.browserUrl,
+  });
+  // The baseline returned a false foreground snapshot after its final current check passed.
+  // With one authoritative read the first attempt refuses; a subsequent focused attempt works.
+  expect(context).toBeNull();
+  const focused = await captured.browser!.context({
+    id: 'fixture',
+    frameId: 0,
+    documentLifecycle: 'active',
+    documentId: 'doc',
+    tab: await chrome.tabs.get(1),
+    url: t.context.browserUrl,
+  });
+  expect(focused?.foreground).toBe(true);
+});
+
+it('popup status expires stalled admission even before a suspended worker timer runs', async () => {
+  const t = await setup(async () => {});
+  captured.browser!.contextFailure!(null);
+  captured.browser!.progress!('page');
+  vi.setSystemTime(217000);
+  expect(t.worker.pipelineStatus()).toMatchObject({
+    state: 'CANCELLED',
+    cancellation: 'deadline',
+  });
+});
+
+it('status expiry aborts real stalled admission and ignores a late successful context', async () => {
+  const t = await setup(async () => {});
+  const { createCoordinator } =
+    await import('../apps/extension/pipeline/coordinator');
+  let finish!: (context: Context) => void;
+  const retrieve = vi.fn(async () => []);
+  const coordinator = createCoordinator({
+    ...captured.browser!,
+    mode: 'user-confirmed',
+    registry: [],
+    retrieve,
+    context: () =>
+      new Promise<Context>((resolve) => {
+        finish = resolve;
+      }),
+  });
+  captured.live = coordinator;
+  try {
+    const result = coordinator.handle(
+      {
+        type: 'detect',
+        groupId: 'fields',
+        expectedLength: 6,
+        emailFlow: true,
+        groupCount: 1,
+        manual: true,
+      },
+      {},
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.worker.pipelineStatus().state).toBe('SEARCHING');
+    vi.setSystemTime(217000);
+    expect(t.worker.pipelineStatus()).toMatchObject({
+      state: 'CANCELLED',
+      cancellation: 'deadline',
+    });
+    expect(await result).toEqual({ state: 'CANCELLED' });
+    finish(t.context);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.worker.pipelineStatus().state).toBe('CANCELLED');
+    expect(retrieve).not.toHaveBeenCalled();
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it('identifies the fresh account read after browser admission instead of leaving a page label', async () => {
+  const t = await setup(async () => {});
+  const { createConnectedCoordinator } =
+    await import('../apps/extension/account/connected');
+  const { createAccountGate } = await import('../apps/extension/account/gate');
+  let reads = 0;
+  let finish!: () => void;
+  const gate = createAccountGate(async () => {
+    if (++reads === 2)
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    return {
+      userId: 'synthetic',
+      sessionId: 'session',
+      expiresAt: 1000000,
+      label: 'Synthetic',
+    };
+  });
+  const coordinator = createConnectedCoordinator(
+    {
+      ...captured.browser!,
+      mode: 'user-confirmed',
+      registry: [],
+      retrieve: async () => [],
+    },
+    gate,
+  );
+  try {
+    const result = coordinator.handle(
+      {
+        type: 'detect',
+        groupId: 'fields',
+        expectedLength: 6,
+        emailFlow: true,
+        groupCount: 1,
+        manual: true,
+      },
+      {
+        id: 'fixture',
+        frameId: 0,
+        documentLifecycle: 'active',
+        documentId: 'doc',
+        tab: await chrome.tabs.get(1),
+        url: t.context.browserUrl,
+      },
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reads).toBe(2);
+    const status = t.worker.pipelineStatus();
+    expect('progress' in status && status.progress?.stage).toBe('account');
+    coordinator.cancelAll('navigation');
+    expect(await result).toEqual({ state: 'CANCELLED' });
+    finish();
+    await vi.advanceTimersByTimeAsync(0);
+  } finally {
+    coordinator.dispose();
+    gate.invalidate();
+  }
+});
+
+it('status expiration retains the original challenge window for a fresh manual Retry', async () => {
+  const t = await setup(async () => {});
+  const { createCoordinator } =
+    await import('../apps/extension/pipeline/coordinator');
+  let reads = 0;
+  let finish!: (value: Context) => void;
+  const windows: number[] = [];
+  const coordinator = createCoordinator({
+    ...captured.browser!,
+    mode: 'user-confirmed',
+    registry: [],
+    context: async () => {
+      if (++reads === 2)
+        return new Promise<Context>((resolve) => {
+          finish = resolve;
+        });
+      return t.context;
+    },
+    retrieve: async (context) => {
+      windows.push(context.requestWindow!.startedAt);
+      return [];
+    },
+  });
+  captured.live = coordinator;
+  const detect = {
+    type: 'detect',
+    groupId: 'fields',
+    expectedLength: 6,
+    emailFlow: true,
+    groupCount: 1,
+    manual: true,
+  };
+  try {
+    expect(await coordinator.handle(detect, {})).toEqual({ state: 'NO_CODE' });
+    const stalled = coordinator.handle(detect, {});
+    await vi.advanceTimersByTimeAsync(0);
+    vi.setSystemTime(217000);
+    expect(t.worker.pipelineStatus().state).toBe('CANCELLED');
+    expect(await stalled).toEqual({ state: 'CANCELLED' });
+    finish(t.context);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await coordinator.handle(detect, {})).toEqual({ state: 'NO_CODE' });
+    expect(windows).toEqual([100000, 100000]);
+  } finally {
+    coordinator.dispose();
+  }
 });

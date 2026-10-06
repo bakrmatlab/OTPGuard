@@ -104,6 +104,8 @@ test('unpacked extension worker and popup load without page access', async () =>
       name: 'Automatically find codes and show the Fill prompt',
     });
     await expect(automatic).toBeEnabled();
+    await expect(automatic).toBeChecked();
+    await automatic.click();
     await expect(automatic).not.toBeChecked();
     await automatic.click();
     await expect(automatic).toBeChecked();

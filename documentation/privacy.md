@@ -169,3 +169,18 @@ field, hint log, provider query parameter, permission or backend traffic is adde
 Personal Gmail alias comparisons are local hints, not recipient authentication or
 server challenge identity. Unknown syntax keeps plausible competition visible.
 See [ADR0029](adr/0029-structured-recipient-hints.md).
+
+The popup admission repair adds one volatile display deadline and labels existing
+fresh account/mailbox/browser checks more accurately. It stores/uploads/logs no new
+metadata, recipient, mail, code or token. Status expiry aborts overdue admissions and
+retains challenge/replay state. Underlying detached operations may still complete;
+no late result can resume the expired request. See
+[ADR0030](adr/0030-finished-and-bounded-admission-display.md).
+
+The owner-requested default-finding revision enables automatic finding for a genuinely
+fresh, successfully saved local installation. Existing opt-outs/blocks remain unchanged;
+corrupt/unavailable storage refuses activity. Configured account/mailbox authority,
+explicit Google consent and Chrome site permission still gate mail reads, and Fill still
+requires a click. The existing settings schema/data flows are unchanged; no permission
+or provider action is performed by initialization. See
+[ADR0031](adr/0031-automatic-finding-default.md).

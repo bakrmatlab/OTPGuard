@@ -46,7 +46,7 @@ it('keeps settings and blocks in trusted local storage and only accepts the exac
   expect(stored).toEqual({
     version: 1,
     installationId: id,
-    autofillEnabled: false,
+    autofillEnabled: true,
     blockedOrigins: [],
   });
   const listener = addListener.mock.calls[0]![0];
