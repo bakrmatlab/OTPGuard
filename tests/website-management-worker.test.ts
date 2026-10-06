@@ -2,6 +2,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({
   configured: true,
   current: true,
+  frameDocument: 'doc-1',
+  frameUrl: 'https://otpguard.net/dashboard',
   binding: { userId: 'user_test', sessionId: 'sess_test', generation: 0 },
   connect: vi.fn(async () => ({ state: 'CONNECTED' })),
   disconnect: vi.fn(async () => ({ state: 'DISCONNECTED' })),
@@ -53,6 +55,8 @@ afterEach(() => {
   vi.clearAllMocks();
   state.configured = true;
   state.current = true;
+  state.frameDocument = 'doc-1';
+  state.frameUrl = 'https://otpguard.net/dashboard';
 });
 async function listener() {
   const listen = vi.fn();
@@ -64,8 +68,8 @@ async function listener() {
     },
     webNavigation: {
       getFrame: async () => ({
-        documentId: 'doc-1',
-        url: 'https://otpguard.net/dashboard',
+        documentId: state.frameDocument,
+        url: state.frameUrl,
       }),
     },
     permissions: { contains: async () => true },
@@ -133,4 +137,28 @@ it('dispatches the explicit controls with queued mutation guards and no pipeline
   expect(await l.call({ type: 'pipeline-fill', requestId: 'test' })).toEqual({
     state: 'REFUSED',
   });
+});
+
+it('reconnects after dashboard section navigation in the same document', async () => {
+  state.frameUrl = 'https://otpguard.net/dashboard#settings';
+  const l = await listener();
+  expect((await l.call({ type: 'browser-status' })).state).toBe('CONNECTED');
+});
+it('still refuses a current frame on another route, origin or query', async () => {
+  const l = await listener();
+  for (const url of [
+    'https://otpguard.net/help',
+    'https://other.test/dashboard',
+    'https://otpguard.net/dashboard?redirect=1',
+    'http://otpguard.net/dashboard',
+  ]) {
+    state.frameUrl = url;
+    expect((await l.call({ type: 'browser-status' })).state).toBe('REFUSED');
+  }
+});
+
+it('refuses a replaced document even if its dashboard URL matches', async () => {
+  state.frameDocument = 'replacement';
+  const l = await listener();
+  expect((await l.call({ type: 'browser-status' })).state).toBe('REFUSED');
 });

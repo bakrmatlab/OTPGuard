@@ -17,6 +17,7 @@ import type {
 interface BrowserContextValue {
   canConnect: boolean;
   checking?: boolean;
+  previouslyConnected?: boolean;
   snapshot: BrowserSnapshot | null;
   busy: boolean;
   message: string;
@@ -81,6 +82,7 @@ function BrowserSession({
 }) {
   const [snapshot, setSnapshot] = useState<BrowserSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
+  const [previouslyConnected, setPreviouslyConnected] = useState(false);
   const [message, setMessage] = useState(
     'Connect your installed extension to manage this Chrome profile here.',
   );
@@ -104,6 +106,7 @@ function BrowserSession({
       const result = await sendBrowserAction(action, userId, sessionId);
       if (!active.current) return;
       if (result.state === 'CONNECTED') {
+        setPreviouslyConnected(true);
         setSnapshot(result.snapshot);
         setExportJson(result.exportJson ?? '');
         setMessage(
@@ -142,6 +145,7 @@ function BrowserSession({
     <BrowserContext.Provider
       value={{
         checking,
+        previouslyConnected,
         canConnect: !!userId && !!sessionId,
         snapshot,
         busy: busy || uncertain.current,
@@ -155,8 +159,15 @@ function BrowserSession({
   );
 }
 export function BrowserConnection() {
-  const { snapshot, busy, message, run, canConnect, checking } =
-    useContext(BrowserContext);
+  const {
+    snapshot,
+    busy,
+    message,
+    run,
+    canConnect,
+    checking,
+    previouslyConnected,
+  } = useContext(BrowserContext);
   const progress = setupProgress(
     canConnect,
     snapshot,
@@ -173,6 +184,7 @@ export function BrowserConnection() {
     return () => window.removeEventListener('focus', refresh);
   }, [snapshot, run]);
   const ready = progress.action === 'ready';
+  const reconnecting = previouslyConnected && !snapshot;
   return (
     <section
       className="browser-connection setup-card"
@@ -182,11 +194,15 @@ export function BrowserConnection() {
       <p className="context">
         {progress.title === 'Checking setup…'
           ? 'Checking setup'
-          : ready
-            ? 'Setup complete'
-            : `Step ${progress.step} of 4`}
+          : reconnecting
+            ? 'Connection status'
+            : ready
+              ? 'Setup complete'
+              : `Step ${progress.step} of 4`}
       </p>
-      <h2 id="setup-title">{progress.title}</h2>
+      <h2 id="setup-title">
+        {reconnecting ? 'Connection needs checking' : progress.title}
+      </h2>
       <ol className="setup-checklist" aria-label="Setup progress">
         {['Sign in', 'Connect browser', 'Connect Gmail', 'Website access'].map(
           (label, index) => (
@@ -202,7 +218,11 @@ export function BrowserConnection() {
           ),
         )}
       </ol>
-      <p>{progress.detail}</p>
+      <p>
+        {reconnecting
+          ? 'We could not verify this browser’s current status. This does not mean your existing setup was removed. Check the connection again; settings remain unavailable until verification succeeds.'
+          : progress.detail}
+      </p>
       {progress.action === 'sign-in' ? (
         <a className="button primary" href="/sign-in">
           Sign in
@@ -227,7 +247,8 @@ export function BrowserConnection() {
               ? 'Refresh browser status'
               : progress.action === 'open-options'
                 ? 'Open browser settings'
-                : progress.action === 'browser-status' && snapshot
+                : progress.action === 'browser-status' &&
+                    (snapshot || reconnecting)
                   ? 'Check connection again'
                   : progress.title}
         </button>

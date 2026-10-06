@@ -3,7 +3,7 @@ import { accountGate } from './account/worker';
 import { authenticatedMailbox } from './gmail/authenticated-worker';
 import { localSettings, settingsStatus } from './settings/worker';
 import { historyAction, localHistory } from './activity/worker';
-import { createWebsiteManagement } from './website-management';
+import { createWebsiteManagement, websiteSender } from './website-management';
 const origin = configuredAccount()?.webOrigin;
 if (origin) {
   const handle = createWebsiteManagement({
@@ -17,7 +17,7 @@ if (origin) {
       return (
         !!frame &&
         frame.documentId === sender.documentId &&
-        frame.url === sender.url
+        websiteSender({ ...sender, url: frame.url }, origin)
       );
     },
     async run(action, current) {
