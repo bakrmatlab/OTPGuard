@@ -1,3 +1,4 @@
+import './website-management-worker';
 import {
   pagePipeline,
   pipelineStatus,
@@ -13,7 +14,7 @@ import {
 import { parseHistoryAction, historyAction } from './activity/worker';
 import { authenticatedMailbox } from './gmail/authenticated-worker';
 import { accountStatus, accountProbe, signOutAccount } from './account/worker';
-// Exact popup only. No message retrieval or production fill adapter.
+// Exact owned popup confirms Fill; management is a separate owned page.
 chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
   if (
     sender.id === chrome.runtime.id &&
@@ -28,9 +29,17 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
       .then(respond, () => respond({ state: 'ERROR' }));
     return true;
   }
+  const popup = sender.url === chrome.runtime.getURL('popup.html');
+  const management =
+    !popup && sender.url === chrome.runtime.getURL('management.html');
+  if (sender.id !== chrome.runtime.id || (!popup && !management)) return false;
+  // Settings tabs never gain popup release, confirmation or retry authority.
   if (
-    sender.id !== chrome.runtime.id ||
-    sender.url !== chrome.runtime.getURL('popup.html')
+    management &&
+    message &&
+    typeof message === 'object' &&
+    'type' in message &&
+    String(message.type).startsWith('pipeline-')
   )
     return false;
   if (message && typeof message === 'object' && 'type' in message) {

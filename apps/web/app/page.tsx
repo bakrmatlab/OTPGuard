@@ -1,93 +1,97 @@
+import React from 'react';
+import { SiteHeader, SiteFooter } from './site';
+import { FillDemo } from './fill-demo';
+import { PopupShowcase } from './popup-showcase';
 export default function Home() {
   return (
-    <div className="landing">
-      <header className="landing-header">
-        <a className="auth-brand" href="/" aria-label="OTPGuard home">
-          <span className="brand-mark" aria-hidden="true">
-            O
-          </span>
-          OTPGuard
-        </a>
-        <nav aria-label="Main">
-          <a href="#features">Features</a>
-          <a href="/sign-in">Sign in</a>
-          <a className="primary-link" href="/sign-up">
-            Create account
-          </a>
-        </nav>
-      </header>
-      <main id="main" className="landing-main">
-        <section className="landing-hero">
-          <p className="eyebrow">Your inbox. Your control.</p>
-          <h1>Email codes, with less friction.</h1>
-          <p className="landing-lead">
-            OTPGuard helps you find and fill email verification codes on
-            supported sites. Codes are checked locally, and you decide when to
-            fill.
-          </p>
-          <div className="landing-actions">
-            <a className="primary-link" href="/sign-up">
-              Get started
-            </a>
-            <a href="#features">Explore features →</a>
+    <>
+      <SiteHeader />
+      <main id="main" tabIndex={-1}>
+        <section className="hero">
+          <div className="hero-copy">
+            <p className="context">
+              <span className="small-mark" aria-hidden="true"></span> Gmail
+              codes, in Chrome
+            </p>
+            <h1>
+              Find the code.
+              <br />
+              Choose <span className="fill-word">Fill.</span>
+            </h1>
+            <p className="hero-lead">
+              OTPGuard finds a recent email code while you sign in. You decide
+              when it goes into the page.
+            </p>
+            <div className="hero-actions">
+              <a className="button primary" href="/setup">
+                Install for Chrome <span aria-hidden="true">↗</span>
+              </a>
+              <a className="text-link" href="#demo">
+                Try the demo <span aria-hidden="true">↓</span>
+              </a>
+            </div>
+            <p className="fine">No code is filled without your click.</p>
           </div>
-          <p className="muted">
-            Currently available as a Canva pilot. More sites are planned.
-          </p>
-        </section>
-        <section
-          id="features"
-          className="landing-features"
-          aria-labelledby="features-title"
-        >
-          <h2 id="features-title">A simpler verification flow</h2>
-          <div className="landing-grid">
-            <article>
-              <span className="eyebrow">01 · Find</span>
-              <h3>Find the right code</h3>
-              <p>
-                Connect Gmail in the extension, then find a matching email code
-                for a supported challenge.
-              </p>
-            </article>
-            <article>
-              <span className="eyebrow">02 · Review</span>
-              <h3>Stay in control</h3>
-              <p>
-                Review the result and choose Fill. OTPGuard never clicks submit;
-                the site may react to input events.
-              </p>
-            </article>
-            <article>
-              <span className="eyebrow">03 · Manage</span>
-              <h3>Keep things organized</h3>
-              <p>
-                Use your dashboard for account controls, setup guidance and
-                supported sites. Manage local history and preferences in the
-                extension.
-              </p>
-            </article>
+          <div className="handoff-art" aria-hidden="true">
+            <div className="orbit orbit-one"></div>
+            <div className="orbit orbit-two"></div>
+            <div className="signal-spine"></div>
+            <div className="signal-source">
+              <svg viewBox="0 0 32 32">
+                <path d="M5 8h22v16H5zM5 8l11 9L27 8" />
+              </svg>
+            </div>
+            <div className="signal-card">
+              <div className="signal-top">
+                <span className="status-dot"></span>Code found
+              </div>
+              <div className="signal-code">••••••</div>
+              <div className="signal-fill">
+                Fill <span>↗</span>
+              </div>
+              <div className="signal-tail">OTPGuard</div>
+            </div>
+            <div className="art-caption">
+              Inbox <span>→</span> Your click <span>→</span> Code field
+            </div>
           </div>
         </section>
-        <section className="landing-privacy">
-          <div>
-            <p className="eyebrow">Built around clear boundaries</p>
-            <h2>Your codes stay local.</h2>
+        <section id="demo" className="demo-section">
+          <div className="section-intro">
+            <h2>
+              One click.
+              <br />
+              One code field.
+            </h2>
             <p>
-              Account sign-in is separate from Gmail access. Mailbox and site
-              permissions are granted in the extension. Cloud history and
-              settings sync are currently unavailable.
+              Try the handoff with a made-up code.
+              <br />
+              No mailbox. No sign-in. No submission.
+            </p>
+            <span className="demo-label">Synthetic demo</span>
+          </div>
+          <FillDemo />
+        </section>
+        <PopupShowcase />
+        <section className="privacy-strip">
+          <div className="privacy-symbol" aria-hidden="true">
+            <svg viewBox="0 0 48 48">
+              <path d="M24 5l15 6v13c0 9-15 18-15 18S9 33 9 24V11zM17 23l5 5 10-11" />
+            </svg>
+          </div>
+          <div>
+            <h2>Your mail stays in your browser.</h2>
+            <p>
+              Gmail tokens, messages and codes stay inside the extension.
+              OTPGuard servers do not receive them.
             </p>
           </div>
-          <a className="primary-link" href="/sign-up">
-            Create your account
+          <a className="text-link" href="/help">
+            Read the details <span aria-hidden="true">↗</span>
           </a>
         </section>
       </main>
-      <footer className="landing-footer">
-        <span>OTPGuard · Local-first email verification</span>
-        <a href="/dashboard">Open dashboard</a>
-      </footer>
-    </div>
+      <SiteFooter />
+    </>
   );
 }

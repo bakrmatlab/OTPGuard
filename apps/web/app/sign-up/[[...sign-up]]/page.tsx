@@ -1,12 +1,11 @@
+import { BrandMark } from '../../site';
 import { webAccountConfigured } from '../../../account-config';
 import { SignUp } from '@clerk/nextjs';
 export default function SignUpPage() {
   return (
     <main className="auth-page">
       <a className="auth-brand" href="/" aria-label="OTPGuard home">
-        <span className="brand-mark" aria-hidden="true">
-          O
-        </span>
+        <BrandMark />
         OTPGuard
       </a>
       <h1>Create your OTPGuard account</h1>

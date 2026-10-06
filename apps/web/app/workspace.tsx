@@ -6,22 +6,16 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-const views = [
-  'overview',
-  'connections',
-  'activity',
-  'settings',
-  'services',
-] as const;
+const views = ['connections', 'activity', 'settings'] as const;
 type View = (typeof views)[number];
-const ViewContext = createContext<View>('overview');
+const ViewContext = createContext<View>('connections');
 /** Local navigation only. No provider, storage or cloud operations. */
 export function Workspace({ children }: { children: ReactNode }) {
-  const [view, setView] = useState<View>('overview');
+  const [view, setView] = useState<View>('connections');
   useEffect(() => {
     const navigate = (focus: boolean) => {
       const hash = window.location.hash.slice(1);
-      const next = views.find((value) => value === hash) ?? 'overview';
+      const next = views.find((value) => value === hash) ?? 'connections';
       setView(next);
       if (focus)
         requestAnimationFrame(() => {
@@ -37,7 +31,7 @@ export function Workspace({ children }: { children: ReactNode }) {
   }, []);
   return (
     <ViewContext.Provider value={view}>
-      <div className="dashboard-shell" data-view={view}>
+      <div className="workspace" data-view={view}>
         {children}
       </div>
     </ViewContext.Provider>

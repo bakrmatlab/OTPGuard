@@ -6,5 +6,10 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardPage() {
   const configured = webAccountConfigured();
   if (configured) await auth.protect({ unauthenticatedUrl: '/sign-in' });
-  return <Dashboard account={configured ? <Account /> : undefined} />;
+  return (
+    <Dashboard
+      configured={configured}
+      account={configured ? <Account /> : undefined}
+    />
+  );
 }

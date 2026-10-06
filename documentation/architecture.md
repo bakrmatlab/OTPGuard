@@ -1,5 +1,17 @@
 # Architecture and current decisions
 
+October 6 UI update: the popup now contains only the current request actions and
+a website link. `management.html` is an extension-owned full-page Options screen
+for account/Gmail, preferences, blocks and history. Only that exact page and the
+owned popup can issue management messages; pipeline status, confirmation, retry
+and Fill remain popup-only. Owner-requested website management now uses an exact
+production dashboard external-message bridge, bound to the current top-level
+document and authoritative shared Clerk user/session. It exposes metadata and
+management actions only; no cloud sync, code release or credentials.
+See [ADR0033](adr/0033-dark-ui-with-owned-browser-management.md) and
+[UI acceptance](dark-ui-implementation-acceptance.md). Earlier milestone diagrams
+below describe the historical implementation.
+
 The shipped entry points and the synthetic demonstration have different capabilities.
 
 ```text

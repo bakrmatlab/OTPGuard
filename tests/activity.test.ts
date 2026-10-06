@@ -324,3 +324,16 @@ describe('inactive cloud controller', () => {
     }
   });
 });
+
+it('refuses website history deletion when authority has changed before the queued write', async () => {
+  const f = local();
+  await f.history.append(event);
+  f.store.write.mockClear();
+  await expect(f.history.clear(async () => false)).rejects.toThrow(
+    'AUTHORITY_CHANGED',
+  );
+  expect(f.store.write).not.toHaveBeenCalled();
+  expect(await f.history.list()).toEqual([event]);
+  await f.history.clear(async () => true);
+  expect(await f.history.list()).toEqual([]);
+});

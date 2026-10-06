@@ -7,6 +7,15 @@
 
 # OTPGuard
 
+Current local UI (October 6, 2026): the approved dark website and minimal Fill
+popup are implemented. Open local browser management by right-clicking the
+OTPGuard toolbar icon and choosing **Options**. The signed-in dashboard also
+connects to the updated extension for Gmail, preferences, blocks and local
+history management. Codes and credentials stay inside the extension.
+See [UI review and validation](documentation/dark-ui-implementation-acceptance.md).
+The source change is local and has not replaced the deployed website or installed
+owner extension. The following sections retain earlier milestone history.
+
 A Chrome MV3 portfolio prototype exploring local email-code authorization. Its separate
 synthetic extension demonstrates document-bound fill and refusal; the production extension
 provides local preferences/history and an optional Gmail connection lifecycle.

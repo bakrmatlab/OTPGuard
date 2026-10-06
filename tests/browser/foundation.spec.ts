@@ -35,7 +35,8 @@ test('web entry point explains unavailable capabilities', async ({ page }) => {
   await expect(
     page.getByText('Account authentication is unconfigured.'),
   ).toBeVisible();
-  await expect(page.locator('input')).toHaveCount(0);
+  await expect(page.locator('input')).toHaveCount(1);
+  await expect(page.locator('#demo-code')).toHaveValue('');
   await page.goto('http://127.0.0.1:3100/sign-up');
   await expect(
     page.getByRole('heading', { name: 'Create your OTPGuard account' }),
@@ -43,10 +44,11 @@ test('web entry point explains unavailable capabilities', async ({ page }) => {
   await expect(
     page.getByText('Account authentication is unconfigured.'),
   ).toBeVisible();
-  await expect(page.locator('input')).toHaveCount(0);
+  await expect(page.locator('input')).toHaveCount(1);
+  await expect(page.locator('#demo-code')).toHaveValue('');
 });
 
-test('unpacked extension worker and popup load without page access', async () => {
+test('unpacked extension worker, popup and management load without page access', async () => {
   const extension = resolve('apps/extension/build/chrome-mv3-prod');
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
@@ -71,19 +73,10 @@ test('unpacked extension worker and popup load without page access', async () =>
     await popup.setViewportSize({ width: 380, height: 600 });
     const errors: string[] = [];
     popup.on('pageerror', (error) => errors.push(error.name));
-    await popup.goto(`chrome-extension://${id}/popup.html`);
+    await popup.goto(`chrome-extension://${id}/management.html`);
     await expect(
-      popup.getByRole('heading', { name: 'OTPGuard', exact: true }),
+      popup.getByRole('heading', { name: 'Browser settings', exact: true }),
     ).toBeVisible();
-    await expect(popup.getByRole('status')).toContainText(
-      'Open an email-code challenge',
-    );
-    await popup.evaluate(() => {
-      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
-        'details.panel, details.management',
-      ))
-        panel.open = true;
-    });
     await expect(
       popup.getByText('Account authentication is unconfigured.'),
     ).toBeVisible();
@@ -98,10 +91,12 @@ test('unpacked extension worker and popup load without page access', async () =>
       ),
     ).toEqual([]);
     await expect(
-      popup.getByText('Cloud settings sync is unconfigured.', { exact: false }),
+      popup.getByText('Cloud history and settings sync are unavailable.', {
+        exact: false,
+      }),
     ).toBeVisible();
     const automatic = popup.getByRole('checkbox', {
-      name: 'Automatically find codes and show the Fill prompt',
+      name: /Find codes automatically/,
     });
     await expect(automatic).toBeEnabled();
     await expect(automatic).toBeChecked();
@@ -111,12 +106,6 @@ test('unpacked extension worker and popup load without page access', async () =>
     await expect(automatic).toBeChecked();
     await expect(automatic).toBeEnabled();
     await popup.reload();
-    await popup.evaluate(() => {
-      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
-        'details.panel, details.management',
-      ))
-        panel.open = true;
-    });
     await expect(automatic).toBeChecked();
     await automatic.click();
     await expect(automatic).not.toBeChecked();
@@ -125,24 +114,18 @@ test('unpacked extension worker and popup load without page access', async () =>
       .getByRole('textbox', { name: 'HTTPS origin to block' })
       .fill('https://site.fixture.invalid/login?synthetic=1');
     await expect(
-      popup.getByRole('button', { name: 'Block site locally' }),
+      popup.getByRole('button', { name: 'Add site' }),
     ).toBeDisabled();
     await popup
       .getByRole('textbox', { name: 'HTTPS origin to block' })
       .fill('https://site.fixture.invalid');
-    await popup.getByRole('button', { name: 'Block site locally' }).click();
+    await popup.getByRole('button', { name: 'Add site' }).click();
     await expect(
       popup.getByRole('button', {
         name: 'Remove local block for https://site.fixture.invalid',
       }),
     ).toBeVisible();
     await popup.reload();
-    await popup.evaluate(() => {
-      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
-        'details.panel, details.management',
-      ))
-        panel.open = true;
-    });
     await popup
       .getByRole('button', {
         name: 'Remove local block for https://site.fixture.invalid',
@@ -169,15 +152,9 @@ test('unpacked extension worker and popup load without page access', async () =>
       });
     }, event);
     await popup.reload();
-    await popup.evaluate(() => {
-      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
-        'details.panel, details.management',
-      ))
-        panel.open = true;
-    });
     await expect(popup.getByText('1 local activity records.')).toBeVisible();
     await expect(
-      popup.getByText('Input filled (login acceptance unknown)', {
+      popup.getByText('Code inserted (login acceptance unknown)', {
         exact: false,
       }),
     ).toBeVisible();
@@ -191,41 +168,27 @@ test('unpacked extension worker and popup load without page access', async () =>
       popup.getByRole('textbox', { name: 'Local history JSON' }),
     ).toHaveCount(0);
     await popup.reload();
-    await popup.evaluate(() => {
-      for (const panel of document.querySelectorAll<HTMLDetailsElement>(
-        'details.panel, details.management',
-      ))
-        panel.open = true;
-    });
     await expect(popup.getByText('0 local activity records.')).toBeVisible();
     await expect(
-      popup.getByText('Cloud activity upload is disabled', { exact: false }),
+      popup.getByText('Cloud history and settings sync are unavailable.', {
+        exact: false,
+      }),
     ).toBeVisible();
     const page = await context.newPage();
     await page.goto('http://127.0.0.1:3100');
-    await expect(page.locator('input')).toHaveCount(0);
+    await expect(page.locator('input')).toHaveCount(1);
+    await expect(page.locator('#demo-code')).toHaveValue('');
     expect(
       await worker.evaluate(
         () => chrome.runtime.getManifest().host_permissions ?? [],
       ),
     ).toEqual([]);
-    await expect(popup.getByRole('button', { name: 'Fill' })).toBeDisabled();
     await expect(
-      popup.getByRole('button', { name: 'Find code / Retry' }),
+      popup.getByRole('button', { name: 'Fill', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      popup.getByRole('button', { name: 'Enable on websites' }),
     ).toBeEnabled();
-    await expect(
-      popup.getByRole('button', { name: 'Open dashboard' }),
-    ).toBeDisabled();
-    await expect(
-      popup.getByRole('button', { name: 'Enable on websites' }).first(),
-    ).toBeEnabled();
-    await popup.getByText('How code matching works', { exact: true }).focus();
-    await popup.keyboard.press('Enter');
-    await expect(
-      popup.getByText('Sender identity and the email-to-website relationship', {
-        exact: false,
-      }),
-    ).toBeVisible();
     await automatic.focus();
     await expect(automatic).toBeFocused();
     await popup.keyboard.press('Space');
@@ -234,7 +197,7 @@ test('unpacked extension worker and popup load without page access', async () =>
     await expect(automatic).toBeFocused();
     await popup.keyboard.press('Space');
     await expect(automatic).not.toBeChecked();
-    await expect(popup.getByText('No recorded fill action.')).toBeVisible();
+
     expect(
       await popup.locator('body').evaluate((body) => body.scrollWidth <= 380),
     ).toBe(true);

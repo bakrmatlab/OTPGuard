@@ -33,6 +33,9 @@ if (
   throw new Error('Provider configuration must be absent for review packaging');
 
 const extension = 'apps/extension/build/chrome-mv3-prod';
+const manifest = JSON.parse(
+  await readFile(`${extension}/manifest.json`, 'utf8'),
+);
 const extensionFiles = [
   'background.js',
   'content.js',
@@ -41,15 +44,28 @@ const extensionFiles = [
   'popup-entry.css',
   'popup-entry.js',
   'popup.html',
-];
+  ...(manifest.options_ui
+    ? [
+        'BigShoulders-OFL.txt',
+        'InstrumentSans-OFL.txt',
+        'management-entry.css',
+        'management-entry.js',
+        'management.html',
+      ]
+    : []),
+].sort();
 if (
   JSON.stringify((await readdir(extension)).sort()) !==
   JSON.stringify(extensionFiles)
 )
   throw new Error('Unexpected extension artifact files');
-const manifest = JSON.parse(
-  await readFile(`${extension}/manifest.json`, 'utf8'),
-);
+if (
+  manifest.options_ui &&
+  (manifest.options_ui.page !== 'management.html' ||
+    manifest.options_ui.open_in_tab !== true ||
+    Object.keys(manifest.options_ui).length !== 2)
+)
+  throw new Error('Unexpected management page configuration');
 if (
   manifest.manifest_version !== 3 ||
   manifest.action?.default_popup !== 'popup.html' ||
@@ -86,6 +102,11 @@ try {
   await cp('apps/web/.next/static', join(web, 'apps/web/.next/static'), {
     recursive: true,
   });
+  if ((await readdir('apps/web')).includes('public'))
+    await cp('apps/web/public', join(web, 'apps/web/public'), {
+      recursive: true,
+      verbatimSymlinks: true,
+    });
   // Reject provider files or private key material in traced dependencies/output.
   // This supplements the clean-build rule; it is not a general secret detector.
   const inspect = async (

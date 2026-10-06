@@ -107,10 +107,15 @@ export function createLocalSettings(
     }
   };
   const initialized = initialize();
-  const update = (change: (current: LocalSettings) => LocalSettings) => {
+  const update = (
+    change: (current: LocalSettings) => LocalSettings,
+    authorize?: () => Promise<boolean>,
+  ) => {
     const operation = queue.then(async () => {
       await initialized;
       if (!ready) throw new Error('LOCAL_SETTINGS_UNAVAILABLE');
+      if (authorize && !(await authorize()))
+        throw new Error('AUTHORITY_CHANGED');
       const next = change(snapshot());
       await store.write(next);
       value = next;
@@ -129,12 +134,16 @@ export function createLocalSettings(
     initialized,
     snapshot,
     available: () => ready,
-    setAutofill(autofillEnabled: boolean) {
+    setAutofill(autofillEnabled: boolean, authorize?: () => Promise<boolean>) {
       if (typeof autofillEnabled !== 'boolean')
         return Promise.reject(new Error('INVALID_SETTINGS'));
-      return update((current) => ({ ...current, autofillEnabled }));
+      return update((current) => ({ ...current, autofillEnabled }), authorize);
     },
-    setBlock(origin: string, blocked: boolean) {
+    setBlock(
+      origin: string,
+      blocked: boolean,
+      authorize?: () => Promise<boolean>,
+    ) {
       if (!canonicalBlock(origin) || typeof blocked !== 'boolean')
         return Promise.reject(new Error('INVALID_BLOCK'));
       return update((current) => {
@@ -143,7 +152,7 @@ export function createLocalSettings(
         else origins.delete(origin);
         if (origins.size > 100) throw new Error('BLOCK_LIMIT');
         return { ...current, blockedOrigins: [...origins] };
-      });
+      }, authorize);
     },
   };
 }

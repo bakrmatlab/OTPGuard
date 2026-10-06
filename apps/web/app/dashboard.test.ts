@@ -68,15 +68,16 @@ describe('dashboard presentation without live transport', () => {
       expect(html).toContain(`aria-busy="${kind === 'loading'}"`);
     }
   });
-  it('ships no editable trust, storage bridge or active cloud controls', () => {
+  it('renders browser management controls without pretending to have local data', () => {
     const html = renderToStaticMarkup(createElement(Dashboard));
-    expect(html).toContain('Canva');
-    expect(html).toContain(
-      'cannot read unsynchronized extension-local activity',
-    );
+    expect(html).toContain('connect this browser');
+    expect(html).toContain('Automatic finding');
+    expect(html).toContain('Block site');
+    expect(html).toContain('Export local history');
+    expect(html).toContain('Delete local history');
     expect(html).toContain('Account authentication is unconfigured.');
-    expect(html.match(/<button disabled=""/g)).toHaveLength(2);
-    expect(html).not.toMatch(/<input|<textarea|<iframe/);
+    expect(html).not.toContain('cannot read unsynchronized');
+    expect(html).not.toContain('Example connected');
     expect(html).not.toContain(id);
   });
 });

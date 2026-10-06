@@ -112,16 +112,16 @@ try {
   });
   await page.goto('http://127.0.0.1:3201');
   await expect(
-    page.getByRole('heading', { name: 'Email codes, with less friction.' }),
+    page.getByRole('heading', { name: 'Find the code.Choose Fill.' }),
   ).toBeVisible();
   await page.goto('http://127.0.0.1:3201/dashboard');
   await expect(
-    page.getByRole('heading', { name: 'Overview', exact: true }),
+    page.getByRole('heading', { name: 'Browser settings', exact: true }),
   ).toBeVisible();
   await page.setViewportSize({ width: 380, height: 800 });
   await page
     .getByRole('navigation', { name: 'Dashboard' })
-    .getByRole('link', { name: 'Account & connections', exact: true })
+    .getByRole('link', { name: 'Browser settings', exact: true })
     .click();
   await expect(page.locator('#connections')).toBeVisible();
   expect(
@@ -149,16 +149,14 @@ try {
     (await context.waitForEvent('serviceworker'));
   const popup = await context.newPage();
   await popup.goto(
-    `chrome-extension://${new URL(worker.url()).host}/popup.html`,
+    `chrome-extension://${new URL(worker.url()).host}/management.html`,
   );
-  await popup.locator('.management > summary').click();
-  await popup.locator('#gmail-summary').click();
   await expect(
     popup
       .getByText('Gmail connection is unconfigured.', { exact: false })
       .first(),
   ).toBeVisible();
-  await expect(popup.getByRole('button', { name: 'Fill' })).toBeDisabled();
+  await expect(popup.getByRole('button', { name: 'Fill' })).toHaveCount(0);
   console.log(
     'Extracted review packages passed: standalone routes/mobile/assets and MV3 worker/popup',
   );

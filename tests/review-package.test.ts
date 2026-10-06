@@ -13,6 +13,11 @@ import { describe, expect, it } from 'vitest';
 
 const script = resolve('scripts/package-review.ts');
 const names = [
+  'BigShoulders-OFL.txt',
+  'InstrumentSans-OFL.txt',
+  'management-entry.css',
+  'management-entry.js',
+  'management.html',
   'background.js',
   'content.js',
   'icon.png',
@@ -24,6 +29,7 @@ const names = [
 const manifest = {
   manifest_version: 3,
   action: { default_popup: 'popup.html' },
+  options_ui: { page: 'management.html', open_in_tab: true },
   background: { service_worker: 'background.js', type: 'module' },
   permissions: ['storage', 'scripting', 'webNavigation'],
   host_permissions: [],
@@ -37,6 +43,18 @@ const manifest = {
 
 describe('credential-free review package boundary', () => {
   for (const [name, setup, reason] of [
+    [
+      'unexpected management page',
+      (root: string) =>
+        writeFileSync(
+          join(root, 'apps/extension/build/chrome-mv3-prod/manifest.json'),
+          JSON.stringify({
+            ...manifest,
+            options_ui: { page: 'management.html?forged=1', open_in_tab: true },
+          }),
+        ),
+      'Unexpected management page configuration',
+    ],
     [
       'provider file',
       (root: string) => writeFileSync(join(root, '.env.local'), 'SYNTHETIC=1'),

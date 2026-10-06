@@ -74,8 +74,10 @@ for (const name of [
 ])
   define[`process.env.${name}`] = JSON.stringify(process.env[name] ?? '');
 const result = await Bun.build({
-  entrypoints: ['background.ts', 'popup-entry.tsx'],
+  entrypoints: ['background.ts', 'popup-entry.tsx', 'management-entry.tsx'],
   target: 'browser',
+  loader: { '.ttf': 'file' },
+  naming: { asset: '[name].[ext]' },
   format: 'esm',
   outdir,
   minify: true,
@@ -97,6 +99,12 @@ await writeFile(
   `${outdir}/popup.html`,
   '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OTPGuard</title><link rel="stylesheet" href="popup-entry.css"></head><body><div id="root"></div><script type="module" src="popup-entry.js"></script></body></html>\n',
 );
+await writeFile(
+  `${outdir}/management.html`,
+  '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OTPGuard — Browser settings</title><link rel="stylesheet" href="management-entry.css"></head><body><div id="root"></div><script type="module" src="management-entry.js"></script></body></html>\n',
+);
+for (const name of ['BigShoulders-OFL.txt', 'InstrumentSans-OFL.txt'])
+  await copyFile(`assets/fonts/${name}`, `${outdir}/${name}`);
 const metadata = JSON.parse(await readFile('package.json', 'utf8'));
 await writeFile(
   `${outdir}/manifest.json`,
@@ -108,9 +116,18 @@ await writeFile(
       description: metadata.description,
       icons: { '128': 'icon.png' },
       action: { default_popup: 'popup.html', default_icon: 'icon.png' },
+      options_ui: { page: 'management.html', open_in_tab: true },
       background: { service_worker: 'background.js', type: 'module' },
       ...finalized,
       ...pilotManifest,
+      ...(config
+        ? {
+            externally_connectable: {
+              ids: [],
+              matches: [config.webOrigin + '/*'],
+            },
+          }
+        : {}),
     },
     null,
     2,

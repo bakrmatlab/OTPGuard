@@ -75,6 +75,11 @@ export function createLocalHistory(
         return JSON.stringify({ version: 1, events });
       }),
     // Explicit deletion can also recover a corrupt history record.
-    clear: () => serialize(() => save([])),
+    clear: (authorize?: () => Promise<boolean>) =>
+      serialize(async () => {
+        if (authorize && !(await authorize()))
+          throw new Error('AUTHORITY_CHANGED');
+        await save([]);
+      }),
   };
 }

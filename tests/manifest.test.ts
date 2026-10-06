@@ -33,6 +33,11 @@ describe('production extension permission boundary', () => {
     );
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.action.default_popup).toBe('popup.html');
+    expect(manifest.options_ui).toEqual({
+      page: 'management.html',
+      open_in_tab: true,
+    });
+    expect(manifest.web_accessible_resources).toBeUndefined();
     expect(manifest.background.service_worker).toBeTruthy();
     const exported = !!process.env.OTPGuard_ARTIFACT;
     const account = exported
@@ -54,6 +59,9 @@ describe('production extension permission boundary', () => {
           extensionId: coreGmail.extensionId,
         })
       : configuredGmail();
+    expect(manifest.externally_connectable).toEqual(
+      account ? { ids: [], matches: [account.webOrigin + '/*'] } : undefined,
+    );
     const expected = connectionManifest(account, gmail);
     const probeOrigin = convexProbeOrigin(
       exported
@@ -92,7 +100,6 @@ describe('production extension permission boundary', () => {
     }
     expect(manifest.content_scripts ?? []).toEqual([]);
     expect(manifest.web_accessible_resources ?? []).toEqual([]);
-    expect(manifest.externally_connectable).toBeUndefined();
   });
 });
 

@@ -3,15 +3,25 @@
 This describes the current generic source and disabled cloud integration seams. It is not a published
 store privacy policy or proof of provider review. The default demo needs no account or mail.
 
-| Data                  | Location and current handling                                                                                                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local settings        | Trusted-context Chrome storage: version, random installation UUID, autofill preference and exact HTTPS blocked origins; profile-local, never synced today                             |
-| Local history         | Version plus service ID/null, FILL action, result/reason enums, timestamp and installation UUID; at most 500 records, seven-day logical visibility; generic fills use null service ID |
-| Gmail token           | Optional worker operation locals and Chrome-managed cache; no application refresh-token/token persistence; Google profile Authorization header or revoke POST body only               |
-| Mailbox identity      | Optional worker memory and popup display; not stored as application data, exported or uploaded; revalidated after restart using only local connection-intent digests                  |
-| Clerk session         | Production shared-session auth now configured and basic live checks passed; worker-only probes and no application cache; browser-owned provider cookies remain separate               |
-| Email/OTP             | Generic production retrieval processes bounded raw Gmail mail in worker memory and releases a candidate only after required Fill; only fabricated codes appear in fixtures/assets     |
-| Future cloud metadata | Inactive account-scoped boolean settings, installation status/time and separate six-field history contract; no current app transport/upload                                           |
+October 6 UI update: account/mailbox status and local management now appear in an
+extension-owned Options tab and, after Connect this browser, the signed-in
+otpguard.net dashboard. The exact configured website can read local settings,
+blocked origins, mailbox status/address and last activity metadata. History
+export shares sanitized JSON only on request. No cloud upload was introduced.
+Codes, mail content and tokens never enter this bridge. The
+clearly labelled public website demo uses a synthetic code in its own field only;
+it never connects to Gmail or to the extension and has no submission control.
+See [UI acceptance](dark-ui-implementation-acceptance.md).
+
+| Data                  | Location and current handling                                                                                                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Local settings        | Trusted-context Chrome storage: version, random installation UUID, autofill preference and exact HTTPS blocked origins; profile-local, never synced today                                              |
+| Local history         | Version plus service ID/null, FILL action, result/reason enums, timestamp and installation UUID; at most 500 records, seven-day logical visibility; generic fills use null service ID                  |
+| Gmail token           | Optional worker operation locals and Chrome-managed cache; no application refresh-token/token persistence; Google profile Authorization header or revoke POST body only                                |
+| Mailbox identity      | Optional worker memory, extension Options and authorized dashboard display; not stored as application data, exported or uploaded; revalidated after restart using only local connection-intent digests |
+| Clerk session         | Production shared-session auth now configured and basic live checks passed; worker-only probes and no application cache; browser-owned provider cookies remain separate                                |
+| Email/OTP             | Generic production retrieval processes bounded raw Gmail mail in worker memory and releases a candidate only after required Fill; only fabricated codes appear in fixtures/assets                      |
+| Future cloud metadata | Inactive account-scoped boolean settings, installation status/time and separate six-field history contract; no current app transport/upload                                                            |
 
 No OTP, OTP hash, message body/subject/snippet, message/mailbox/account identifiers, raw URL,
 exact destination hostname, arbitrary error text or Gmail credential belongs in history or

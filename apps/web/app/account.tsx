@@ -5,11 +5,7 @@ export function Account() {
   if (!isLoaded) return <p role="status">Checking account session…</p>;
   return user ? (
     <div className="account-session">
-      <p>{user.primaryEmailAddress?.emailAddress ?? user.id}</p>
-      <details>
-        <summary>Account reference</summary>
-        <p className="mono">Account ID: {user.id}</p>
-      </details>
+      <p>{user.primaryEmailAddress?.emailAddress ?? 'Signed in'}</p>
       <p>
         Sign-out also signs out the OTPGuard extension in this browser profile.
       </p>

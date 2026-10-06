@@ -100,8 +100,12 @@ export function createAuthenticatedMailbox(
       pending = false;
     }
   };
-  const serialize = (connect: boolean) => {
-    const result = queued.then(() => run(connect));
+  const serialize = (connect: boolean, authorize?: () => Promise<boolean>) => {
+    const result = queued.then(async () => {
+      if (authorize && !(await authorize()))
+        return { state: 'SIGN_IN_REQUIRED' as const };
+      return run(connect);
+    });
     queued = result.then(
       () => {},
       () => {},
@@ -109,7 +113,7 @@ export function createAuthenticatedMailbox(
     return result;
   };
   return {
-    connect: () => serialize(true),
+    connect: (authorize?: () => Promise<boolean>) => serialize(true, authorize),
     check() {
       if (checking) return checking;
       const result = serialize(false);

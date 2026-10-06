@@ -139,3 +139,12 @@ it('periodic status refresh cannot supersede a stable signed-in explicit Connect
   expect(await statusPoll).not.toBeNull();
   expect(s.adapter.token).toHaveBeenCalledOnce();
 });
+
+it('rechecks dashboard document authority before queued interactive Gmail consent', async () => {
+  const s = setup();
+  expect(await s.mailbox.connect(async () => false)).toEqual({
+    state: 'SIGN_IN_REQUIRED',
+  });
+  expect(s.adapter.token).not.toHaveBeenCalled();
+  expect((await s.mailbox.connect(async () => true)).state).toBe('CONNECTED');
+});

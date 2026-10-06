@@ -384,3 +384,21 @@ it('rejects malformed provider status before a bound transport can send it', asy
   expect(transport.registerInstallation).not.toHaveBeenCalled();
   f.dispose();
 });
+
+it('rechecks website authority inside queued settings writes', async () => {
+  const f = localFixture();
+  await f.local.initialized;
+  f.write.mockClear();
+  const authorize = vi.fn(async () => false);
+  await expect(f.local.setAutofill(false, authorize)).rejects.toThrow(
+    'AUTHORITY_CHANGED',
+  );
+  await expect(
+    f.local.setBlock('https://example.com', true, authorize),
+  ).rejects.toThrow('AUTHORITY_CHANGED');
+  expect(f.local.snapshot().autofillEnabled).toBe(true);
+  expect(f.local.snapshot().blockedOrigins).toEqual([]);
+  expect(f.write).not.toHaveBeenCalled();
+  await f.local.setAutofill(false, async () => true);
+  expect(f.local.snapshot().autofillEnabled).toBe(false);
+});

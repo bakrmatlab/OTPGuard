@@ -1,9 +1,9 @@
 import { chromium, expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
 
-test('popup loading and storage errors fail closed without enabling unsupported actions', async () => {
+async function popupContext() {
   const extension = resolve('apps/extension/build/chrome-mv3-prod');
-  const context = await chromium.launchPersistentContext('', {
+  return chromium.launchPersistentContext('', {
     channel: 'chromium',
     headless: true,
     args: [
@@ -11,160 +11,36 @@ test('popup loading and storage errors fail closed without enabling unsupported 
       `--load-extension=${extension}`,
     ],
   });
+}
+
+test('minimal dark popup keeps Fill bound and suppresses repeated READY after a click', async () => {
+  const context = await popupContext();
   try {
     const worker =
       context.serviceWorkers()[0] ??
       (await context.waitForEvent('serviceworker'));
     const popup = await context.newPage();
+    await popup.setViewportSize({ width: 320, height: 500 });
     const errors: string[] = [];
     popup.on('pageerror', (error) => errors.push(error.name));
     await popup.addInitScript(() => {
-      let failed = false;
-      const pending = new Set<() => void>();
-      Object.defineProperty(window, 'failWorkerRequests', {
-        value() {
-          failed = true;
-          for (const reject of pending) reject();
-          pending.clear();
-        },
-      });
-      chrome.runtime.sendMessage = (() =>
-        new Promise((_, reject) => {
-          const fail = () => reject(new Error('Synthetic worker unavailable'));
-          if (failed) fail();
-          else pending.add(fail);
-        })) as typeof chrome.runtime.sendMessage;
-    });
-    await popup.goto(
-      `chrome-extension://${new URL(worker.url()).host}/popup.html`,
-    );
-    await expect(popup.getByText('Checking Gmail connection…')).toBeVisible();
-    await popup.locator('.management > summary').click();
-    await popup.locator('#settings-summary').click();
-    await popup.locator('#history-summary').click();
-    await expect(popup.getByRole('checkbox')).toBeDisabled();
-    // Hold loading until its assertions finish, regardless of CI scheduling.
-    await popup.evaluate(() => {
-      const fail = Reflect.get(window, 'failWorkerRequests');
-      if (typeof fail !== 'function')
-        throw new Error('Missing synthetic failure gate');
-      fail();
-    });
-    await expect(
-      popup.getByText(
-        'Local settings unavailable. Automatic fill stays disabled.',
-      ),
-    ).toBeVisible();
-    await expect(popup.getByText('Local history unavailable.')).toBeVisible();
-    await expect(
-      popup.getByRole('button', { name: 'Export local history' }),
-    ).toBeDisabled();
-    await expect(
-      popup.getByRole('button', { name: 'Delete local history' }),
-    ).toBeEnabled();
-    await popup.getByRole('button', { name: 'Delete local history' }).click();
-    await expect(
-      popup.getByRole('button', { name: 'Delete local history' }),
-    ).toBeEnabled();
-    await expect(popup.getByRole('button', { name: 'Fill' })).toBeDisabled();
-    await expect(
-      popup.getByRole('button', { name: 'Find code / Retry' }),
-    ).toBeEnabled();
-    expect(errors).toEqual([]);
-  } finally {
-    await context.close();
-  }
-});
-
-test('compact popup presents synthetic request states and keyboard disclosure without releasing a code', async () => {
-  const extension = resolve('apps/extension/build/chrome-mv3-prod');
-  const context = await chromium.launchPersistentContext('', {
-    channel: 'chromium',
-    headless: true,
-    args: [
-      `--disable-extensions-except=${extension}`,
-      `--load-extension=${extension}`,
-    ],
-  });
-  try {
-    const worker =
-      context.serviceWorkers()[0] ??
-      (await context.waitForEvent('serviceworker'));
-    const popup = await context.newPage();
-    await popup.setViewportSize({ width: 380, height: 600 });
-    await popup.addInitScript(() => {
-      let state = {
+      let state: Record<string, unknown> = {
         state: 'READY',
         requestId: 'synthetic-request',
-        prompt: 'manual',
       };
-      const actions: string[] = [];
-      let holdFill = false;
-      let statusReads = 0;
-      let rejectFill: (() => void) | undefined;
-      let finishFill: ((value: boolean) => void) | undefined;
-      Object.defineProperty(window, 'syntheticPopup', {
-        value: {
-          delayFill() {
-            holdFill = true;
-            statusReads = 0;
-          },
-          reads() {
-            return statusReads;
-          },
-          failFill() {
-            rejectFill?.();
-            holdFill = false;
-          },
-          finishFill(value: boolean) {
-            state = { ...state, state: value ? 'FILLED' : 'CANCELLED' };
-            finishFill?.(value);
-            holdFill = false;
-          },
-          update(value: typeof state) {
-            state = value;
-          },
-          actions,
+      const actions: unknown[] = [];
+      Reflect.set(window, 'syntheticPopup', {
+        actions,
+        update: (next: Record<string, unknown>) => {
+          state = next;
         },
       });
-      chrome.runtime.sendMessage = ((message: {
-        type: string;
-        requestId?: string;
-      }) => {
-        if (message.type === 'pipeline-status') {
-          statusReads++;
-          return Promise.resolve(state);
-        }
+      chrome.permissions.contains = async () => true;
+      chrome.runtime.sendMessage = ((message: { type: string }) => {
         if (message.type === 'account-status')
-          return Promise.resolve({
-            state: 'SIGNED_IN',
-            label: 'owner@fixture.invalid',
-          });
-        if (message.type === 'gmail-status')
-          return Promise.resolve({
-            state: 'CONNECTED',
-            mailbox: 'mailbox@fixture.invalid',
-          });
-        if (message.type === 'settings-status')
-          return Promise.resolve({
-            state: 'LOCAL',
-            autofillEnabled: true,
-            blockedOrigins: [],
-          });
-        if (message.type === 'history-status')
-          return Promise.resolve({ state: 'LOCAL', count: 0 });
-        actions.push(message.type);
-        if (message.type === 'pipeline-fill') {
-          if (message.requestId !== state.requestId)
-            throw new Error('Wrong request binding');
-          if (holdFill)
-            return new Promise<boolean>((resolve, reject) => {
-              finishFill = resolve;
-              rejectFill = () =>
-                reject(new Error('Synthetic handoff response lost'));
-            });
-          state = { ...state, state: 'FILLED' };
-        }
+          return Promise.resolve({ state: 'SIGNED_IN' });
+        if (message.type === 'pipeline-status') return Promise.resolve(state);
+        actions.push(message);
         return Promise.resolve(true);
       }) as typeof chrome.runtime.sendMessage;
     });
@@ -172,344 +48,180 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
       `chrome-extension://${new URL(worker.url()).host}/popup.html`,
     );
     await expect(
-      popup.getByRole('heading', { name: 'Code found' }),
+      popup.getByRole('heading', { name: 'Code found', exact: true }),
     ).toBeVisible();
     await expect(
-      popup.getByText('Local matching', { exact: true }),
-    ).toBeVisible();
-    await expect(popup.getByText('Canva pilot', { exact: true })).toHaveCount(
-      0,
-    );
-    const fill = popup.getByRole('button', { name: 'Fill', exact: true });
-    await expect(fill).toBeEnabled();
-    expect(await fill.boundingBox()).toMatchObject({ y: expect.any(Number) });
-    expect(
-      await fill.evaluate((el) => el.getBoundingClientRect().bottom),
-    ).toBeLessThan(300);
-    expect(
-      await popup.evaluate(() => document.documentElement.scrollWidth),
-    ).toBe(380);
+      popup.getByRole('link', { name: 'Open OTPGuard' }),
+    ).toHaveAttribute('href', 'https://otpguard.net/dashboard');
+    await expect(popup.locator('input, textarea, details')).toHaveCount(0);
     expect(
       await popup
-        .locator('main')
-        .evaluate((el) => el.getBoundingClientRect().height),
-    ).toBeLessThanOrEqual(600);
+        .locator('body')
+        .evaluate((body) => getComputedStyle(body).backgroundColor),
+    ).toBe('rgb(8, 11, 11)');
     expect(
-      await popup.evaluate(() => Reflect.get(window, 'syntheticPopup').actions),
-    ).toEqual([]);
-    if (process.env.OTPGUARD_POPUP_PREVIEW)
-      await popup.screenshot({
-        path: process.env.OTPGUARD_POPUP_PREVIEW,
-        fullPage: true,
-      });
-    await popup
-      .getByRole('button', { name: 'Manage connections', exact: true })
-      .click();
-    await expect(popup.locator('#gmail-summary')).toBeFocused();
-    await expect(
-      popup.getByText('Mailbox: mailbox@fixture.invalid'),
-    ).toBeVisible();
-    await expect(popup.locator('details.management')).toHaveAttribute(
-      'open',
-      '',
-    );
-    expect(
-      await popup.evaluate(() => Reflect.get(window, 'syntheticPopup').actions),
-    ).toEqual([]);
-    if (process.env.OTPGUARD_POPUP_PREVIEW)
-      await popup.screenshot({
-        path: process.env.OTPGUARD_POPUP_PREVIEW.replace(
-          '.png',
-          '-connections.png',
-        ),
-        fullPage: true,
-      });
-    await popup.locator('.management > summary').click();
-    await fill.click();
-    await expect(
-      popup.getByRole('heading', { name: 'Code inserted', exact: true }),
-    ).toBeVisible();
-    await popup.evaluate(() =>
-      Reflect.get(window, 'syntheticPopup').update({
-        state: 'SEARCHING',
-        progress: {
-          stage: 'decoding',
-          elapsedSeconds: 12,
-          stageSeconds: 3,
-          steps: ['listing', 'fetching', 'decoding', 'template'],
-        },
-      }),
-    );
-    await expect(
-      popup.getByText('Checking recent emails · 12s elapsed'),
-    ).toBeVisible();
-    await popup.getByText('Request progress', { exact: true }).click();
-    await expect(
-      popup.getByText(
-        'A recent message was excluded: code wording was not recognized',
-        {
-          exact: true,
-        },
-      ),
-    ).toBeVisible();
-    const states: [string, string][] = [
-      ['SEARCHING', 'Looking for your code'],
-      ['CANDIDATE', 'Completing your request'],
-      ['VERIFIED', 'Completing your request'],
-      ['FILLING', 'Inserting your code'],
-      ['DELIVERY_UNCONFIRMED', 'Insertion could not be confirmed'],
-      ['NO_CODE', 'No eligible code found'],
-      ['UNKNOWN', 'Could not select a code'],
-      ['ACCOUNT_UNAVAILABLE', 'Sign in to find your code'],
-      ['MAILBOX_UNAVAILABLE', 'Reconnect Gmail'],
-      ['NO_CHALLENGE', 'Code field not detected'],
-      ['MISMATCH', 'Destination does not match'],
-      ['BLOCKED', 'This site is blocked'],
-      ['ERROR', 'Could not complete the request'],
-      ['CANCELLED', 'Request stopped'],
-      ['IDLE', 'Ready when you need a code'],
-    ];
-    for (const [state, title] of states) {
-      await popup.evaluate(
-        (state) =>
-          Reflect.get(window, 'syntheticPopup').update({
-            state,
-            cancellation: 'confirmation-expired',
-          }),
-        state,
-      );
-      await expect(
-        popup.getByRole('heading', { name: title, exact: true }),
-      ).toBeVisible();
-      await expect(fill).toBeDisabled();
-      if (
-        process.env.OTPGUARD_POPUP_PREVIEW &&
-        ['SEARCHING', 'NO_CODE', 'CANCELLED'].includes(state)
-      )
-        await popup.screenshot({
-          path: process.env.OTPGUARD_POPUP_PREVIEW.replace(
-            '.png',
-            '-' + state.toLowerCase() + '.png',
-          ),
-          fullPage: true,
-        });
-      if (state === 'CANCELLED')
-        await expect(popup.getByRole('status')).toContainText(
-          'expired before confirmation',
-        );
-    }
-    for (const [stage, text] of [
-      ['messages-ambiguous', 'Multiple recent emails contain plausible codes'],
-      ['codes-ambiguous', 'One email contains multiple plausible codes'],
-      [
-        'requests-ambiguous',
-        'Competing login requests or code field groups were detected',
-      ],
-      [
-        'retrieval-incomplete',
-        'Email retrieval did not return a complete candidate set',
-      ],
-    ]) {
-      await popup.evaluate(
-        (stage) =>
-          Reflect.get(window, 'syntheticPopup').update({
-            state: 'UNKNOWN',
-            reason: 'ambiguity',
-            progress: {
-              stage,
-              elapsedSeconds: 8,
-              stageSeconds: 0,
-              steps: ['selecting', stage],
-            },
-          }),
-        stage,
-      );
-      await expect(popup.getByRole('status')).toHaveText(
-        text +
-          '. No code was released.' +
-          (stage === 'messages-ambiguous'
-            ? ' Request one new code on this site, wait for its email, then retry.'
-            : ''),
-      );
-      await expect(fill).toBeDisabled();
-    }
-    await popup.evaluate(() =>
-      Reflect.get(window, 'syntheticPopup').update({
-        state: 'UNKNOWN',
-        retrievalIssue: 'mime',
-      }),
-    );
-    await expect(popup.getByRole('status')).toContainText(
-      'format that could not be decoded',
-    );
-    await expect(fill).toBeDisabled();
-    await popup.evaluate(() =>
-      Reflect.get(window, 'syntheticPopup').update({
-        state: 'UNKNOWN',
-        retrievalIssue: 'mime-duplicate-headers',
-      }),
-    );
-    await expect(popup.getByRole('status')).toContainText(
-      'Email decoding stopped at duplicate-headers',
-    );
-    await popup.locator('.management > summary').focus();
+      await popup.evaluate(() => document.documentElement.scrollWidth <= 320),
+    ).toBe(true);
+    await popup.getByRole('button', { name: 'Fill', exact: true }).focus();
     await popup.keyboard.press('Enter');
-    await popup.locator('#settings-summary').focus();
-    await popup.keyboard.press('Enter');
-    await expect(popup.getByRole('checkbox')).toBeVisible();
-    await popup.keyboard.press('Tab');
-    await expect(popup.getByRole('checkbox')).toBeFocused();
-    await popup.locator('#settings-summary').focus();
-    await popup.keyboard.press('Space');
-    await expect(popup.getByRole('checkbox')).not.toBeVisible();
-    expect(
-      await popup.evaluate(() => Reflect.get(window, 'syntheticPopup').actions),
-    ).toEqual(['pipeline-fill']);
-    await popup.evaluate(() =>
-      Reflect.get(window, 'syntheticPopup').update({
-        state: 'EMAIL_CONFIRMATION_REQUIRED',
-        requestId: 'synthetic-request',
-      }),
-    );
-    await expect(popup.getByText('Is this an email code?')).toBeVisible();
-    await expect(
-      popup.getByRole('button', { name: 'Fill', exact: true }),
-    ).toBeDisabled();
-    const confirmEmail = popup.getByRole('button', {
-      name: 'This is an email code',
-      exact: true,
-    });
-    await confirmEmail.focus();
-    await popup.keyboard.press('Enter');
-    expect(
-      await popup.evaluate(() => Reflect.get(window, 'syntheticPopup').actions),
-    ).toEqual(['pipeline-fill', 'pipeline-confirm-email']);
-    await popup.evaluate(() => {
-      const fixture = Reflect.get(window, 'syntheticPopup');
-      fixture.update({
-        state: 'READY',
-        requestId: 'second-request',
-        prompt: 'manual',
-      });
-      fixture.delayFill();
-    });
-    await expect(fill).toBeEnabled();
-    await fill.click();
-    expect(await fill.isDisabled()).toBe(true);
     await expect(
       popup.getByRole('heading', { name: 'Inserting your code', exact: true }),
     ).toBeVisible();
-    // Wait for an actual stale READY response during this pending handoff.
+    await expect(
+      popup.getByRole('button', { name: 'Fill', exact: true }),
+    ).toHaveCount(0);
     await expect
       .poll(() =>
-        popup.evaluate(() => Reflect.get(window, 'syntheticPopup').reads()),
+        popup.evaluate(() => Reflect.get(window, 'syntheticPopup').actions),
       )
-      .toBeGreaterThan(0);
-    await expect(fill).toBeDisabled();
+      .toEqual([{ type: 'pipeline-fill', requestId: 'synthetic-request' }]);
     await popup.evaluate(() =>
-      Reflect.get(window, 'syntheticPopup').update({ state: 'CANDIDATE' }),
-    );
-    await expect(
-      popup.getByRole('heading', {
-        name: 'Completing your request',
-        exact: true,
-      }),
-    ).toBeVisible();
-    await expect(
-      popup.getByRole('heading', { name: 'Request unavailable', exact: true }),
-    ).not.toBeVisible();
-    await popup.evaluate(() =>
-      Reflect.get(window, 'syntheticPopup').finishFill(true),
+      Reflect.get(window, 'syntheticPopup').update({ state: 'FILLED' }),
     );
     await expect(
       popup.getByRole('heading', { name: 'Code inserted', exact: true }),
     ).toBeVisible();
-    await expect(fill).toBeDisabled();
-    for (const outcome of ['declined', 'lost-response']) {
-      await popup.evaluate((outcome) => {
-        const fixture = Reflect.get(window, 'syntheticPopup');
-        fixture.update({
-          state: 'READY',
-          requestId: outcome + '-request',
-          prompt: 'manual',
-        });
-        fixture.delayFill();
-      }, outcome);
-      await expect(fill).toBeEnabled();
-      await fill.click();
-      expect(await fill.isDisabled()).toBe(true);
-      await popup.evaluate((outcome) => {
-        const fixture = Reflect.get(window, 'syntheticPopup');
-        if (outcome === 'declined') fixture.finishFill(false);
-        else fixture.failFill();
-      }, outcome);
-      await expect(
-        popup.getByRole('heading', {
-          name:
-            outcome === 'declined'
-              ? 'Request stopped'
-              : 'Insertion could not be confirmed',
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(
-        popup.getByRole('heading', { name: 'Code inserted', exact: true }),
-      ).not.toBeVisible();
-      await expect(fill).toBeDisabled();
-    }
-    for (const replay of ['already-used', 'unavailable']) {
-      await popup.evaluate(
-        (replay) =>
-          Reflect.get(window, 'syntheticPopup').update({
-            state: 'UNKNOWN',
-            reason: 'message-binding',
-            replay,
-          }),
-        replay,
-      );
-      await expect(
-        popup.getByRole('heading', {
-          name:
-            replay === 'already-used'
-              ? 'Request a fresh code'
-              : 'Local protection unavailable',
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(fill).toBeDisabled();
-      await expect(popup.getByRole('status')).toContainText(
-        replay === 'already-used'
-          ? 'earlier fill attempt'
-          : 'No code was released',
-      );
-    }
-    // Reproduce the owner's combined state: stale UNKNOWN plus signed-out account.
-    await popup.addInitScript(() => {
-      const send = chrome.runtime.sendMessage;
-      chrome.runtime.sendMessage = ((message: { type: string }) => {
-        if (message.type === 'account-status')
-          return Promise.resolve({ state: 'SIGN_IN_REQUIRED' });
-        if (message.type === 'pipeline-status')
-          return Promise.resolve({ state: 'UNKNOWN' });
-        return send(message);
-      }) as typeof chrome.runtime.sendMessage;
-    });
-    await popup.reload();
-    await expect(
-      popup.getByRole('heading', {
-        name: 'Sign in to find your code',
-        exact: true,
-      }),
-    ).toBeVisible();
-    await expect(
-      popup.getByRole('button', { name: 'Fill', exact: true }),
-    ).toBeDisabled();
+    expect(errors).toEqual([]);
   } finally {
     await context.close();
   }
 });
 
-test('Chrome native action popup keeps 380px content without clipping', async () => {
+test('popup refusal, recovery and pending states never expose Fill', async () => {
+  const context = await popupContext();
+  try {
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker'));
+    const popup = await context.newPage();
+    await popup.addInitScript(() => {
+      let state: Record<string, unknown> = { state: 'IDLE' };
+      const actions: unknown[] = [];
+      Reflect.set(window, 'syntheticPopup', {
+        actions,
+        update: (next: Record<string, unknown>) => {
+          state = next;
+        },
+      });
+      chrome.permissions.contains = async () => true;
+      chrome.runtime.sendMessage = ((message: { type: string }) => {
+        if (message.type === 'account-status')
+          return Promise.resolve({ state: 'SIGNED_IN' });
+        if (message.type === 'pipeline-status') return Promise.resolve(state);
+        actions.push(message);
+        return Promise.resolve(true);
+      }) as typeof chrome.runtime.sendMessage;
+    });
+    await popup.goto(
+      `chrome-extension://${new URL(worker.url()).host}/popup.html`,
+    );
+    const cases = [
+      [{ state: 'SEARCHING' }, 'Finding a code…'],
+      [{ state: 'NO_CODE' }, 'No code found'],
+      [{ state: 'UNKNOWN', reason: 'ambiguity' }, 'Multiple possible codes'],
+      [{ state: 'UNKNOWN', replay: 'already-used' }, 'Code already used'],
+      [
+        { state: 'UNKNOWN', replay: 'unavailable' },
+        'Local protection unavailable',
+      ],
+      [{ state: 'BLOCKED' }, 'Site blocked'],
+      [{ state: 'CANCELLED', cancellation: 'navigation' }, 'Page changed'],
+      [{ state: 'DELIVERY_UNCONFIRMED' }, 'Insertion not confirmed'],
+      [
+        { state: 'EMAIL_CONFIRMATION_REQUIRED', requestId: 'synthetic' },
+        'Is this an email code?',
+      ],
+    ] as const;
+    for (const [state, title] of cases) {
+      await popup.evaluate(
+        (next) => Reflect.get(window, 'syntheticPopup').update(next),
+        state,
+      );
+      await expect(
+        popup.getByRole('heading', { name: title, exact: true }),
+      ).toBeVisible();
+      await expect(
+        popup.getByRole('button', { name: 'Fill', exact: true }),
+      ).toHaveCount(0);
+    }
+    await popup.getByRole('button', { name: 'This is an email code' }).click();
+    expect(
+      await popup.evaluate(() => Reflect.get(window, 'syntheticPopup').actions),
+    ).toEqual([{ type: 'pipeline-confirm-email', requestId: 'synthetic' }]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('account uncertainty and permission failure keep setup outside the popup', async () => {
+  const context = await popupContext();
+  try {
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker'));
+    const popup = await context.newPage();
+    await popup.addInitScript(() => {
+      chrome.permissions.contains = async () => false;
+      chrome.runtime.sendMessage = (() =>
+        Promise.resolve({
+          state: 'SIGN_IN_REQUIRED',
+        })) as typeof chrome.runtime.sendMessage;
+    });
+    await popup.goto(
+      `chrome-extension://${new URL(worker.url()).host}/popup.html`,
+    );
+    await expect(
+      popup.getByRole('heading', { name: 'Sign in to find a code' }),
+    ).toBeVisible();
+    await expect(popup.getByRole('button')).toHaveCount(0);
+    await expect(
+      popup.getByRole('link', { name: 'Open OTPGuard' }),
+    ).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('management loading and storage failures disable local mutations', async () => {
+  const context = await popupContext();
+  try {
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker'));
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      chrome.permissions.contains = async () => true;
+      chrome.runtime.sendMessage = ((message: { type: string }) => {
+        if (
+          message.type === 'settings-status' ||
+          message.type === 'history-status'
+        )
+          return Promise.reject(new Error('synthetic storage failure'));
+        if (message.type === 'account-status')
+          return Promise.resolve({ state: 'SIGNED_IN' });
+        return Promise.resolve({ state: 'DISCONNECTED' });
+      }) as typeof chrome.runtime.sendMessage;
+    });
+    await page.goto(
+      `chrome-extension://${new URL(worker.url()).host}/management.html`,
+    );
+    await expect(page.getByRole('checkbox')).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Add site' })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: 'Export local history' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText('Local history unavailable.', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Fill', exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
+test('Chrome native action popup keeps 320px content without clipping', async () => {
   const extension = resolve('apps/extension/build/chrome-mv3-prod');
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
@@ -563,7 +275,7 @@ test('Chrome native action popup keeps 380px content without clipping', async ()
                   mainRight: main.getBoundingClientRect().right,
                   main: main.getBoundingClientRect().width,
                   overflow: root.scrollWidth > root.clientWidth,
-                  fill: document.querySelector('.actions button').getBoundingClientRect().width,
+                  fill: document.querySelector('.popup-site').getBoundingClientRect().width,
                 }));
               }));
             };
@@ -575,16 +287,13 @@ test('Chrome native action popup keeps 380px content without clipping', async ()
       }),
     });
     const dimensions = JSON.parse(await response);
-    // Pinned Chromium's native host is 380px on macOS and 395px on Linux,
-    // including when DOM scrollbars overlay. Assert the observed host sizes and
-    // independently require exactly 380px of document content without clipping.
-    expect([380, 395], JSON.stringify(dimensions)).toContain(dimensions.width);
-    expect(dimensions.clientWidth).toBeGreaterThanOrEqual(380);
+    // Host chrome can vary; content must remain 320px without clipping.
+    expect(dimensions.clientWidth).toBeGreaterThanOrEqual(320);
     expect(dimensions.clientWidth).toBeLessThanOrEqual(dimensions.width);
-    expect(dimensions.body).toBe(380);
+    expect(dimensions.body).toBe(320);
     expect(dimensions.mainLeft).toBe(0);
     expect(dimensions.mainRight).toBeLessThanOrEqual(dimensions.clientWidth);
-    expect(dimensions.main).toBe(380);
+    expect(dimensions.main).toBe(320);
     expect(dimensions.overflow).toBe(false);
     expect(dimensions.fill).toBeGreaterThan(120);
   } finally {
@@ -622,11 +331,11 @@ test('one-time website setup explains generic matching and enables automatic fin
       }) as typeof chrome.runtime.sendMessage;
     });
     await popup.goto(
-      `chrome-extension://${new URL(worker.url()).host}/popup.html`,
+      `chrome-extension://${new URL(worker.url()).host}/management.html`,
     );
     await expect(
       popup.getByText(
-        'Matching does not verify that the email belongs to the website.',
+        'Fill does not verify the sender or its relationship to this website.',
         { exact: false },
       ),
     ).toBeVisible();
@@ -662,7 +371,7 @@ test('one-time website setup explains generic matching and enables automatic fin
       .toBe(true);
     await expect(
       popup.getByRole('button', { name: 'Fill', exact: true }),
-    ).toBeDisabled();
+    ).toHaveCount(0);
   } finally {
     await context.close();
   }
@@ -684,12 +393,10 @@ test('fresh installation finds codes by default and retains an explicit opt-out'
       (await context.waitForEvent('serviceworker'));
     const popup = await context.newPage();
     await popup.goto(
-      `chrome-extension://${new URL(worker.url()).host}/popup.html`,
+      `chrome-extension://${new URL(worker.url()).host}/management.html`,
     );
-    await popup.locator('.management > summary').click();
-    await popup.locator('#settings-summary').click();
     const automatic = popup.getByRole('checkbox', {
-      name: 'Automatically find codes and show the Fill prompt',
+      name: /Find codes automatically/,
     });
     await expect(automatic).toBeChecked();
     expect(
@@ -699,12 +406,10 @@ test('fresh installation finds codes by default and retains an explicit opt-out'
     ).toBe(false);
     await expect(
       popup.getByRole('button', { name: 'Fill', exact: true }),
-    ).toBeDisabled();
+    ).toHaveCount(0);
     await automatic.click();
     await expect(automatic).not.toBeChecked();
     await popup.reload();
-    await popup.locator('.management > summary').click();
-    await popup.locator('#settings-summary').click();
     await expect(automatic).not.toBeChecked();
   } finally {
     await context.close();
