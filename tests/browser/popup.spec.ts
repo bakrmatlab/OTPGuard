@@ -509,7 +509,7 @@ test('compact popup presents synthetic request states and keyboard disclosure wi
   }
 });
 
-test('Chrome native action popup chooses the full 380px document width', async () => {
+test('Chrome native action popup keeps 380px content without clipping', async () => {
   const extension = resolve('apps/extension/build/chrome-mv3-prod');
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
@@ -549,14 +549,39 @@ test('Chrome native action popup chooses the full 380px document width', async (
         id: 1,
         method: 'Runtime.evaluate',
         params: {
-          expression: `new Promise(resolve => { const read = () => { if (!document.querySelector('main')) { requestAnimationFrame(read); return; } requestAnimationFrame(() => requestAnimationFrame(() => resolve(JSON.stringify({ width: innerWidth, main: document.querySelector('main').getBoundingClientRect().width, overflow: document.documentElement.scrollWidth > innerWidth, fill: document.querySelector('.actions button').getBoundingClientRect().width })))); }; read(); })`,
+          expression: `new Promise(resolve => {
+            const read = () => {
+              const main = document.querySelector('main');
+              if (!main) { requestAnimationFrame(read); return; }
+              requestAnimationFrame(() => requestAnimationFrame(() => {
+                const root = document.documentElement;
+                const probe = document.createElement('div');
+                probe.style.cssText = 'position:fixed;visibility:hidden;width:100px;height:100px;overflow:scroll';
+                document.body.append(probe);
+                const scrollbarWidth = probe.offsetWidth - probe.clientWidth;
+                probe.remove();
+                resolve(JSON.stringify({
+                  width: innerWidth,
+                  clientWidth: root.clientWidth,
+                  scrollbar: root.scrollHeight > root.clientHeight ? scrollbarWidth : 0,
+                  main: main.getBoundingClientRect().width,
+                  overflow: root.scrollWidth > root.clientWidth,
+                  fill: document.querySelector('.actions button').getBoundingClientRect().width,
+                }));
+              }));
+            };
+            read();
+          })`,
           awaitPromise: true,
           returnByValue: true,
         },
       }),
     });
     const dimensions = JSON.parse(await response);
-    expect(dimensions.width).toBe(380);
+    // Native viewport width includes classic scrollbars on Linux; overlay
+    // scrollbars on macOS consume no layout space. Content stays exactly 380px.
+    expect(dimensions.clientWidth).toBe(380);
+    expect(dimensions.width).toBe(380 + dimensions.scrollbar);
     expect(dimensions.main).toBe(380);
     expect(dimensions.overflow).toBe(false);
     expect(dimensions.fill).toBeGreaterThan(120);

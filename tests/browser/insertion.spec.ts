@@ -78,7 +78,7 @@ test('invalid codes and incompatible single/split lengths reject without mutatio
       insertCode(plain, '12345', 6),
       insertCode(plain, '12345', 5),
       insertCode(split, '12345', 5),
-      insertCode(plain, '01a345', 6),
+      insertCode(plain, '01$345', 6),
       insertCode(plain, '123456789', 9),
     ];
     return {
