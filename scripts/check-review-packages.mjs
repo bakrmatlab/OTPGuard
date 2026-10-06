@@ -112,7 +112,7 @@ try {
   });
   await page.goto('http://127.0.0.1:3201');
   await expect(
-    page.getByRole('heading', { name: 'Find the code.Choose Fill.' }),
+    page.getByRole('heading', { name: /Find the code\.\s*Choose Fill\./ }),
   ).toBeVisible();
   await page.goto('http://127.0.0.1:3201/dashboard');
   await expect(
