@@ -990,3 +990,218 @@ it('a fresh request still refuses two newly delivered plausible messages', async
   expect(t.sent).toEqual([]);
   coordinator.dispose();
 });
+
+it('Retry never silently replaces an old challenge with a new lookback window', async () => {
+  const t = setup();
+  const windows: unknown[] = [];
+  t.adapter.retrieve = async (context) => {
+    windows.push(context.requestWindow);
+    return [t.envelope];
+  };
+  t.adapter.reserve = async () => false;
+  const c = createCoordinator(t.adapter);
+  await c.handle(t.detect, {});
+  for (let i = 0; i < 9; i++) t.advance();
+  t.envelope.receivedAt = t.adapter.now();
+  await c.handle({ ...t.detect, manual: true }, {});
+  expect(windows).toMatchObject([
+    { startedAt: 100000, notBefore: 40000 },
+    { startedAt: 100000, notBefore: 40000 },
+  ]);
+  c.dispose();
+});
+
+it('a new email-request gesture cancels pending approval before a new field scan', async () => {
+  const t = setup();
+  t.adapter.confirm = async (_context, _binding, signal) =>
+    new Promise((resolve) =>
+      signal.addEventListener('abort', () => resolve(false), { once: true }),
+    );
+  const c = createCoordinator(t.adapter);
+  const old = c.handle(t.detect, {});
+  await vi.waitFor(() => expect(c.status()).toEqual({ state: 'CANDIDATE' }));
+  t.advance();
+  await c.handle({ type: 'challenge' }, {});
+  expect(c.status()).toEqual({ state: 'CANCELLED' });
+  expect(await old).toEqual({ state: 'CANCELLED' });
+  expect(t.sent).toEqual([]);
+  c.dispose();
+});
+
+it('an older stalled detection cannot supersede a later admitted challenge gesture', async () => {
+  const t = setup();
+  const read = t.adapter.context;
+  let finish!: (value: Awaited<ReturnType<Adapter['context']>>) => void;
+  const context = await read({});
+  let calls = 0;
+  t.adapter.context = async () =>
+    ++calls === 1
+      ? new Promise((resolve) => {
+          finish = resolve;
+        })
+      : context;
+  const c = createCoordinator(t.adapter);
+  const old = c.handle(t.detect, {});
+  t.advance();
+  await c.handle({ type: 'challenge' }, {});
+  finish(context);
+  expect(await old).toEqual({ state: 'CANCELLED' });
+  expect(t.sent).toEqual([]);
+  t.envelope.receivedAt = t.adapter.now();
+  expect(await c.handle({ ...t.detect, manual: true }, {})).toEqual({
+    state: 'FILLED',
+  });
+  c.dispose();
+});
+
+it('keeps the gesture receipt boundary when the challenge authority read finishes after detection', async () => {
+  const t = setup();
+  const context = await t.adapter.context({});
+  let finish!: () => void;
+  let calls = 0;
+  t.adapter.context = async () => {
+    if (++calls === 1)
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    return context;
+  };
+  const sender = {
+    tab: { id: 1 },
+    documentId: 'doc',
+    frameId: 0,
+  } as chrome.runtime.MessageSender;
+  const windows: unknown[] = [];
+  t.adapter.retrieve = async (bound) => {
+    windows.push(bound.requestWindow);
+    return [t.envelope];
+  };
+  const c = createCoordinator(t.adapter);
+  const gesture = c.handle({ type: 'challenge' }, sender);
+  t.advance();
+  t.envelope.receivedAt = 110000;
+  expect(await c.handle({ ...t.detect, fresh: true }, sender)).toEqual({
+    state: 'FILLED',
+  });
+  finish();
+  expect((await gesture).state).not.toBe('SEARCHING');
+  expect(windows).toMatchObject([{ startedAt: 100000, notBefore: 99000 }]);
+  expect(t.sent).toHaveLength(2);
+  c.dispose();
+});
+
+it.each(['same-mailbox', 'other-mailbox', 'other-account'] as const)(
+  'isolates concurrent requests conservatively: %s',
+  async (scenario) => {
+    const t = setup();
+    const base = (await t.adapter.context({}))!;
+    let context = base;
+    let ids = 0;
+    t.adapter.id = () => `parallel-${++ids}`;
+    t.adapter.context = async () => context;
+    const reads: {
+      resolve: (messages: readonly Envelope[]) => void;
+      mailboxId: string;
+    }[] = [];
+    t.adapter.retrieve = async (bound) =>
+      new Promise((resolve) => {
+        reads.push({ resolve, mailboxId: bound.mailboxId });
+      });
+    const c = createCoordinator(t.adapter);
+    const first = c.handle(t.detect, {});
+    await vi.waitFor(() => expect(reads).toHaveLength(1));
+    context = {
+      ...base,
+      tabId: 2,
+      documentId: 'other-document',
+      origin: 'https://other.example',
+      browserUrl: 'https://other.example/login',
+      ...(scenario === 'other-mailbox' ? { mailboxId: 'other-mailbox' } : {}),
+      ...(scenario === 'other-account' ? { accountId: 'other-account' } : {}),
+    };
+    const second = c.handle(t.detect, {});
+    await vi.waitFor(() => expect(reads).toHaveLength(2));
+    if (scenario === 'same-mailbox') c.cancelTab(2);
+    for (const read of reads)
+      read.resolve([{ ...t.envelope, mailboxId: read.mailboxId }]);
+    const outcomes = await Promise.all([first, second]);
+    if (scenario === 'same-mailbox') {
+      expect(outcomes[0]).toEqual({ state: 'UNKNOWN', reason: 'ambiguity' });
+      expect(outcomes[1].state).toBe('CANCELLED');
+      expect(t.sent).toEqual([]);
+    } else {
+      expect(outcomes).toEqual([{ state: 'FILLED' }, { state: 'FILLED' }]);
+      expect(t.sent).toHaveLength(4);
+    }
+    c.dispose();
+  },
+);
+
+it('new challenges do not reset replay reservations and Retry cannot reuse the newly filled message', async () => {
+  const t = setup();
+  const used = new Set<string>();
+  t.adapter.reserve = async (_context, id) => {
+    if (used.has(id)) return 'already-used';
+    used.add(id);
+    return true;
+  };
+  const c = createCoordinator(t.adapter);
+  expect(await c.handle(t.detect, {})).toEqual({ state: 'FILLED' });
+  t.advance();
+  await c.handle({ type: 'challenge' }, {});
+  expect(await c.handle({ ...t.detect, fresh: true }, {})).toEqual({
+    state: 'NO_CODE',
+  });
+  t.envelope.messageId = 'new-message';
+  t.envelope.receivedAt = t.adapter.now();
+  expect(await c.handle({ ...t.detect, manual: true }, {})).toEqual({
+    state: 'FILLED',
+  });
+  expect(await c.handle({ ...t.detect, manual: true }, {})).toEqual({
+    state: 'UNKNOWN',
+    reason: 'message-binding',
+    replay: 'already-used',
+  });
+  expect(used).toEqual(new Set(['synthetic', 'new-message']));
+  // Retry may prepare empty fields, but the write-ahead ledger blocks release.
+  expect(t.sent).toHaveLength(5);
+  expect(
+    t.sent.filter(
+      (message) => Reflect.get(message as object, 'type') === 'release',
+    ),
+  ).toHaveLength(2);
+  c.dispose();
+});
+
+it('browser-bound resend cancels old approval while its fresh authority read is still pending', async () => {
+  const t = setup();
+  const base = await t.adapter.context({});
+  const sender = {
+    tab: { id: 1 },
+    documentId: 'doc',
+    frameId: 0,
+  } as chrome.runtime.MessageSender;
+  let finish!: () => void;
+  let stalled = false;
+  t.adapter.context = async () => {
+    if (stalled)
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    return base;
+  };
+  t.adapter.confirm = async (_context, _binding, signal) =>
+    new Promise((resolve) => {
+      signal.addEventListener('abort', () => resolve(false), { once: true });
+    });
+  const c = createCoordinator(t.adapter);
+  const old = c.handle(t.detect, sender);
+  await vi.waitFor(() => expect(c.status()).toEqual({ state: 'CANDIDATE' }));
+  stalled = true;
+  const gesture = c.handle({ type: 'challenge' }, sender);
+  expect(await old).toEqual({ state: 'CANCELLED' });
+  expect(t.sent).toEqual([]);
+  finish();
+  await gesture;
+  c.dispose();
+});

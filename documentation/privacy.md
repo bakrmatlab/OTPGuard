@@ -135,3 +135,11 @@ Early request gestures send only a closed event type; the typed email is not inc
 No hint, snippet, code or body is added to persistent storage, backend requests or logs.
 
 Request progress uses worker-memory-only stage enums and elapsed seconds. It contains no email bodies, OTPs, tokens, headers, message IDs, URLs or recipient values, and is not persisted, logged or uploaded. New admission and worker restart clear the trail.
+
+Challenge ordering adds volatile arrival sequence numbers and browser tab/document/
+URL bindings in the worker, plus a content-local field-group generation. A trusted
+site request sends only the closed challenge event. Retry does not reset the receipt
+boundary or erase replay reservations. This metadata, displayed-recipient hints and
+all mail/code data remain outside new persistent storage, backend payloads and logs.
+No additional permission, provider request, grant or cloud transport is added.
+See [ADR0026](adr/0026-volatile-challenge-ordering.md).
