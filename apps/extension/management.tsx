@@ -6,6 +6,7 @@ import { configuredAccount } from './account/config';
 import { createConnectionQueue } from './account/connection-queue';
 import { canonicalBlock } from './settings/local';
 import './management.css';
+import { setupProgress } from '../../packages/shared/setup-progress';
 type Status = { state: string; userId?: string; label?: string };
 const unavailableMailbox = (): MailboxStatus => ({
   state: configuredGmail() ? 'RECONNECT_REQUIRED' : 'UNCONFIGURED',
@@ -193,6 +194,21 @@ export default function Management() {
       clearInterval(timer);
     };
   }, [connectionQueue]);
+  const setup = setupProgress(
+    status.state === 'SIGNED_IN',
+    {
+      mailbox,
+      siteAccess: siteAccess === true,
+      settings: {
+        state: settings.state,
+        autofillEnabled: settings.autofillEnabled ?? false,
+        blockedOrigins: settings.blockedOrigins ?? [],
+      },
+    },
+    status.state === 'CHECKING' ||
+      mailbox.state === 'CHECKING' ||
+      siteAccess === null,
+  );
   return (
     <main className="management-page">
       <header className="site-header">
@@ -220,92 +236,62 @@ export default function Management() {
         </div>
         <section className="setup-card" aria-labelledby="setup-title">
           <p className="context">
-            {status.state === 'SIGNED_IN' &&
-            mailbox.state === 'CONNECTED' &&
-            siteAccess
-              ? 'Setup complete'
-              : `Step ${status.state !== 'SIGNED_IN' ? 1 : mailbox.state !== 'CONNECTED' ? 3 : 4} of 4`}
+            {setup.title === 'Checking setup…'
+              ? 'Checking setup'
+              : setup.action === 'ready'
+                ? 'Setup complete'
+                : `Step ${setup.step} of 4`}
           </p>
-          <h2 id="setup-title">
-            {status.state === 'CHECKING' ||
-            mailbox.state === 'CHECKING' ||
-            siteAccess === null
-              ? 'Checking setup…'
-              : status.state !== 'SIGNED_IN'
-                ? 'Sign in to OTPGuard'
-                : mailbox.state !== 'CONNECTED'
-                  ? 'Connect Gmail'
-                  : !siteAccess
-                    ? 'Enable website access'
-                    : 'You’re ready'}
-          </h2>
-          {status.state !== 'CHECKING' &&
-            mailbox.state !== 'CHECKING' &&
-            siteAccess !== null &&
-            (status.state !== 'SIGNED_IN' ? (
-              <>
-                <p>
-                  Sign in on the website, then return here. Gmail access is a
-                  separate step.
-                </p>
-                <a
-                  className="button primary"
-                  href={
-                    (config?.webOrigin ?? 'https://otpguard.net') + '/dashboard'
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Sign in
-                </a>
-              </>
-            ) : mailbox.state !== 'CONNECTED' ? (
-              <>
-                <p>
-                  {[
-                    'UNCONFIGURED',
-                    'ACCOUNT_CHANGED',
-                    'MAILBOX_CHANGED',
-                  ].includes(mailbox.state)
-                    ? 'Resolve the Gmail connection in Connections below before continuing.'
-                    : 'Choose the Gmail mailbox that receives your codes.'}
-                </p>
-                {![
-                  'UNCONFIGURED',
-                  'ACCOUNT_CHANGED',
-                  'MAILBOX_CHANGED',
-                ].includes(mailbox.state) && (
-                  <button
-                    className="button primary"
-                    disabled={busy}
-                    onClick={() => void mailboxAction('gmail-connect')}
-                  >
-                    {busy ? 'Connecting…' : 'Connect Gmail'}
-                  </button>
-                )}
-              </>
-            ) : !siteAccess ? (
-              <>
-                <p>
-                  Gmail is connected. Allow website access separately so
-                  OTPGuard can detect code fields. Approve Chrome’s permission
-                  prompt, then return to the website or reload your login page.
-                </p>
-                <button
-                  className="button primary"
-                  type="button"
-                  onClick={enableSites}
-                >
-                  Enable website access
-                </button>
-              </>
+          <h2 id="setup-title">{setup.title}</h2>
+          <p>{setup.detail}</p>
+          {setup.action === 'sign-in' && (
+            <a
+              className="button primary"
+              href={
+                (config?.webOrigin ?? 'https://otpguard.net') + '/dashboard'
+              }
+              target="_blank"
+              rel="noreferrer"
+            >
+              Sign in
+            </a>
+          )}
+          {setup.title !== 'Checking setup…' &&
+            setup.action === 'gmail-connect' && (
+              <button
+                className="button primary"
+                type="button"
+                disabled={busy}
+                onClick={() => void mailboxAction('gmail-connect')}
+              >
+                {busy ? 'Connecting…' : setup.title}
+              </button>
+            )}
+          {setup.action === 'open-options' &&
+            (mailbox.state === 'CONNECTED' && !siteAccess ? (
+              <button
+                className="button primary"
+                type="button"
+                onClick={enableSites}
+              >
+                Enable website access
+              </button>
             ) : (
-              <p>
-                {settings.autofillEnabled
-                  ? 'Open a page asking for an email code. OTPGuard finds it; you click Fill.'
-                  : 'Automatic finding is off. Choose Find code in the popup, or enable it below.'}
-              </p>
+              <a className="button secondary" href="#connections-title">
+                Review browser settings
+              </a>
             ))}
+          {setup.title !== 'Checking setup…' &&
+            setup.action === 'browser-status' && (
+              <button
+                className="button secondary"
+                type="button"
+                disabled={busy}
+                onClick={() => void mailboxAction('gmail-status')}
+              >
+                Check connection again
+              </button>
+            )}
           {permission && <p role="status">{permission}</p>}
           <p className="fine">
             Only choose Fill on a page you intended to use. Recent-mail matching

@@ -16,6 +16,7 @@ import type {
 } from '../../../packages/shared/browser-management';
 interface BrowserContextValue {
   canConnect: boolean;
+  checking?: boolean;
   snapshot: BrowserSnapshot | null;
   busy: boolean;
   message: string;
@@ -55,10 +56,11 @@ export function BrowserManagement({
   );
 }
 function AuthenticatedBrowser({ children }: { children: ReactNode }) {
-  const { userId, sessionId } = useAuth();
+  const { userId, sessionId, isLoaded } = useAuth();
   return (
     <BrowserSession
       key={`${userId}:${sessionId}`}
+      checking={!isLoaded}
       userId={userId ?? ''}
       sessionId={sessionId ?? ''}
     >
@@ -67,10 +69,12 @@ function AuthenticatedBrowser({ children }: { children: ReactNode }) {
   );
 }
 function BrowserSession({
+  checking,
   userId,
   sessionId,
   children,
 }: {
+  checking: boolean;
   userId: string;
   sessionId: string;
   children: ReactNode;
@@ -137,6 +141,7 @@ function BrowserSession({
   return (
     <BrowserContext.Provider
       value={{
+        checking,
         canConnect: !!userId && !!sessionId,
         snapshot,
         busy: busy || uncertain.current,
@@ -150,9 +155,13 @@ function BrowserSession({
   );
 }
 export function BrowserConnection() {
-  const { snapshot, busy, message, run, canConnect } =
+  const { snapshot, busy, message, run, canConnect, checking } =
     useContext(BrowserContext);
-  const progress = setupProgress(canConnect, snapshot);
+  const progress = setupProgress(
+    canConnect,
+    snapshot,
+    checking || (busy && !snapshot),
+  );
   // Refresh after returning from Chrome's permission screen, only after explicit connection.
   useEffect(() => {
     if (!snapshot) return;
@@ -164,12 +173,6 @@ export function BrowserConnection() {
     return () => window.removeEventListener('focus', refresh);
   }, [snapshot, run]);
   const ready = progress.action === 'ready';
-  const mailboxBlocked = [
-    'UNCONFIGURED',
-    'SIGN_IN_REQUIRED',
-    'ACCOUNT_CHANGED',
-    'MAILBOX_CHANGED',
-  ].includes(snapshot?.mailbox.state ?? '');
   return (
     <section
       className="browser-connection setup-card"
@@ -177,7 +180,11 @@ export function BrowserConnection() {
       aria-busy={busy}
     >
       <p className="context">
-        {ready ? 'Setup complete' : `Step ${progress.step} of 4`}
+        {progress.title === 'Checking setup…'
+          ? 'Checking setup'
+          : ready
+            ? 'Setup complete'
+            : `Step ${progress.step} of 4`}
       </p>
       <h2 id="setup-title">{progress.title}</h2>
       <ol className="setup-checklist" aria-label="Setup progress">
@@ -195,19 +202,7 @@ export function BrowserConnection() {
           ),
         )}
       </ol>
-      <p>
-        {ready
-          ? snapshot?.settings.autofillEnabled
-            ? 'Open a page asking for an email code. OTPGuard finds it; you click Fill.'
-            : 'Automatic finding is off. Open an email-code field and choose Find code in the popup, or turn automatic finding on in Preferences.'
-          : progress.action === 'gmail-connect'
-            ? 'Choose the mailbox that receives your codes. Gmail permission lets OTPGuard read recent mail.'
-            : progress.action === 'open-options'
-              ? 'Gmail is connected. Website access is a separate permission that lets OTPGuard detect code fields. We’ll open the extension’s settings; choose Enable website access there.'
-              : progress.action === 'browser-status'
-                ? 'Connect your installed OTPGuard extension in this Chrome profile.'
-                : 'Your OTPGuard account signs you in. Gmail access comes next.'}
-      </p>
+      <p>{progress.detail}</p>
       {progress.action === 'sign-in' ? (
         <a className="button primary" href="/sign-in">
           Sign in
@@ -219,10 +214,9 @@ export function BrowserConnection() {
           disabled={busy}
           onClick={() =>
             void run({
-              type: ready
-                ? 'browser-status'
-                : mailboxBlocked && progress.action === 'gmail-connect'
-                  ? 'open-options'
+              type:
+                progress.action === 'ready' || progress.action === 'sign-in'
+                  ? 'browser-status'
                   : progress.action,
             })
           }
@@ -231,16 +225,12 @@ export function BrowserConnection() {
             ? 'Checking this browser…'
             : ready
               ? 'Refresh browser status'
-              : mailboxBlocked && progress.action === 'gmail-connect'
-                ? 'Resolve Gmail connection'
-                : progress.title}
+              : progress.action === 'open-options'
+                ? 'Open browser settings'
+                : progress.action === 'browser-status' && snapshot
+                  ? 'Check connection again'
+                  : progress.title}
         </button>
-      )}
-      {mailboxBlocked && (
-        <p>
-          {mailboxLabels[snapshot?.mailbox.state ?? '']} Open browser settings
-          to resolve it before continuing.
-        </p>
       )}
       <p role="status" aria-live="polite">
         {message}

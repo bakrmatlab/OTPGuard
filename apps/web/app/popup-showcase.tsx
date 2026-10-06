@@ -31,7 +31,6 @@ export function PopupShowcase() {
     >
       <div className="page-heading">
         <div>
-          <p className="context">Extension</p>
           <h2 id="extension-title">Just the current action.</h2>
           <p>Four states. One place for everything else.</p>
         </div>
@@ -69,9 +68,6 @@ export function PopupShowcase() {
                   <span />
                 </div>
               )}
-              <a className="popup-site" href="/dashboard">
-                Open OTPGuard <span aria-hidden="true">↗</span>
-              </a>
             </div>
           </article>
         ))}

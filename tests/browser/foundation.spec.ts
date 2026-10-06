@@ -10,8 +10,14 @@ test('web entry points expose the approved UI without configured accounts', asyn
   );
   await expect(
     page.getByRole('link', { name: 'Install for Chrome' }),
-  ).toHaveAttribute('href', '/setup');
+  ).toHaveAttribute('href', '/install');
   await expect(page.locator('#demo-code')).toHaveValue('');
+  await page.getByRole('link', { name: 'Install for Chrome' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Coming soon.' }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Try the demo' }).click();
+  await expect(page.locator('#demo-code')).toBeVisible();
   await page.goto('http://127.0.0.1:3100/dashboard');
   await expect(
     page.getByRole('heading', { name: 'Browser settings', exact: true }),

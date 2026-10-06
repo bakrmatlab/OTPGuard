@@ -15,9 +15,6 @@ export function FillDemo() {
           <span aria-hidden="true">⌁</span>
         </div>
         <div className="sample-form">
-          <div className="sample-logo" aria-hidden="true">
-            e
-          </div>
           <h3>Check your email</h3>
           <p>Enter your verification code.</p>
           <label htmlFor="demo-code">Verification code</label>

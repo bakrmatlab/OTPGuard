@@ -1241,7 +1241,7 @@ label {
 }
 .popup-case .popup {
   width: 100%;
-  min-height: 292px;
+  min-height: 240px;
 }
 .popup-case .popup-status {
   font-size: 19px;
@@ -1557,25 +1557,23 @@ button:disabled {
 }
 .popup-case .popup {
   flex: 1;
-  min-height: 340px;
+  min-height: 240px;
 }
 .popup-case .popup-status {
-  min-height: 50px;
-  margin-top: 24px;
+  min-height: 26px;
+  margin-top: 20px;
 }
 .popup-case .popup > p {
-  min-height: 42px;
+  min-height: 0;
   margin-top: 8px;
 }
 .popup-case .button {
   margin-top: auto;
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
-.popup-case .popup-status + .button {
-  margin-top: 50px;
-}
+
 .popup-case .search-track {
-  margin: auto 0 36px;
+  margin: auto 0 12px;
 }
 .popup-notes {
   display: grid;

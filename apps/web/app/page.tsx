@@ -19,7 +19,7 @@ export default function Home() {
               when it goes into the page.
             </p>
             <div className="hero-actions">
-              <a className="button primary" href="/setup">
+              <a className="button primary" href="/install">
                 Install for Chrome <span aria-hidden="true">↗</span>
               </a>
               <a className="text-link" href="#demo">
