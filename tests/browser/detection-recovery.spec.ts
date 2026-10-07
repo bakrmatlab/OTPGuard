@@ -179,7 +179,9 @@ for (const [name, fields, accepted] of [
         ),
       );
     }, binding);
-    expect(released).toBe(accepted);
+    expect(released).toEqual(
+      accepted ? true : { status: 'refused', reason: 'input-unsupported' },
+    );
     expect(
       await page
         .locator('input')

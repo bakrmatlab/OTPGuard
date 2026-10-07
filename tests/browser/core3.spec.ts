@@ -140,7 +140,7 @@ test('production content detects bounded nearby email challenge and preserves us
     );
     return result;
   });
-  expect(release).toBe(false);
+  expect(release).toEqual({ status: 'refused', reason: 'field-not-ready' });
   await expect(page.locator('input')).toHaveValue('9');
 });
 
@@ -742,7 +742,10 @@ test('resend records a challenge while fields are nonempty and rejects an old bi
     );
     return result;
   });
-  expect(oldPrepare).toBe(false);
+  expect(oldPrepare).toEqual({
+    status: 'refused',
+    reason: 'field-binding-changed',
+  });
   await expect(page.locator('input')).toHaveValue('');
 });
 
@@ -886,8 +889,15 @@ for (const phase of ['searching', 'prepared'])
       );
       return { prepared, released, value: field.value, messages: t.messages };
     }, phase);
-    expect(result.prepared).toBe(phase === 'prepared');
-    expect(result.released).toBe(false);
+    expect(result.prepared).toEqual(
+      phase === 'prepared'
+        ? true
+        : { status: 'refused', reason: 'field-not-ready' },
+    );
+    expect(result.released).toEqual({
+      status: 'refused',
+      reason: 'field-not-ready',
+    });
     expect(result.value).toBe('');
     if (phase === 'prepared')
       expect(result.messages).toContainEqual({
