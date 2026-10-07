@@ -1,4 +1,8 @@
 import {
+  fillRefusal,
+  type FillRefusal,
+} from '../../../packages/shared/fill-diagnostics';
+import {
   SEARCH_MS,
   CONFIRM_MS,
   RELEASE_MS,
@@ -53,6 +57,7 @@ export interface Envelope {
   email: NormalizedEmail;
 }
 export type CancellationReason =
+  | FillRefusal
   | 'deadline'
   | 'confirmation'
   | 'confirmation-expired'
@@ -477,7 +482,10 @@ export function createCoordinator(adapter: Adapter) {
         adapter.settings?.() ?? { autofillEnabled: true, blockedOrigins: [] };
       const blocked = () =>
         preferences().blockedOrigins.includes(context.origin);
-      const record = (outcome: LocalStatus) => {
+      const record = (
+        outcome: LocalStatus,
+        cancellation?: CancellationReason,
+      ) => {
         if (
           ['IDLE', 'SEARCHING', 'VERIFIED', 'CANDIDATE'].includes(outcome.state)
         )
@@ -501,7 +509,7 @@ export function createCoordinator(adapter: Adapter) {
                     ? outcome.reason
                     : outcome.state === 'FILLED'
                       ? 'none'
-                      : 'delivery',
+                      : (cancellation ?? 'delivery'),
                 time: adapter.now(),
               },
               context.accountSession,
@@ -791,7 +799,8 @@ export function createCoordinator(adapter: Adapter) {
             type: 'prepare',
           }),
         );
-        if (ready !== true) return stop(request, 'prepare-refused');
+        if (ready !== true)
+          return stop(request, fillRefusal(ready) ?? 'prepare-refused');
         if (!(await alive(request))) return stop(request, 'current-changed');
         if (adapter.now() >= expiresAt) return stop(request, 'binding-expired');
         if (!message.manual && !preferences().autofillEnabled)
@@ -833,7 +842,7 @@ export function createCoordinator(adapter: Adapter) {
         );
         return result === true
           ? (status = { state: 'FILLED' })
-          : stop(request, 'release-refused');
+          : stop(request, fillRefusal(result) ?? 'release-refused');
       } catch {
         return request.abort.signal.aborted
           ? stop(request, request.cancellation ?? 'invalidated')
@@ -849,7 +858,7 @@ export function createCoordinator(adapter: Adapter) {
           )
         )
           used.delete(key);
-        if (latestRequest === request) record(status);
+        if (latestRequest === request) record(status, request.cancellation);
       }
     },
   };

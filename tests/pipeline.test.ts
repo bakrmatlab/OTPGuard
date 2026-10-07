@@ -785,3 +785,39 @@ it('performs one fresh account probe per current check rather than two sequentia
     gate.invalidate();
   }
 });
+it('retains the specific preparation failure in local history', async () => {
+  const t = setup();
+  const activity = vi.fn(async () => {});
+  t.adapter.activity = activity;
+  t.adapter.confirm = async () => true;
+  t.adapter.send = async () => false;
+  await t.coordinator.handle(detect, {});
+  expect(activity).toHaveBeenCalledWith(
+    expect.objectContaining({ result: 'CANCELLED', reason: 'prepare-refused' }),
+    undefined,
+  );
+});
+it('records only closed content refusal details, falling back for malformed replies', async () => {
+  for (const [reply, reason] of [
+    [{ status: 'refused', reason: 'input-unsupported' }, 'input-unsupported'],
+    [
+      { status: 'refused', reason: 'page supplied arbitrary text' },
+      'prepare-refused',
+    ],
+    [
+      { status: 'refused', reason: 'input-unsupported', code: 'synthetic' },
+      'prepare-refused',
+    ],
+  ] as const) {
+    const t = setup();
+    const activity = vi.fn(async () => {});
+    t.adapter.activity = activity;
+    t.adapter.confirm = async () => true;
+    t.adapter.send = async () => reply;
+    await t.coordinator.handle(detect, {});
+    expect(activity).toHaveBeenCalledWith(
+      expect.objectContaining({ reason }),
+      undefined,
+    );
+  }
+});

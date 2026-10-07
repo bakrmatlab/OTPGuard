@@ -1,3 +1,4 @@
+import { FILL_REFUSALS } from './fill-diagnostics';
 /** Activity is sensitive even without mail. These are maximum retention windows. */
 export const LOCAL_RETENTION_MS = 7 * 24 * 60 * 60_000;
 export const CLOUD_RETENTION_MS = 30 * 24 * 60 * 60_000;
@@ -20,6 +21,24 @@ export const ACTIVITY_REASONS = [
   'freshness',
   'code',
   'delivery',
+  ...FILL_REFUSALS,
+  'deadline',
+  'confirmation',
+  'confirmation-expired',
+  'binding-expired',
+  'current-changed',
+  'prepare-refused',
+  'release-refused',
+  'automatic-disabled',
+  'account-changed',
+  'mailbox-changed',
+  'settings-changed',
+  'navigation',
+  'tab-changed',
+  'focus-changed',
+  'permissions-changed',
+  'page-cancelled',
+  'invalidated',
 ] as const;
 export interface ActivityEvent {
   serviceId: string | null;

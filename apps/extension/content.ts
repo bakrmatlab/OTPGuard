@@ -1,3 +1,4 @@
+import { unchangedFrameworkInput } from './insertion/framework-input';
 import { displayedRecipient } from '../../packages/otp/addresses';
 import {
   createDetector,
@@ -12,6 +13,7 @@ const detector = createDetector(document);
 
 let approval: Binding | null = null;
 let selected: FieldGroup | undefined;
+const observedValues = new WeakMap<HTMLInputElement, string>();
 let emailConfirmed = false;
 let challengeGeneration = 0;
 let freshPending = false;
@@ -75,8 +77,15 @@ for (const type of ['beforeinput', 'input', 'change']) {
       if (
         !stopped &&
         selected?.fields.includes(event.target as HTMLInputElement)
-      )
-        cancel();
+      ) {
+        const field = event.target as HTMLInputElement;
+        const previous = observedValues.get(field);
+        const unchanged =
+          previous !== undefined &&
+          unchangedFrameworkInput(event, field, previous);
+        observedValues.set(field, field.value);
+        if (!unchanged) cancel();
+      }
     },
     true,
   );
@@ -92,11 +101,19 @@ chrome.runtime.onMessage.addListener((value: unknown, sender, reply) => {
   }
   const message = parseWorker(value);
   if (!message) return false;
+  if (!current()) {
+    reply({ status: 'refused', reason: 'field-not-ready' });
+    return;
+  }
+  if (message.groupId !== (selected && boundGroupId(selected))) {
+    reply({ status: 'refused', reason: 'field-binding-changed' });
+    return;
+  }
+  if (!codeLengths(selected!).includes(message.expectedLength)) {
+    reply({ status: 'refused', reason: 'field-length-changed' });
+    return;
+  }
   if (
-    !message ||
-    !current() ||
-    message.groupId !== (selected && boundGroupId(selected)) ||
-    !codeLengths(selected!).includes(message.expectedLength) ||
     Date.now() >= message.expiresAt ||
     message.expiresAt > Date.now() + 30_000
   ) {
@@ -133,7 +150,12 @@ chrome.runtime.onMessage.addListener((value: unknown, sender, reply) => {
   approval = null;
   stopped = true;
   void insertCodeRetained(selected!, message.code, message.expectedLength).then(
-    (result) => reply(result.status === 'filled'),
+    (result) =>
+      reply(
+        result.status === 'filled'
+          ? true
+          : { status: 'refused', reason: `input-${result.reason}` },
+      ),
     () => reply(false),
   );
   return true;
@@ -170,6 +192,7 @@ function scan(manual = false, fresh = false, confirmedGroupId?: string) {
   const replacement = !!selected && selected.id !== group.id;
   const recipient = recipientHint(group);
   selected = group;
+  for (const field of group.fields) observedValues.set(field, field.value);
   emailConfirmed = confirmedGroupId !== undefined;
   stopped = false;
   attempted.add(group.fields[0]!);

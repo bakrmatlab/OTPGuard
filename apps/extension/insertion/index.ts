@@ -1,3 +1,4 @@
+import { unchangedFrameworkInput } from './framework-input';
 import { createDetector, codeLengths, type FieldGroup } from '../detection';
 
 export type FillResult =
@@ -153,7 +154,11 @@ export async function insertCodeRetained(
   const values = group.fields.length === 1 ? [code] : [...code];
   let interfered = false;
   const edit = (event: Event) => {
-    if (group.fields.includes(event.target as HTMLInputElement))
+    const index = group.fields.indexOf(event.target as HTMLInputElement);
+    if (
+      index >= 0 &&
+      !unchangedFrameworkInput(event, group.fields[index]!, values[index]!)
+    )
       interfered = true;
   };
   const retained = () => {
