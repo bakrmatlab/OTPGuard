@@ -9,7 +9,7 @@ on:
     # Weekly advisory check, so new vulnerabilities surface even without pushes.
     - cron: '17 6 * * 1'
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
@@ -48,11 +48,6 @@ jobs:
           restore-keys: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
       - run: bun run build
       - run: bun run check
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-      # With a cache hit this skips the browser download but still installs system packages.
       - run: bun x --no-install playwright install --with-deps chromium
       - run: bun run test:browser
       - run: bun run package:review
@@ -69,6 +64,6 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2
-      - run: bun install --frozen-lockfile --ignore-scripts
-      # Keep this ignore list identical to the checks job.
+      # bun audit reads bun.lock directly; no install needed. Keep the ignore list
+      # identical to the checks job.
       - run: bun audit --ignore=GHSA-vfj7-8cjw-p6xm
