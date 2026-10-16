@@ -124,9 +124,12 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
         { state: 'CONNECTED', mailbox: 'mailbox@fixture.invalid' },
         { state: 'CONNECTED', mailbox: 'other@fixture.invalid' },
       ];
-      const checks = [{ state: 'DISCONNECTED' }, { state: 'MAILBOX_CHANGED' }];
+      let mailbox: { state: string; mailbox?: string } = {
+        state: 'DISCONNECTED',
+      };
       const disconnects = [
         { state: 'DISCONNECTED_REVOCATION_UNCONFIRMED' },
+        { state: 'DISCONNECTED' },
         { state: 'DISCONNECTED' },
       ];
       chrome.runtime.sendMessage = ((message: { type: string }) => {
@@ -135,12 +138,23 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
             state: 'SIGNED_IN',
             label: 'Synthetic account',
           });
-        if (message.type === 'gmail-connect')
-          return Promise.resolve(connections.shift());
-        if (message.type === 'gmail-status')
-          return Promise.resolve(checks.shift());
-        if (message.type === 'gmail-disconnect')
-          return Promise.resolve(disconnects.shift());
+        if (message.type === 'gmail-connect') {
+          mailbox = connections.shift() ?? mailbox;
+          return Promise.resolve(mailbox);
+        }
+        if (message.type === 'gmail-status') {
+          // Refreshes observe the current state rather than consuming a response.
+          if (
+            mailbox.state === 'CONNECTED' &&
+            mailbox.mailbox === 'mailbox@fixture.invalid'
+          )
+            mailbox = { state: 'MAILBOX_CHANGED' };
+          return Promise.resolve(mailbox);
+        }
+        if (message.type === 'gmail-disconnect') {
+          mailbox = disconnects.shift() ?? mailbox;
+          return Promise.resolve(mailbox);
+        }
         return send(message);
       }) as typeof chrome.runtime.sendMessage;
     });
@@ -154,7 +168,9 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
     await expect(
       popup.getByText('Connection was denied', { exact: false }).first(),
     ).toBeVisible();
-    await popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }).click();
+    await popup
+      .getByRole('button', { name: 'Try Gmail connection again', exact: true })
+      .click();
     await expect(popup.getByText('mailbox@fixture.invalid')).toBeVisible();
     await expect(
       popup.getByText('Synthetic account', { exact: true }).first(),
@@ -183,6 +199,13 @@ test('configured popup drives synthetic denial, reconnect, mailbox change and re
     await expect(
       popup.getByText('mailbox@fixture.invalid', { exact: true }),
     ).toHaveCount(0);
+    await expect(
+      popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }),
+    ).toHaveCount(0);
+    await popup.getByRole('button', { name: 'Disconnect Gmail' }).click();
+    await expect(
+      popup.getByText('No mailbox connected.', { exact: true }).first(),
+    ).toBeVisible();
     await popup.getByRole('button', { name: /^(Re)?connect Gmail$/i }).click();
     await expect(popup.getByText('other@fixture.invalid')).toBeVisible();
     await popup.getByRole('button', { name: 'Disconnect Gmail' }).click();
