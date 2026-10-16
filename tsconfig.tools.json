@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node", "chrome"],
+    "types": ["node", "chrome", "bun"],
     "paths": {
       "react": ["./apps/extension/node_modules/@types/react"],
       "react-dom/client": [
@@ -9,12 +9,5 @@
       ]
     }
   },
-  "include": [
-    "scripts/check-cli.ts",
-    "scripts/package-review.ts",
-    "tests/**/*.ts",
-    "playwright.config.ts",
-    "vitest.config.ts",
-    "scripts/build-core-3.ts"
-  ]
+  "include": ["scripts/**/*.ts", "tests/**/*.ts", "*.ts"]
 }

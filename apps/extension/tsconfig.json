@@ -4,16 +4,6 @@
     "jsx": "react-jsx",
     "types": ["chrome", "node"]
   },
-  "include": [
-    "*.ts",
-    "*.tsx",
-    "detection/**/*.ts",
-    "insertion/**/*.ts",
-    "account/**/*.ts",
-    "pipeline/**/*.ts",
-    "gmail/**/*.ts",
-    "settings/**/*.ts",
-    "activity/**/*.ts"
-  ],
+  "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "build"]
 }

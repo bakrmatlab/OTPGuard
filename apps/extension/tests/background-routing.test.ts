@@ -1,0 +1,178 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import type { LocalStatus } from '../pipeline/coordinator';
+const handle = vi.hoisted(() =>
+  vi.fn<
+    (
+      value: unknown,
+      sender: chrome.runtime.MessageSender,
+    ) => Promise<LocalStatus>
+  >(async () => ({ state: 'IDLE' })),
+);
+const confirmEmailRecovery = vi.hoisted(() => vi.fn(async () => true));
+vi.mock('../pipeline/worker', () => ({
+  confirmEmailRecovery,
+  pagePipeline: { handle },
+  pipelineStatus: vi.fn(),
+  acceptFill: vi.fn(),
+  retryPage: vi.fn(),
+}));
+vi.mock('../settings/worker', () => ({
+  parseSettingsAction: vi.fn(),
+  settingsAction: vi.fn(),
+  localSettings: {},
+}));
+vi.mock('../activity/worker', () => ({
+  parseHistoryAction: vi.fn(),
+  historyAction: vi.fn(),
+}));
+vi.mock('../gmail/authenticated-worker', () => ({
+  authenticatedMailbox: {},
+}));
+vi.mock('../account/worker', () => ({
+  accountStatus: vi.fn(),
+  signOutAccount: vi.fn(),
+}));
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.resetModules();
+  handle.mockClear();
+});
+it('forwards early challenge messages through the production listener only from this extension page', async () => {
+  const addListener = vi.fn();
+  vi.stubGlobal('chrome', {
+    runtime: {
+      id: 'fixture-extension',
+      getURL: (path: string) => 'chrome-extension://fixture-extension/' + path,
+      onMessage: { addListener },
+    },
+  });
+  await import('../background');
+  const listener = addListener.mock.calls[0]![0];
+  const message = { type: 'challenge' };
+  const sender = { id: 'fixture-extension', tab: { id: 1 } };
+  const reply = vi.fn();
+  expect(listener(message, sender, reply)).toBe(true);
+  await Promise.resolve();
+  expect(handle).toHaveBeenCalledWith(message, sender);
+  expect(reply).toHaveBeenCalledWith({ state: 'IDLE' });
+  handle.mockClear();
+  expect(listener(message, { ...sender, id: 'other-extension' }, reply)).toBe(
+    false,
+  );
+  expect(handle).not.toHaveBeenCalled();
+});
+
+it('carries an early request across a delayed unfamiliar-site form through the actual listener', async () => {
+  const { createCoordinator } = await import('../pipeline/coordinator');
+  let now = 100000;
+  let origin = 'https://www.canva.com';
+  let documentId = 'canva-document';
+  let receivedAt = now;
+  const send = vi.fn(async () => true);
+  const coordinator = createCoordinator({
+    now: () => now,
+    id: () => documentId,
+    context: async () => ({
+      accountId: 'user',
+      mailboxId: 'person@fixture.invalid',
+      tabId: 1,
+      documentId,
+      origin,
+      browserUrl: origin + '/sign-in/factor-one',
+      policyUrl: origin + '/sign-in/factor-one',
+      serviceId: 'generic',
+      foreground: true,
+    }),
+    current: async () => true,
+    retrieve: async () => [
+      {
+        messageId: documentId,
+        mailboxId: 'person@fixture.invalid',
+        receivedAt,
+        sender: { status: 'unknown' },
+        email: { subject: 'Login code', text: 'Your code is 003719' },
+      },
+    ],
+    confirm: async () => true,
+    send,
+  });
+  handle.mockImplementation(coordinator.handle);
+  const addListener = vi.fn();
+  vi.stubGlobal('chrome', {
+    runtime: {
+      id: 'fixture-extension',
+      getURL: (path: string) => 'chrome-extension://fixture-extension/' + path,
+      onMessage: { addListener },
+    },
+  });
+  await import('../background');
+  const listener = addListener.mock.calls[0]![0];
+  const sender = { id: 'fixture-extension', tab: { id: 1 } };
+  const route = (message: unknown) =>
+    new Promise((resolve) => {
+      expect(listener(message, sender, resolve)).toBe(true);
+    });
+  const detect = {
+    type: 'detect',
+    groupId: 'fields',
+    expectedLength: 6,
+    emailFlow: true,
+    groupCount: 1,
+  };
+  try {
+    expect(await route(detect)).toEqual({ state: 'FILLED' });
+    origin = 'https://unfamiliar.fixture.invalid';
+    documentId = 'unfamiliar-document';
+    now += 10000;
+    expect(await route({ type: 'challenge' })).toEqual({ state: 'FILLED' });
+    receivedAt = now + 1000;
+    now += 90000;
+    expect(await route({ ...detect, groupId: 'nested-input' })).toEqual({
+      state: 'FILLED',
+    });
+    expect(send).toHaveBeenCalledTimes(4);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it('email recovery confirmation is accepted only from the exact extension popup', async () => {
+  const addListener = vi.fn();
+  vi.stubGlobal('chrome', {
+    runtime: {
+      id: 'fixture-extension',
+      getURL: (path: string) => 'chrome-extension://fixture-extension/' + path,
+      onMessage: { addListener },
+    },
+  });
+  await import('../background');
+  const listener = addListener.mock.calls[0]![0];
+  const message = { type: 'pipeline-confirm-email', requestId: 'intent' };
+  const reply = vi.fn();
+  for (const sender of [
+    { id: 'fixture-extension', tab: { id: 1 }, url: 'https://fixture.invalid' },
+    {
+      id: 'other-extension',
+      url: 'chrome-extension://fixture-extension/popup.html',
+    },
+    {
+      id: 'fixture-extension',
+      url: 'chrome-extension://fixture-extension/options.html',
+    },
+  ])
+    listener(message, sender, reply);
+  expect(confirmEmailRecovery).not.toHaveBeenCalled();
+  expect(
+    listener(
+      message,
+      {
+        id: 'fixture-extension',
+        url: 'chrome-extension://fixture-extension/popup.html',
+      },
+      reply,
+    ),
+  ).toBe(true);
+  await Promise.resolve();
+  expect(confirmEmailRecovery).toHaveBeenCalledExactlyOnceWith('intent');
+  expect(reply).toHaveBeenCalledWith(true);
+});

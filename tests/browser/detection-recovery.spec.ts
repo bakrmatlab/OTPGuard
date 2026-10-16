@@ -1,4 +1,4 @@
-import { parseGenericCode } from '../../packages/otp/generic';
+import { parseGenericCode } from '@otpguard/otp/generic';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 const artifact =
