@@ -1,7 +1,6 @@
 bun.lock
 node_modules/
 .next/
-.plasmo/
 build/
 playwright-report/
 test-results/

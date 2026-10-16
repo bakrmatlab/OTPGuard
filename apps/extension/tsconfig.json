@@ -15,5 +15,5 @@
     "settings/**/*.ts",
     "activity/**/*.ts"
   ],
-  "exclude": ["node_modules", "build", ".plasmo"]
+  "exclude": ["node_modules", "build"]
 }

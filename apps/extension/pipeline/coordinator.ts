@@ -81,15 +81,12 @@ export interface Adapter {
     automatic: boolean,
   ): Promise<void>;
   /** Trusted sink gets a closed outcome only; never context, mail or code. Not awaited. */
-  activity?(
-    outcome: {
-      serviceId: string;
-      result: 'FILLED' | 'REFUSED' | 'CANCELLED' | 'ERROR';
-      reason: import('../../../packages/shared').ActivityEvent['reason'];
-      time: number;
-    },
-    binding?: import('../account/gate').AccountBinding,
-  ): Promise<void>;
+  activity?(outcome: {
+    serviceId: string;
+    result: 'FILLED' | 'REFUSED' | 'CANCELLED' | 'ERROR';
+    reason: import('../../../packages/shared').ActivityEvent['reason'];
+    time: number;
+  }): Promise<void>;
   subscribeSettings?(listener: () => void): () => void;
   finished?(): void;
   progress?(stage: import('./progress').ProgressStage): void;
@@ -475,27 +472,24 @@ export function createCoordinator(adapter: Adapter) {
         adapter.finished?.();
         try {
           void adapter
-            .activity?.(
-              {
-                serviceId: context.serviceId,
-                result:
-                  outcome.state === 'FILLED'
-                    ? 'FILLED'
-                    : outcome.state === 'ERROR'
-                      ? 'ERROR'
-                      : outcome.state === 'CANCELLED'
-                        ? 'CANCELLED'
-                        : 'REFUSED',
-                reason:
-                  'reason' in outcome
-                    ? outcome.reason
-                    : outcome.state === 'FILLED'
-                      ? 'none'
-                      : (cancellation ?? 'delivery'),
-                time: adapter.now(),
-              },
-              context.accountSession,
-            )
+            .activity?.({
+              serviceId: context.serviceId,
+              result:
+                outcome.state === 'FILLED'
+                  ? 'FILLED'
+                  : outcome.state === 'ERROR'
+                    ? 'ERROR'
+                    : outcome.state === 'CANCELLED'
+                      ? 'CANCELLED'
+                      : 'REFUSED',
+              reason:
+                'reason' in outcome
+                  ? outcome.reason
+                  : outcome.state === 'FILLED'
+                    ? 'none'
+                    : (cancellation ?? 'delivery'),
+              time: adapter.now(),
+            })
             .catch(() => {});
         } catch {
           /* History cannot affect authorization or release. */

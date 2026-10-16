@@ -18,7 +18,7 @@ for (const path of ['apps/extension', 'packages', 'scripts', 'configuration']) {
   await cp(resolve(root, path), resolve(out, path), {
     recursive: true,
     filter: (source) =>
-      !['node_modules', 'build', '.plasmo'].includes(basename(source)) &&
+      !['node_modules', 'build'].includes(basename(source)) &&
       !basename(source).startsWith('.env'),
   });
 }

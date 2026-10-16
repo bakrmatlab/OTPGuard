@@ -414,15 +414,12 @@ it.each(['reject', 'throw', 'stall'])(
     expect(await coordinator.handle(detect, {})).toEqual({ state: 'FILLED' });
     expect(sends).toEqual(['prepare', 'release']);
     if (mode !== 'throw')
-      expect(activity).toHaveBeenCalledWith(
-        {
-          serviceId: 'mock',
-          result: 'FILLED',
-          reason: 'none',
-          time: 100_000,
-        },
-        undefined,
-      );
+      expect(activity).toHaveBeenCalledWith({
+        serviceId: 'mock',
+        result: 'FILLED',
+        reason: 'none',
+        time: 100_000,
+      });
     coordinator.dispose();
   },
 );
@@ -720,7 +717,6 @@ it('retains the specific preparation failure in local history', async () => {
   await t.coordinator.handle(detect, {});
   expect(activity).toHaveBeenCalledWith(
     expect.objectContaining({ result: 'CANCELLED', reason: 'prepare-refused' }),
-    undefined,
   );
 });
 it('records only closed content refusal details, falling back for malformed replies', async () => {
@@ -741,9 +737,6 @@ it('records only closed content refusal details, falling back for malformed repl
     t.adapter.confirm = async () => true;
     t.adapter.send = async () => reply;
     await t.coordinator.handle(detect, {});
-    expect(activity).toHaveBeenCalledWith(
-      expect.objectContaining({ reason }),
-      undefined,
-    );
+    expect(activity).toHaveBeenCalledWith(expect.objectContaining({ reason }));
   }
 });

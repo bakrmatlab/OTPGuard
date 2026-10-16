@@ -1,6 +1,5 @@
 node_modules/
 .next/
-.plasmo/
 build/
 dist/
 coverage/
