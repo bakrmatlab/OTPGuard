@@ -22,7 +22,10 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: bun install --frozen-lockfile
-      - run: bun audit
+      # braces <=3.0.3 (GHSA-vfj7-8cjw-p6xm) has no patched release. It is reachable only
+      # through @next/eslint-plugin-next, on glob patterns from our own lint config.
+      # Remove the ignore once a fixed braces ships.
+      - run: bun audit --ignore=GHSA-vfj7-8cjw-p6xm
       - run: bun run build
       - run: bun run check
       - run: bun x --no-install playwright install --with-deps chromium
