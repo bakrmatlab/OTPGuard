@@ -7,16 +7,16 @@ and management of the extension in this Chrome profile.
 
 ## Workspaces
 
-| Path                | Role                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------ |
-| `apps/extension`    | MV3 extension built with Bun: background worker, content script, popup, Options page |
-| `apps/web`          | Next.js site: home, sign-in/up (Clerk), setup, dashboard                             |
-| `packages/otp`      | Raw MIME normalization, address parsing, generic code parser                         |
-| `packages/security` | Origin canonicalization, generic candidate assessment, timing and retrieval limits   |
-| `packages/shared`   | Message contracts, settings and activity schemas                                     |
-| `configuration`     | Public extension identity and provider configuration used by builds and tests        |
-| `scripts`           | Extension build, configured export, review packaging, test fixture server            |
-| `tests`             | Vitest and Playwright suites; all mail, codes and sites are synthetic                |
+| Path                | Role                                                                                                 |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| `apps/extension`    | MV3 extension built with Bun: background worker, content script, popup, Options page                 |
+| `apps/web`          | Next.js site: home, sign-in/up (Clerk), setup, dashboard                                             |
+| `packages/otp`      | Raw MIME normalization, address parsing, generic code parser                                         |
+| `packages/security` | Origin canonicalization, generic candidate assessment, timing and retrieval limits                   |
+| `packages/shared`   | Message contracts, settings and activity schemas                                                     |
+| `configuration`     | Public extension identity and provider configuration used by builds and tests                        |
+| `scripts`           | Extension build, configured export, review packaging, test fixture server                            |
+| `tests`             | Playwright specs and repository checks on build output; unit tests live in each workspace's `tests/` |
 
 ## Request flow
 
@@ -123,7 +123,8 @@ attempt on the same message refuses as `already-used`.
 | Images and binary attachments, ignored as inert resources                       | Two distinct plausible codes in one message or across mail  |
 
 Limits per message: 256 KiB raw, 64 parts, depth 8, 32,768 characters of text.
-`tests/generic-email-coverage.test.ts` and `tests/otp-format-matrix.test.ts` hold
+`packages/otp/tests/generic-email-coverage.test.ts` and
+`apps/extension/tests/otp-format-matrix.test.ts` hold
 the synthetic cases.
 
 ## Local data
