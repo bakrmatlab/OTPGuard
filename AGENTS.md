@@ -18,8 +18,8 @@ clicks **Fill**, plus the otpguard.net website (Next.js, Clerk). Read
 ## Layout
 
 - `apps/extension`: MV3 extension (React 18), built by `scripts/build-extension.ts`.
-  See `apps/extension/AGENTS.md`.
-- `apps/web`: Next.js 16 site (React 19) on Vercel. See `apps/web/AGENTS.md`.
+- `apps/web`: Next.js 16 site (React 19) on Vercel. Before Next.js work, read
+  `apps/web/AGENTS.md` if it exists; Next.js writes version-matched docs pointers there.
 - `packages/otp`, `packages/security`, `packages/shared`: TypeScript source packages.
   Import them as `@otpguard/*`, never by relative path.
 - `configuration/`: committed public IDs (extension key, OAuth client, Clerk).
@@ -33,8 +33,37 @@ clicks **Fill**, plus the otpguard.net website (Next.js, Clerk). Read
 - `bun run check`: typecheck, lint, format check and all unit tests.
 - `bun run --filter @otpguard/<name> test`: one workspace's unit tests.
 - `bun run test:browser`: Playwright suite (about a minute).
-- `bun run build:release <new dir>`: configured extension from `configuration/`.
+- `bun run build:release /absolute/new-dir`: configured extension from `configuration/`.
+  The folder must not exist and must be outside the checkout.
 - The pre-commit hook formats and lints staged files, then typechecks.
+
+## Extension rules
+
+- The background worker can stop at any moment. Requests and approvals are
+  memory-only by design; anything that must survive goes to `chrome.storage.local`
+  with `TRUSTED_CONTEXTS` access, and must be listed in `documentation/privacy.md`.
+- `apps/extension/background.ts` checks every sender. Page content scripts may only
+  send `challenge`, `detect` and `cancel`. The popup is the only sender of
+  `pipeline-*` messages (Fill, confirm, retry). Options (`management.html`) may send
+  anything except `pipeline-*`. The website goes through
+  `apps/extension/website-management*.ts` (exact origin and Clerk session, metadata
+  only). Keep each schema closed; never widen one sender's rights to another's.
+- After every await, the coordinator rechecks tab, document, origin, focus, account,
+  mailbox and settings. Keep that pattern when adding steps.
+- The content script registration ID `otpguard-pilot` is stored by Chrome. Do not
+  rename it.
+- Build output goes to `apps/extension/build/chrome-mv3-prod`; there is no hot
+  reload. Rebuild, then reload the unpacked extension in `chrome://extensions`.
+- Synthetic mail for unit tests: `apps/extension/tests/fixtures/email.ts`.
+- Skills: `chrome-extensions` for MV3 APIs, `clerk-chrome-extension-patterns` for
+  Clerk Sync Host and `createClerkClient`.
+
+## Website rules
+
+- The dashboard manages the extension through `apps/web/app/browser-transport.ts`
+  and receives metadata only, never codes or tokens. Do not add `fetch`, analytics or
+  a backend that sends extension data anywhere.
+- Deploys are manual on Vercel; merging does not update otpguard.net.
 
 ## Keep agent usage low
 

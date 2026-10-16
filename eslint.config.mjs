@@ -11,7 +11,14 @@ export default defineConfig(
   includeIgnoreFile(fileURLToPath(new URL('.gitignore', import.meta.url)), {
     gitignoreResolution: true,
   }),
-  { ignores: ['**/next-env.d.ts', '.agents/skills/**'] },
+  {
+    ignores: [
+      '**/next-env.d.ts',
+      // Vendored skills, pinned in skills-lock.json.
+      '.agents/skills/chrome-extensions/**',
+      '.agents/skills/clerk-chrome-extension-patterns/**',
+    ],
+  },
   js.configs.recommended,
   tseslint.configs.recommended,
   {
