@@ -104,13 +104,6 @@ bun run package:review
 bun run check:packages
 ```
 
-Release `2bd9b74` is deployed to production. Its
-[CI run](https://github.com/bakrmatlab/OTPGuard/actions/runs/37436593068) passed
-both production builds, types, lint, formatting, dependency audit, **813 unit tests**,
-**89 browser tests**, and extracted-package checks. One configured live Gmail test
-was skipped. Automated synthetic results are separate from owner-controlled live
-provider, consent and end-to-end filling acceptance.
-
 Source layout: `apps/extension` (Bun MV3/React 18), `apps/web` (Next.js/React 19),
 `packages/otp` and `packages/security` (pure logic), `packages/shared` (contracts),
 `convex` (backend), `development/mock-extension` and `tests/fixtures` (synthetic only).
@@ -120,11 +113,3 @@ Source layout: `apps/extension` (Bun MV3/React 18), `apps/web` (Next.js/React 19
 - [Architecture and security decisions](documentation/architecture.md)
 - [Privacy and data handling](documentation/privacy.md)
 - [Threat model](documentation/threat-model.md)
-- [Guided setup and spacing acceptance](documentation/guided-setup-acceptance.md)
-- [Website management acceptance](documentation/website-management-acceptance.md)
-- [Generic matching acceptance](documentation/generic-fill-acceptance.md)
-- [Domain-hosted shared authentication](documentation/domain-auth.md)
-- [Packaging and public distribution gates](documentation/release-readiness.md)
-
-Older milestone reports describe the state at their review date and may predate
-production authentication, generic retrieval, website management and deployment.
