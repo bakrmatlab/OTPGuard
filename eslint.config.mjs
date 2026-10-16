@@ -11,7 +11,7 @@ export default defineConfig(
   includeIgnoreFile(fileURLToPath(new URL('.gitignore', import.meta.url)), {
     gitignoreResolution: true,
   }),
-  { ignores: ['**/next-env.d.ts'] },
+  { ignores: ['**/next-env.d.ts', '.agents/skills/**'] },
   js.configs.recommended,
   tseslint.configs.recommended,
   {

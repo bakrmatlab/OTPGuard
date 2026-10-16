@@ -1,3 +1,6 @@
 bun.lock
 # Next regenerates this file during builds with its own formatting.
 apps/web/next-env.d.ts
+# Vendored skills are pinned by content hash in skills-lock.json; update with npx skills update.
+.agents/skills/chrome-extensions/
+.agents/skills/clerk-chrome-extension-patterns/
