@@ -7,6 +7,7 @@
         "name": "next"
       }
     ],
+    // The extension installs React 18 types too; pin this app to its own React 19 types.
     "paths": {
       "react": ["./node_modules/@types/react"],
       "react-dom": ["./node_modules/@types/react-dom"]

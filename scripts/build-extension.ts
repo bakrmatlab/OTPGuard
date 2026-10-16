@@ -41,7 +41,8 @@ const pilotManifest = {
   optional_host_permissions: ['https://*/*'],
   minimum_chrome_version: '127',
 };
-const outdir = 'build/chrome-mv3-prod';
+// The configured export passes a fresh directory outside the checkout.
+const outdir = process.env.OTPGUARD_OUTDIR || 'build/chrome-mv3-prod';
 await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
 // Preserve legacy public configuration names. No generic env serialization.

@@ -1,11 +1,12 @@
-import { cp, mkdir, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { resolve, basename, dirname } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import auth from '../configuration/domain-auth.json';
 import gmail from '../configuration/core-1-gmail.json';
 
-// Export current source into a new directory: never overwrite owner builds or env files.
+// Build into a new directory with committed public configuration only: never
+// overwrite owner builds or read owner env files.
 const destination = process.argv[2];
 if (!destination || !destination.startsWith('/'))
   throw new Error('Provide a new absolute isolated export directory');
@@ -14,23 +15,11 @@ const out = resolve(destination);
 if (out === root || out.startsWith(root + '/'))
   throw new Error('Export must be outside the owner checkout');
 await mkdir(out); // Existing exports are refused, including previous owner artifacts.
-for (const path of ['apps/extension', 'packages', 'scripts', 'configuration']) {
-  await cp(resolve(root, path), resolve(out, path), {
-    recursive: true,
-    filter: (source) =>
-      !['node_modules', 'build'].includes(basename(source)) &&
-      !basename(source).startsWith('.env'),
-  });
-}
-await cp(resolve(root, 'package.json'), resolve(out, 'package.json'));
-await symlink(resolve(root, 'node_modules'), resolve(out, 'node_modules'));
-await symlink(
-  resolve(root, 'apps/extension/node_modules'),
-  resolve(out, 'apps/extension/node_modules'),
-);
+const artifact = resolve(out, 'extension');
 const env = {
   PATH: process.env.PATH ?? '',
   HOME: process.env.HOME ?? '',
+  OTPGUARD_OUTDIR: artifact,
   PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY:
     'pk_live_' +
     Buffer.from(new URL(auth.frontendApi).hostname + '$').toString('base64'),
@@ -45,9 +34,9 @@ if (gmail.extensionId !== auth.extensionId)
   throw new Error('Reviewed identities differ');
 const result = spawnSync(
   process.execPath,
-  ['../../scripts/build-extension.ts'],
+  ['--no-env-file', '../../scripts/build-extension.ts'],
   {
-    cwd: resolve(out, 'apps/extension'),
+    cwd: resolve(root, 'apps/extension'),
     env,
     stdio: 'inherit',
   },
@@ -60,7 +49,7 @@ await writeFile(
     {
       extensionId: gmail.extensionId,
       clientId: gmail.clientId,
-      artifact: resolve(out, 'apps/extension/build/chrome-mv3-prod'),
+      artifact,
       distribution: gmail.distribution,
       realRetrieval: true,
       realFill: 'user-clicked-pilot',
@@ -70,7 +59,4 @@ await writeFile(
     2,
   ) + '\n',
 );
-console.log(
-  'Controlled Core 3 artifact: ' +
-    resolve(out, 'apps/extension/build/chrome-mv3-prod'),
-);
+console.log('Controlled Core 3 artifact: ' + artifact);
