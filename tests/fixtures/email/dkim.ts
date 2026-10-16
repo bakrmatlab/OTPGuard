@@ -1,17 +1,8 @@
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
-import type { DkimPrototypePolicy } from '../../../development/dkim/verify';
 const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
 export const record =
   'v=DKIM1; k=rsa; p=' +
   pair.publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
-export const policy: DkimPrototypePolicy = {
-  signingDomain: 'mailer.example',
-  selector: 'test',
-  from: 'codes@mailer.example',
-  recipient: 'owner@example.test',
-  now: 1000000,
-  maxAgeSeconds: 300,
-};
 const headerLines = [
   'From: codes@mailer.example',
   'To: owner@example.test',

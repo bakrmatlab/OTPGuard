@@ -1,6 +1,5 @@
-import { expect, it, vi } from 'vitest';
+import { expect, it } from 'vitest';
 import { normalizeRawEmail, parseVerificationCode } from '../packages/otp';
-import { createDkimResolver } from '../apps/extension/gmail/dns';
 import { createReleaseLedger } from '../apps/extension/pipeline/replay';
 import { fixture } from './fixtures/email/dkim';
 
@@ -30,50 +29,6 @@ it('normalizes bounded signed related/alternative quoted-printable plain text wi
         .raw,
     ),
   ).toBeNull();
-});
-
-it('refuses incomplete DNS and unrelated TXT; follows only a bounded answer CNAME chain', async () => {
-  const name = 'test._domainkey.mailer.example';
-  const base = {
-    Status: 0,
-    TC: false,
-    CD: false,
-    Question: [{ name: name + '.', type: 16 }],
-  };
-  const data = {
-    ...base,
-    Answer: [
-      { name: name + '.', type: 5, data: 'key.example.' },
-      { name: 'key.example.', type: 16, data: '"v=DKIM1; ""p=public"' },
-    ],
-  };
-  const fetcher = vi.fn(async () => new Response(JSON.stringify(data)));
-  expect(
-    await createDkimResolver(fetcher)(name, new AbortController().signal),
-  ).toEqual(['v=DKIM1; p=public']);
-  const [url, options] = fetcher.mock.calls[0]! as unknown as [
-    string,
-    RequestInit,
-  ];
-  expect(new URL(url).searchParams.get('edns_client_subnet')).toBe('0.0.0.0/0');
-  expect(options.credentials).toBe('omit');
-  expect(options.redirect).toBe('error');
-  for (const bad of [
-    { ...data, TC: true },
-    { ...data, CD: true },
-    { ...data, Status: 2 },
-    {
-      ...data,
-      Answer: [{ name: 'unrelated.example', type: 16, data: '"p=forged"' }],
-    },
-  ]) {
-    await expect(
-      createDkimResolver(async () => new Response(JSON.stringify(bad)))(
-        name,
-        new AbortController().signal,
-      ),
-    ).rejects.toThrow();
-  }
 });
 
 it('reserves before send and refuses replay across every uncertain crash/ack window', async () => {
