@@ -70,8 +70,8 @@ symbol-containing or longer codes, magic links, multiple mailboxes, incognito an
 Firefox are outside current coverage. Email OTPs are not phishing-resistant; a page
 receiving an input value can read it.
 
-Preferences and retained activity are local to this Chrome profile. Cloud activity
-upload is disabled. Gmail disconnection attempts Google project-wide revocation;
+Preferences and activity history stay local to this Chrome profile; there is no
+OTPGuard backend. Gmail disconnection attempts Google project-wide revocation;
 this is separate from signing out of OTPGuard. Google restricted-scope verification,
 assessment applicability and Chrome Web Store review remain unresolved. A deployed
 website does not establish approval for public extension distribution.
@@ -92,9 +92,10 @@ bun run test:browser
 On Linux, install browser prerequisites with
 `bun x --no-install playwright install --with-deps chromium`.
 Builds must precede checks because tests inspect generated artifacts. These checks
-use synthetic fixtures and require no provider credentials. See
-[setup and demo](documentation/setup-demo.md) for configuration precautions and
-troubleshooting. Extension hot reload is unavailable; rebuild and reload in Chrome.
+use synthetic fixtures and require no provider credentials.
+[Development](documentation/development.md) covers configured builds, production
+providers and troubleshooting. Extension hot reload is unavailable; rebuild and
+reload in Chrome.
 
 For credential-free review archives, with `zip`/`unzip` installed and port **3201** free:
 
@@ -109,6 +110,9 @@ Source layout: `apps/extension` (Bun MV3/React 18), `apps/web` (Next.js/React 19
 
 ## Engineering references
 
-- [Architecture and security decisions](documentation/architecture.md)
-- [Privacy and data handling](documentation/privacy.md)
-- [Threat model](documentation/threat-model.md)
+- [Architecture](documentation/architecture.md)
+- [Privacy and security](documentation/privacy.md)
+- [Development](documentation/development.md)
+- Decisions: [shared website session](documentation/adr/0001-shared-website-session.md),
+  [user-confirmed generic fill](documentation/adr/0002-user-confirmed-generic-fill.md),
+  [website management](documentation/adr/0003-website-browser-management.md)

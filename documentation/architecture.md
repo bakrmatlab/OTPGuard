@@ -1,303 +1,133 @@
-# Architecture and current decisions
+# Architecture
 
-October 6 UI update: the popup now contains only the current request actions and
-a website link. `management.html` is an extension-owned full-page Options screen
-for account/Gmail, preferences, blocks and history. Only that exact page and the
-owned popup can issue management messages; pipeline status, confirmation, retry
-and Fill remain popup-only. Owner-requested website management now uses an exact
-production dashboard external-message bridge, bound to the current top-level
-document and authoritative shared Clerk user/session. It exposes metadata and
-management actions only; no cloud sync, code release or credentials.
-See [ADR0033](adr/0033-dark-ui-with-owned-browser-management.md) and
-[UI acceptance](dark-ui-implementation-acceptance.md). Earlier milestone diagrams
-below describe the historical implementation.
+OTPGuard is a Chrome MV3 extension and a Next.js website. The extension finds a
+recent email verification code in Gmail and inserts it into the current page after
+the user clicks **Fill**. The website (otpguard.net) handles sign-up, guided setup
+and management of the extension in this Chrome profile.
 
-The shipped entry points and the synthetic demonstration have different capabilities.
+## Workspaces
 
-```text
-Production popup -> exact worker actions -> Chrome local settings/history
-                         |
-                         +-> optional Chrome identity -> Google profile/revoke
+| Path                | Role                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `apps/extension`    | MV3 extension built with Bun: background worker, content script, popup, Options page |
+| `apps/web`          | Next.js site: home, sign-in/up (Clerk), setup, dashboard                             |
+| `packages/otp`      | Raw MIME normalization, address parsing, generic code parser                         |
+| `packages/security` | Origin canonicalization, generic candidate assessment, timing and retrieval limits   |
+| `packages/shared`   | Message contracts, settings and activity schemas                                     |
+| `configuration`     | Public extension identity and provider configuration used by builds and tests        |
+| `scripts`           | Extension build, configured export, review packaging, test fixture server            |
+| `tests`             | Vitest and Playwright suites; all mail, codes and sites are synthetic                |
 
-Production web -> unconfigured account/security dashboard
-Convex functions/schema -> offline ownership/retention tests (no active app transport)
+## Request flow
 
-Separate synthetic extension:
-loopback field -> worker browser context -> fabricated mail -> pure parser/policy
-              -> bound prepare/recheck -> document-targeted release -> live empty field
-```
+1. **Site access.** Setup requests optional `https://*/*` access once. Only after
+   that grant does the worker register `content.ts`, on top-level frames only.
+2. **Detection.** The content script scans the light DOM for single or split code
+   inputs: at most 200 inputs, every 500 ms for the first 60 s, then on DOM
+   mutations at most every 500 ms. It sends only closed `detect`, `challenge` and
+   `cancel` messages. Page text is a hint, never trusted input.
+3. **Admission.** The worker checks the sender (this extension, frame 0, active
+   document), the live frame URL and origin, local settings and blocks, the Clerk
+   account and the connected mailbox. It sets a receipt window: from 1 s before the
+   latest new-code click, otherwise from 60 s before detection.
+4. **Retrieval.** Gmail is polled at 0, 2, 6, 12, 22, 32 and 42 s inside a 60 s
+   search budget. Each cycle lists messages by time only, spam and trash included:
+   up to 50 IDs over 5 pages of 20. It fetches every raw body with 4 parallel reads,
+   then lists again and refuses the cycle if the set changed. Limits: 512 KiB per
+   response, 8 MiB and 30 s per cycle, 10 s per request. A failed cap, request or
+   decode discards the cycle. No partial set reaches selection.
+5. **Selection.** Each message is normalized (`packages/otp/raw.ts`) and parsed
+   (`packages/otp/generic.ts`). Receipt time, recipient contradictions, field length
+   and sender-domain or subject hints narrow the set. More than one plausible code
+   refuses as ambiguous. There is no newest-code tie-breaker.
+6. **Confirmation.** The popup shows the found code and **Fill**. The user has 30 s
+   to click. After the click, release must finish within 15 s.
+7. **Release.** The worker sends `prepare`, rechecks, reserves the message in the
+   release ledger, rechecks again and sends `release` with the code. The content
+   script writes through the native value setter with `beforeinput`, `input` and
+   `change` events, then watches for 500 ms that the value stays. OTPGuard never
+   submits a form.
 
-The extension is built with explicit Bun browser entries: background worker and React
-popup. Only explicitly allowlisted public `PLASMO_PUBLIC_*` settings are embedded, preserving existing
-public configuration and registered IDs. No generic env serialization or SDK asset-tree
-copying occurs. The builder refuses a nonempty production content entry; site registration
-requires a separately reviewed change.
+After every await the coordinator rechecks the tab, document, URL, origin, focus,
+account, mailbox and settings. Any change cancels the request. A worker restart
+discards all requests and approvals.
 
-## Ownership and trust boundaries
+If a field looks like a code field but the page does not clearly ask for an email
+code, the popup can ask the user to confirm that an email code was sent. That
+intent lasts 30 s and still needs a separate Fill click.
 
-The background worker owns provider credentials and authorizes connected requests.
-Popup messages require the browser's extension ID, exact popup URL and closed schema.
-There is no token, mail-fetch, fill or cloud-upload message exposed to pages.
-`apps/extension/content.ts` stays zero bytes: production has no injection, site permissions,
-web-accessible resources or external messaging. Default CSP denies network access.
-Optional Google config adds storage/identity and exact Gmail/revoke hosts; optional compatible
-Clerk config adds cookies and an exact Frontend API host. Fixed adapters enforce paths,
-because Chrome host-permission paths alone do not constrain fetch destinations.
+## Trust boundaries
 
-Pure `packages/otp` performs narrow bounded normalization and extraction; parser scores
-are heuristics, never authorization. Pure `packages/security` compares exact canonical
-HTTPS origins, sender/receipt evidence, purpose, freshness and ambiguity. It returns
-VERIFIED/UNKNOWN/MISMATCH/BLOCKED without code values. No domain-suffix trust or editable
-registry is offered. A Public Suffix List is deferred because no registrable-domain analysis
-is performed. The production registry is empty; Gmail sender remains UNKNOWN and
-internalDate unverified. Adding entries alone cannot enable real release.
+- **Background worker.** Owns Gmail tokens, mail and codes. Nothing else receives
+  a token, a message body or a code before release.
+- **Popup and Options.** The worker accepts their messages only from the exact
+  extension URLs, with closed schemas. The popup is the only Fill authority. The
+  Options page (`management.html`) manages settings and history but cannot reach
+  pipeline status, confirmation, retry or Fill.
+- **Content script.** Runs in the page's frame. Its messages are hints; the worker
+  derives tab, document and origin from Chrome, not from the message.
+- **Website.** `externally_connectable` admits one exact HTTPS origin. The worker
+  also requires the top-level `/dashboard` document and a matching Clerk user and
+  session. The website gets metadata and management actions, never codes. See
+  [ADR 0003](adr/0003-website-browser-management.md).
+- **Mail.** Sender identity is never verified. A code is a candidate, and the Fill
+  click is what authorizes release. See
+  [ADR 0002](adr/0002-user-confirmed-generic-fill.md).
 
-The coordinator binds account/session/generation, mailbox, tab, document, origin and field
-group. It rechecks policy/current context after asynchronous preparation before release.
-Content rechecks exact live empty eligible inputs and single-use approval. Navigation,
-foreground loss, typing/field changes, account/mailbox/settings changes and disposal refuse
-or cancel. Disposal is terminal before/after pending context reads. Worker restart discards
-volatile work; it cannot resume approvals. Durable real-message reuse prevention is deferred
-with real release. The demo's fabricated sender and destination translations stay outside
-production entry graphs, in `development/mock-extension` only.
+The manifest limits network reach. A configured build allows only the Gmail API,
+Google token revocation and the Clerk Frontend API in `host_permissions` and
+`connect-src`. An unconfigured build has `connect-src 'none'`.
 
-## Bounds and conservative behavior
+## Account and Gmail
 
-| Mechanism           | Current bound                                                                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Detection           | Top-level light DOM; 60 seconds/120 scans, 200 inputs; nearby context 2,000 text nodes/4,000 characters; 4–8 split fields                        |
-| Parser              | Generic English 4–8 ASCII alphanumeric; 1,000 subject/32,768 text characters; ambiguity refuses                                                  |
-| MIME normalization  | 256KiB decoded body plus inspected headers, 64 parts/depth 8; strict inert HTML subset                                                           |
-| HTTP JSON           | Profile/list 16KiB; full message 512KiB; caps enforced before JSON parsing                                                                       |
-| Retrieval seam      | Generic: 50 IDs, five pages per enumeration, all bodies; cap failures refuse; 0/2/6/12/22/32/42-second retries; reviewed seam retains ten bodies |
-| Request/approval    | Generic: 60-second search, 30-second confirmation, 15-second fresh release; cycle 30 seconds; provider operations 10 seconds                     |
-| Local/cloud history | 7/30-day logical retention; 500 records; cloud currently disabled                                                                                |
+A signed-in OTPGuard account (Clerk) is required before any fill. The website and
+the extension share one Clerk session in this browser profile; see
+[ADR 0001](adr/0001-shared-website-session.md). The OTPGuard account and the Gmail
+mailbox can be different addresses.
 
-No links/images are followed during normalization, no attachment retrieval occurs, and no
-newest-code shortcut resolves ambiguity. Coalescing requires matching account/session/mailbox/
-service/time window and keeps approvals separate. No mail/code survives completion in an app
-cache. Generic paths are active with configured providers and current authority; historical
-reviewed automatic-fill gates remain separate.
+Gmail uses `chrome.identity` with the `gmail.readonly` scope. Explicit Connect
+stores a version number and two SHA-256 digests: the Clerk user and session, and
+that pair plus the mailbox address. After a worker or browser restart, the worker
+restores the connection only after fresh checks of the Clerk session, a
+non-interactive Chrome grant and the Gmail profile. No token or plaintext identity
+is stored. Disconnect removes the digests first, clears Chrome's token cache and
+then asks Google to revoke the grant. That revocation applies to every client in
+the same Google Cloud project.
 
-## Account and cloud decisions
+## Replay protection
 
-Clerk OTPGuard identity is distinct from Chrome's Gmail mailbox. Development URL credential
-transport is unsupported; keep pk_test refusal, explicit no-cache worker adapter, fresh
-authoritative session probes and cancellation. Provider-free review builds are unconfigured; production shared-session setup has
-separate acceptance evidence below. Chrome owns
-its token cache; mailbox identity remains worker memory. Consent occurs only on Connect.
-Local disconnect/cache cleanup and remote revocation are separate outcomes.
+The release ledger stores a SHA-256 of account, mailbox and message ID for each
+reserved message, kept for 10 minutes in trusted-context local storage. A
+reservation is never rolled back, even when delivery is uncertain. A second
+attempt on the same message refuses as `already-used`.
 
-Convex validates issuer-qualified identity for ownership; callers never choose an owner.
-Installation UUIDs have immutable ownership and are not hardware attestation. Device reports
-use server receipt time; five-minute staleness never establishes current token validity.
-Sync transport is inactive, with local disable/blocks always winning over cloud preferences.
-Cloud activity has separate opt-in/session binding and false client/server policy gates.
-History sinks do not delay authorization. Offline tests exercise actual backend functions;
-live JWT/two-device/scheduler/network acceptance remains unverified.
+## Email coverage
 
-The dashboard cannot read extension storage and has no Convex endpoint. Local activity remains
-in the popup. [Privacy](privacy.md) and [threat model](threat-model.md) describe persistent
-fields, residual risk and audit repairs; [release gates](release-readiness.md) govern activation.
+| Supported                                                                       | Refused or unsupported                                      |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Plain text, HTML-only, multipart alternative/related/mixed                      | Forwarded, replied or attached email bodies; encrypted mail |
+| 7bit, 8bit, base64, quoted-printable; UTF-8, ASCII and standard legacy charsets | Malformed MIME, unknown charsets, unsafe control characters |
+| Encoded and missing subjects                                                    | Reset, recovery, payment, SMS and authenticator purposes    |
+| English code wording; code in subject, same line, next line or table cells      | Non-English-only wording                                    |
+| 4–8 ASCII letters or digits, case and leading zeros kept; `ABC-123` grouping    | Symbols, other lengths, other punctuation                   |
+| Images and binary attachments, ignored as inert resources                       | Two distinct plausible codes in one message or across mail  |
 
-## Domain-hosted authentication revision
+Limits per message: 256 KiB raw, 64 parts, depth 8, 32,768 characters of text.
+`tests/generic-email-coverage.test.ts` and `tests/otp-format-matrix.test.ts` hold
+the synthetic cases.
 
-[ADR0016](adr/0016-domain-hosted-shared-auth.md) records the owner-approved shared
-website/extension session. Standard website SignIn/SignUp runs at otpguard.net after
-approved setup; worker-only production Clerk Sync Host reads the exact Frontend API
-cookie and reloads the active session. Fresh identity and generation checks surround
-the bounded read-only Convex subject probe; logout/cookie events cancel authority and
-late replies. Failed remote logout locally suspends this worker until successful retry.
-Browser/provider cookies remain persistent; the SDK application JWT cache is disabled.
+## Local data
 
-The stable authentication public key/ID is separate from Gmail registration. Optional
-probe configuration adds only the exact Convex host; metadata sync remains inactive.
-No native experiment transport/build source or development issuer exception was ported.
-The [deployment plan](domain-auth.md) is review material, not production readiness.
+Settings, blocks, activity history, the release ledger and the connection digests
+live in `chrome.storage.local` with access limited to trusted extension contexts.
+History keeps at most 500 records for 7 days. A fresh install starts with automatic
+finding on. [Privacy and security](privacy.md) lists every stored field.
 
-## Core 1 authenticated connection
+## Known gaps
 
-Production popup Gmail messages enter `gmail/authenticated.ts` before the existing
-Chrome lifecycle. A fresh Clerk user/session binding is checked before Google and
-again after completion; account invalidation cancels mailbox work. A switched session
-requires explicit disconnect, while different Clerk/Gmail emails remain valid.
-Popup freshness checks, mailbox actions and cloud identity probes are serialized to
-avoid superseding each other; timer polls skip active work. Logout still cancels
-immediately outside that queue. Cleanup can run without Clerk. Requests and tokens do not survive worker restart. Core 4 now retains only two
-nonsecret connection-intent digests and restores the same selected session/mailbox
-through fresh authoritative checks without interactive OAuth. No token reaches
-popup/content/backend. See [ADR0021](adr/0021-core-4-remembered-mailbox-and-late-challenges.md). The reviewed stable-ID artifact requests only Gmail readonly,
-uses profile/revoke endpoints and has no site content entry or retrieval registration.
-
-Public configuration and `scripts/build-core-1.ts` reproduce a new isolated controlled
-export without copying owner env files. Old Gmail artifacts/clients remain distinct,
-but Google project grants are shared: revocation affects other project clients and
-requires an explained confirmation. [ADR0017](adr/0017-authenticated-gmail-connection.md)
-and [Core 1 acceptance](core-1-acceptance.md) record actual evidence and remaining limits.
-
-## Core 2 local DKIM prototype
-
-The owner-selected development-only raw DKIM experiment authenticates covered
-content against an explicit signer/sender/recipient rule, with signed freshness.
-It provides no direct receipt or replay-exclusion claim and cannot produce production
-VERIFIED evidence. Raw bytes and keys are in memory; no persistence, logging, live
-resolver, Gmail reader or permission expansion is added. Synthetic key resolution
-receives only an approved selector/domain query. Production registry, sender UNKNOWN,
-receipt unverified and real fill disabled remain unchanged. A copied recent valid
-signature can verify again; future release needs reviewed real-service evidence and
-crash/dedup handling, with unseen replay still a residual risk.
-[ADR0019](adr/0019-local-dkim-prototype.md) and
-[acceptance](core-2-dkim-prototype-acceptance.md) describe scope and remaining gates.
-
-## Core 3 owner-controlled pilot
-
-Core 3 supersedes the preceding prototype-only state: the shared production raw Gmail
-pipeline is wired for one exact Canva origin with optional access. DKIM authenticates
-signer/covered content, not direct receipt. The extension popup is the Fill prompt;
-only a user click can precede release. Manual retrieval shares the policy. Related/
-alternative MIME uses bounded authoritative plain text without HTML rendering.
-A trusted-local write-ahead hashed message/account ledger prevents uncertain resend.
-[ADR0020](adr/0020-core-3-signed-content-clicked-fill.md) and
-[acceptance](core-3-acceptance.md) describe implementation and live limits.
-
-## Current generic flow — October 5, 2026
-
-ADR0022 supersedes the earlier disabled/site-specific production descriptions for
-the owner-selected generic mode. After one optional HTTPS-wide grant, the top-level
-content script detects email-code fields; the worker searches bounded recent Gmail
-raw mail and extracts generic numeric candidates. Generic assessment returns CANDIDATE,
-never VERIFIED. The exact extension popup must confirm Fill before prepare/reservation/
-release. Account/mailbox/document/origin/focus/field checks and cancellation remain.
-Unknown input lengths are resolved before prepare. Shared generic concurrency prevents
-separate websites selecting the same candidate. History uses null service IDs.
-Production has no DKIM DNS traffic or stored mappings; the reviewed policy remains
-separate. See generic-fill-acceptance.md for actual evidence and coverage limits.
-
-Generic format coverage additionally handles mixed MIME, subjectless mail, common
-legacy charsets, spaced numeric codes and inline/table HTML layouts. Embedded images
-and binary application attachments are inert resources, never code sources. Forwarded
-or attached email bodies and encrypted MIME still refuse. SPA admission binds the
-browser's live frame URL after document/origin validation because sender.url may
-retain the original URL; exact URL/document checks remain at subsequent boundaries.
-See [generic email coverage](generic-email-coverage.md).
-
-Generic reliability revision (ADR0023): one worker-owned challenge window is shared
-with retrieval and candidate selection; early email-request gestures and resend hints
-contain no page-supplied timestamp. Retry preserves that window with a fresh polling
-deadline. Explicit receipt/field/recipient/service contradictions can narrow matching,
-while unknown competition refuses. Rank 4 supersedes the earlier subject/snippet
-exclusion: eligible unreadable mail keeps the cycle incomplete.
-Production insertion acknowledges retained values after 100 ms, without initiating
-submission or overwriting intervening changes. No additional provider scopes or site
-permissions are introduced. See generic-reliability-acceptance.md.
-
-Request diagnostics now expose a volatile closed stage enum, elapsed timing and at most 12 last-observed stages to the popup. Admission, retrieval, exclusion and release stages share the same local observer; it has no authorization role. Concurrent checks can interleave stages.
-
-Generic request follow-up: the background routes early challenge events through the
-account/mailbox/page boundary. Admission is cancellable and consumes the same
-60-second budget as retrieval and confirmation. Navigation cancels pending admission;
-late provider results do not admit an expired request. Only detection starts a new
-searching display. See [follow-up acceptance](generic-request-followup-acceptance.md).
-
-Generic recipient hints use bounded rendered text, preserving block boundaries and
-inline address fragments. Concatenated DOM text must not create a different address
-by prefixing adjacent headings. Recipient contradiction still excludes a candidate;
-this correction changes extraction, not the mailbox or release policy.
-
-Generic parsing excludes explicitly marked copyright years/ranges from candidate
-numbers, including when inert email text puts metadata on the same line as a code
-label. Other four-digit numbers still require the existing context rules; a year-like
-value can itself be a valid code. Two distinct labelled codes remain ambiguous.
-
-A generic code label followed by explicit request-audit wording, such as “This code
-was requested from”, does not introduce an OTP value. Dates and other audit numbers
-therefore do not compete with a labelled verification code elsewhere in the email.
-Additional actual code labels still participate in ambiguity. These grammatical hints
-are generic matching heuristics and never establish sender/destination trust.
-
-Parser reliability scope 1 treats explicit audit/reference headings as code-context
-boundaries, including flattened text. A standalone reference number cannot inherit
-an earlier OTP label across that boundary. Clearly negated number-free safety
-statements are excluded from purpose matching; numeric disclaimers remain conservative.
-Additional actual code labels and disagreement across MIME alternatives still refuse.
-See [parser acceptance](generic-parser-reliability-acceptance.md).
-
-An uncertain native OTP field can request a separate explicit email intent from the
-extension popup. No Gmail message search starts before that intent. The volatile,
-one-use intent expires after 30 seconds and binds to the account session, mailbox,
-foreground tab, browser document and exact field group. Known authenticator,
-sensitive and oversized contexts refuse this fallback. A found generic candidate
-still requires a separate Fill click; intent never authorizes code release.
-Unrelated navigation/sidebar/footer text is excluded from detection context only
-when that region does not contain the target fields.
-
-Generic user-confirmed code matching supports 4–8 ASCII letters/digits with exact
-case preserved. Letter-containing codes require clear inline or standalone code
-placement. Arbitrary words, symbols, URLs and long token fragments are not searched
-as codes. The release schema and generic candidate gate accept the same bounded
-format; the reviewed automatic policy is unchanged. Insertion checks number inputs
-and HTML patterns before any writes and repeats compatibility checks during events.
-
-Exactly `AAA-BBB` presentation grouping is supported in generic code context:
-three ASCII alphanumeric characters, one ASCII hyphen, then three characters.
-Extraction returns the six characters with case preserved. This fills six code
-cells without writing the display separator. Arbitrary punctuation is not stripped.
-
-English code connector casing is ignored, with code casing preserved. Alphabetic
-quote wrappers must match. Unquoted introductory/status words are ambiguous prose,
-while explicit quoted or isolated word codes remain eligible. Numeric matching
-rejects partial values attached to Unicode words, URLs, addresses or domains. A
-generated synthetic format matrix is part of the default unit/integration suite.
-
-The popup treats Fill command acceptance separately from insertion acknowledgement.
-It immediately disables Fill during a handoff, ignores stale READY responses for
-that clicked request, renders selected-code transitional states and shows insertion
-success only on FILLED. A lost command response leaves delivery unconfirmed; it
-never initiates a repeat fill. The clicked request ID stays only in popup memory.
-
-Supported automatic email-code detection starts a presentation-only popup attempt
-in parallel with provider admission. The worker validates foreground browser metadata,
-permission/settings/block policy and cancellation, and deduplicates early attempts
-by document/URL/field group in memory. Presentation failure leaves all retrieval and
-required-Fill gates intact. Manual Retry and uncertain-field recovery remain manual.
-
-The release ledger returns closed local reservation diagnostics while retaining its
-boolean compatibility API and unchanged write-ahead protection. Reused-email and
-unavailable-record refusals remain UNKNOWN/message-binding and block release, but
-carry an optional replay enum for precise popup recovery text. The diagnostic is
-not sender trust, server-login evidence or permission to clear reservation history.
-
-Trusted nearby new-code controls recognize request/get/send/email new/another code
-wording as well as resend/send-again. They establish the existing fresh receipt
-window and cancel prior approval, without any site mapping or release permission.
-Script clicks and genuinely competing new messages remain refusing cases.
-
-Rank 4 generic transport enumerates up to fifty unique IDs across five pages before
-four parallel workers fetch all bodies. Spam/trash are included. A second enumeration
-refuses visible set changes. Aggregate response bytes and cycle/request time are
-bounded (8 MiB / thirty seconds / ten seconds); no partial set can reach selection.
-The historical reviewed transport retains its ten-body/no-pagination behavior.
-See [ADR0028](adr/0028-bounded-complete-generic-retrieval.md).
-
-Rank 5 shares bounded address syntax in `packages/otp/addresses.ts` across raw recipient
-hints, rendered page tokens, the detection schema and security comparison. Whole visible
-To/Cc/Bcc lists produce addresses only when fully understood; malformed/unsupported
-members and undisclosed groups supply no exclusion. Both retrieval and coordinator
-require `recipientContradiction` rather than negating a boolean alias match. Non-Gmail
-case-only differences are uncertain; personal Gmail dot/plus rules do not apply to
-custom domains. Missing/uncertain evidence keeps mail plausible. Sender/service hints,
-required Fill, authority, replay, timing and retrieval bounds remain unchanged.
-See [ADR0029](adr/0029-structured-recipient-hints.md).
-
-Admission display follow-up (ADR0030): the worker returns a browser context only after
-its final live `current` check, without a contradictory earlier foreground snapshot.
-Explicit foreground/email-flow refusal completes the admitting display. Popup status
-reads enforce the 60-second admission deadline even if a suspended-worker timer has
-not run; coordinator admission signals are aborted without clearing challenge windows
-or replay reservations. Progress labels precede later fresh provider/browser reads.
-This repairs reproduced indefinite-search diagnostics without changing release authority.
-
-Owner-requested fresh-install default (ADR0031): `createLocalSettings` saves automatic
-finding enabled only when the existing settings record is absent. Pre-init/unavailable
-state remains disabled; stored opt-outs and blocks are retained. Shared/inactive cloud
-defaults are unchanged. No automatic grant, consent, insertion or submission is added.
+- Nothing ties a code to the site that asked for it. A page can trigger a real code
+  to your mailbox and receive it if you click Fill.
+- Two listings are not an atomic Gmail snapshot. Mail indexed after the closing
+  listing can be missed.
+- Iframes, shadow roots, magic links, multiple mailboxes, incognito and other
+  browsers are not supported.
