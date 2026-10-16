@@ -85,9 +85,11 @@ Unit tests live in each workspace's `tests/` folder.
 
 The extension is not in the Chrome Web Store yet. Install it unpacked from a configured
 build. A build from a fresh clone has no provider settings and cannot sign in or read
-Gmail.
+Gmail. The Google Cloud project is still in Testing mode, so Gmail connection works only
+for Google accounts listed as test users.
 
-1. Build it: `bun run build:release /absolute/new/folder` (see [Commands](#commands)).
+1. Build it: `bun run build:release /absolute/new/folder`, a new folder outside the
+   repository (see [Commands](#commands)).
 2. Open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked** and
    select `/absolute/new/folder/extension`. Pin OTPGuard to the toolbar.
 3. Open [your dashboard](https://otpguard.net/dashboard) and sign in.
@@ -109,8 +111,12 @@ Each part of the product does a different job:
 | Options page      | The same controls, plus Chrome's website-access prompt                             |
 | Homepage          | A demo with a made-up code; no mailbox, sign-in or submission                      |
 
+Open the Options page by right-clicking the OTPGuard toolbar icon and choosing **Options**.
+
 The dashboard only works with the extension in the same Chrome profile and the same
-OTPGuard sign-in. It receives status and settings, never codes or mail.
+OTPGuard sign-in. It receives connection status, settings and activity metadata: the
+Gmail address, your blocks, the history count and last result, and the history JSON
+only when you export it. Never codes, mail or tokens.
 
 ## What it covers
 
@@ -126,7 +132,9 @@ links, more than one mailbox, incognito windows and other browsers. If two diffe
 codes could match, OTPGuard refuses instead of guessing.
 
 Settings and history stay in your Chrome profile; there is no OTPGuard server. Signing
-out of OTPGuard does not disconnect Gmail. Disconnecting Gmail asks Google to revoke
+out of OTPGuard does not revoke Gmail access. The Gmail connection is tied to your
+sign-in: after you sign in again, choose **Disconnect Gmail**, then **Connect Gmail**.
+Disconnecting Gmail asks Google to revoke
 access for every client in the same Google Cloud project.
 
 Before a public release, OTPGuard still needs Google's verification for the restricted
@@ -146,7 +154,7 @@ From a fresh clone, with no provider env files:
 
 ```sh
 bun install --frozen-lockfile
-bun run build
+NEXT_TELEMETRY_DISABLED=1 bun run build
 bun run check
 bun x --no-install playwright install chromium
 bun run test:browser
@@ -162,34 +170,36 @@ There is no hot reload for the extension. Run `bun run build`, then choose **Rel
 
 Run these commands from the repository root.
 
-| Command                                   | What it does                                                                  |
-| ----------------------------------------- | ----------------------------------------------------------------------------- |
-| `bun run build`                           | Builds the extension and the website                                          |
-| `bun run check`                           | Typecheck, lint, format check and every unit test                             |
-| `bun run --filter @otpguard/<name> test`  | Unit tests for one workspace: `extension`, `web`, `otp`, `security`, `shared` |
-| `bun run test:browser`                    | Playwright specs against the built extension and website                      |
-| `bun run build:release /absolute/new/dir` | Configured extension from `configuration/`, without reading env files         |
-| `bun run format`                          | Formats the repository                                                        |
-| `bun run dev:web`                         | Starts the website in development mode                                        |
-| `bun run fixtures`                        | Serves the synthetic test pages on port 3001                                  |
-| `bun run package:review`                  | Builds credential-free review archives in `dist/review`                       |
-| `bun run check:packages`                  | Unpacks the review archives and checks them (needs `zip`, `unzip`, port 3201) |
+| Command                                   | What it does                                                                                                   |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `bun run build`                           | Builds the extension and the website                                                                           |
+| `bun run check`                           | Typecheck, lint, format check and every unit test                                                              |
+| `bun run --filter @otpguard/<name> test`  | Unit tests for one workspace: `extension`, `web`, `otp`, `security`, `shared`                                  |
+| `bun run test:browser`                    | Playwright specs against the built extension and website                                                       |
+| `bun run build:release /absolute/new/dir` | Configured extension from `configuration/` into a new folder outside the repository, without reading env files |
+| `bun run format`                          | Formats the repository                                                                                         |
+| `bun run dev:web`                         | Starts the website in development mode                                                                         |
+| `bun run fixtures`                        | Serves the synthetic test pages on port 3001                                                                   |
+| `bun run package:review`                  | Builds credential-free review archives in `dist/review`                                                        |
+| `bun run check:packages`                  | Unpacks the review archives and checks them (needs `zip`, `unzip`, port 3201)                                  |
 
 Before each commit, a Git hook formats and lints the staged files and typechecks the
 repository. CI runs the full build, every check, the browser specs and the review
-packages on each pull request, and audits dependencies weekly.
+packages on each pull request and push to `main`, and audits dependencies weekly.
+Changes that touch only Markdown or `documentation/` skip CI.
 
 ## Deployment
 
 - **Website:** Vercel, from `apps/web`. Git deployments are off, so deploy by hand after
-  merging. Merging alone does not change otpguard.net.
+  merging. Merging alone does not change otpguard.net. A local `bun run dev:web` cannot
+  manage the extension: the extension only talks to `https://otpguard.net`.
 - **Extension:** unpacked builds only, until store review. Use `bun run build:release`
   for a configured build, or env files for a local one (see
   [Development](./documentation/development.md)).
 
 ## Troubleshooting
 
-### The build stops with "Rename PLASMO*PUBLIC*\* variables"
+### The build stops with `Rename PLASMO_PUBLIC_* variables`
 
 The extension's env variables now start with `OTPGUARD_PUBLIC_`. Rename the keys in
 `apps/extension/.env.account` and `apps/extension/.env.gmail`, and in your shell if you
