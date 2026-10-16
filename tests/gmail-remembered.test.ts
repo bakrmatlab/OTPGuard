@@ -172,7 +172,6 @@ it('restores before admitting an automatic page request through the connected co
   };
   const coordinator = createMailboxCoordinator(
     {
-      registry: [],
       now: Date.now,
       id: () => 'request',
       context: async () => context,

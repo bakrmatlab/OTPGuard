@@ -56,8 +56,6 @@ function setup() {
     email: { subject: 'Sign in', text: 'Your verification code is 003719' },
   };
   const adapter: Adapter = {
-    mode: 'user-confirmed',
-    registry: [],
     now: () => now,
     id: () => 'request',
     context: async () => ({

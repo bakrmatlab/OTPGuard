@@ -80,7 +80,6 @@ describe('account session boundary', () => {
       const adapter: Adapter = {
         now: Date.now,
         id: () => 'synthetic-request',
-        registry: [],
         context: async () => ({
           accountId: 'ignored-page-account',
           mailboxId: 'synthetic-mailbox',
@@ -141,7 +140,6 @@ describe('account session boundary', () => {
         send: vi.fn(),
         now: Date.now,
         id: () => 'id',
-        registry: [],
       },
       createAccountGate(async () => null),
     );

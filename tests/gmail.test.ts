@@ -164,7 +164,6 @@ it('mailbox disconnect cancels actual connected coordinator work while Clerk rem
   const adapter = {
     now: Date.now,
     id: () => 'request',
-    registry: [],
     context: async () => ({
       accountId: 'untrusted',
       mailboxId: 'mailbox@fixture.invalid',

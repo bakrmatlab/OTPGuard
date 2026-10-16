@@ -130,8 +130,6 @@ it.each([
             : 'person@fixture.invalid';
   const sent: unknown[] = [];
   const adapter: Adapter = {
-    mode: 'user-confirmed',
-    registry: [],
     now: () => 100000,
     id: () => 'request',
     settings: () => ({ autofillEnabled: true, blockedOrigins: [] }),
@@ -249,8 +247,6 @@ it('coordinator does not exclude a malformed recipient envelope', async () => {
   };
   const sent: unknown[] = [];
   const adapter: Adapter = {
-    mode: 'user-confirmed',
-    registry: [],
     now: () => 100000,
     id: () => 'request',
     context: async () => ({

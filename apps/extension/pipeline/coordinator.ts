@@ -8,17 +8,8 @@ import {
   RELEASE_MS,
 } from '../../../packages/security/timing';
 import { genericRetrievalLimits } from '../../../packages/security/retrieval-limits';
-import {
-  parseVerificationCode,
-  parseGenericCode,
-  type NormalizedEmail,
-} from '../../../packages/otp';
-import {
-  authorize,
-  type Decision,
-  type SenderEvidence,
-  type ServicePolicy,
-} from '../../../packages/security';
+import { parseGenericCode, type NormalizedEmail } from '../../../packages/otp';
+import { type Decision, type SenderEvidence } from '../../../packages/security';
 import {
   assessGenericCandidate,
   recipientContradiction,
@@ -76,7 +67,6 @@ export type CancellationReason =
   | 'page-cancelled'
   | 'invalidated';
 export interface Adapter {
-  mode?: 'user-confirmed';
   cancelled?(reason: CancellationReason): void;
   /** Trusted readiness failures only; no page content or identity metadata. */
   contextFailure?(reason: 'account' | 'mailbox' | 'page' | null): void;
@@ -128,7 +118,6 @@ export interface Adapter {
     signal: AbortSignal,
   ): Promise<readonly Envelope[] | null>;
   send(context: Context, message: WorkerMessage): Promise<unknown>;
-  registry: readonly ServicePolicy[];
 }
 export type LocalStatus =
   | {
@@ -325,11 +314,7 @@ export function createCoordinator(adapter: Adapter) {
           : undefined;
       // Browser metadata permits immediate cancellation, never immediate release.
       // Save the worker-observed gesture before provider checks can reorder events.
-      if (
-        adapter.mode === 'user-confirmed' &&
-        message.type === 'challenge' &&
-        senderKey
-      ) {
+      if (message.type === 'challenge' && senderKey) {
         if (!browserChallenges.has(senderKey) && browserChallenges.size >= 1000)
           return { state: 'UNKNOWN', reason: 'request' };
         browserChallenges.set(senderKey, { startedAt: observedAt, order });
@@ -447,17 +432,14 @@ export function createCoordinator(adapter: Adapter) {
           ? observedChallenge
           : undefined;
       if (browserChallenge) browserChallenge.browserUrl ??= context.browserUrl;
-      if (adapter.mode === 'user-confirmed') {
-        if (order < (browserChallenge?.order ?? 0))
-          return { state: 'CANCELLED' };
-        if (order < (documentOrders.get(challengeKey) ?? 0))
-          return { state: 'CANCELLED' };
-        if (!documentOrders.has(challengeKey) && documentOrders.size >= 1000)
-          return { state: 'UNKNOWN', reason: 'request' };
-        documentOrders.set(challengeKey, order);
-      }
+      if (order < (browserChallenge?.order ?? 0)) return { state: 'CANCELLED' };
+      if (order < (documentOrders.get(challengeKey) ?? 0))
+        return { state: 'CANCELLED' };
+      if (!documentOrders.has(challengeKey) && documentOrders.size >= 1000)
+        return { state: 'UNKNOWN', reason: 'request' };
+      documentOrders.set(challengeKey, order);
       if (message.type === 'challenge') {
-        if (adapter.mode === 'user-confirmed' && context.foreground) {
+        if (context.foreground) {
           if (
             !challengeStarts.has(challengeKey) &&
             challengeStarts.size >= 1000
@@ -528,10 +510,7 @@ export function createCoordinator(adapter: Adapter) {
         return { state: 'UNKNOWN', reason: 'request' };
       // A document/group gets only one attempt per worker lifetime. No automatic restart/retry.
       const key = `${context.accountId}/${context.mailboxId}/${context.tabId}/${context.documentId}/${message.groupId}`;
-      if (
-        adapter.mode === 'user-confirmed' &&
-        (message.fresh || message.manual || message.replacement)
-      ) {
+      if (message.fresh || message.manual || message.replacement) {
         for (const existing of [...requests.values()])
           if (
             same(existing.context, context) &&
@@ -546,7 +525,7 @@ export function createCoordinator(adapter: Adapter) {
         return { state: 'UNKNOWN', reason: 'request' };
       used.add(key);
       const startedAt = adapter.now();
-      if (adapter.mode === 'user-confirmed') {
+      {
         const previous = windows.get(challengeKey);
         const hint =
           browserChallenge?.startedAt ?? challengeStarts.get(challengeKey);
@@ -624,49 +603,37 @@ export function createCoordinator(adapter: Adapter) {
           adapter.retrieve(context, request.abort.signal),
         );
         if (!(await alive(request))) return stop(request, 'current-changed');
-        if (
-          !envelopes ||
-          envelopes.length >
-            (adapter.mode === 'user-confirmed'
-              ? genericRetrievalLimits.messages
-              : 10)
-        ) {
+        if (!envelopes || envelopes.length > genericRetrievalLimits.messages) {
           adapter.progress?.('retrieval-incomplete');
           return (status = { state: 'UNKNOWN', reason: 'ambiguity' });
         }
         adapter.progress?.('selecting');
-        let plausible =
-          adapter.mode === 'user-confirmed'
-            ? envelopes.filter((envelope) => {
-                const window = context.requestWindow!;
-                if (
-                  envelope.receivedAt < window.notBefore ||
-                  envelope.receivedAt > adapter.now()
-                )
-                  return false;
-                if (
-                  recipientContradiction(envelope.recipients, window.recipient)
-                )
-                  return false;
-                const parsed = parseGenericCode(envelope.email);
-                if (
-                  parsed.status === 'candidate' &&
-                  window.allowedLengths &&
-                  !window.allowedLengths.includes(parsed.candidate.code.length)
-                )
-                  return false;
-                return (
-                  parsed.status !== 'rejected' &&
-                  !(
-                    parsed.status === 'candidate' &&
-                    request.length !== 0 &&
-                    parsed.candidate.code.length !== request.length
-                  )
-                );
-              })
-            : envelopes;
+        let plausible = envelopes.filter((envelope) => {
+          const window = context.requestWindow!;
+          if (
+            envelope.receivedAt < window.notBefore ||
+            envelope.receivedAt > adapter.now()
+          )
+            return false;
+          if (recipientContradiction(envelope.recipients, window.recipient))
+            return false;
+          const parsed = parseGenericCode(envelope.email);
+          if (
+            parsed.status === 'candidate' &&
+            window.allowedLengths &&
+            !window.allowedLengths.includes(parsed.candidate.code.length)
+          )
+            return false;
+          return (
+            parsed.status !== 'rejected' &&
+            !(
+              parsed.status === 'candidate' &&
+              request.length !== 0 &&
+              parsed.candidate.code.length !== request.length
+            )
+          );
+        });
         if (
-          adapter.mode === 'user-confirmed' &&
           plausible.some(
             (envelope) =>
               genericServiceHint(
@@ -688,50 +655,36 @@ export function createCoordinator(adapter: Adapter) {
         // Parsing, receipt and sender all come from one adapter envelope, never a runtime claim.
         const messages = plausible.map(({ email, ...evidence }) => ({
           ...evidence,
-          parsed:
-            adapter.mode === 'user-confirmed'
-              ? parseGenericCode(email)
-              : parseVerificationCode(email),
+          parsed: parseGenericCode(email),
         }));
         const decide = () =>
-          (adapter.mode === 'user-confirmed'
-            ? assessGenericCandidate
-            : authorize)(
-            {
-              serviceId: context.serviceId,
-              now: adapter.now(),
-              locallyBlocked: blocked(),
-              request: {
-                mailboxId: context.mailboxId,
-                startedAt,
-                ...(adapter.mode === 'user-confirmed'
-                  ? { receiptNotBefore: context.requestWindow!.notBefore }
-                  : {}),
-                deadline: request.deadline,
-                ...(request.confirmation
-                  ? { confirmation: request.confirmation }
-                  : {}),
-                url: context.policyUrl,
-                topLevel: true,
-                current: true,
-                foreground: true,
-                emailFlow: message.emailFlow,
-                purpose: 'sign-in',
-                expectedLength: request.length,
-                competingChallenges: request.ambiguous ? 1 : 0,
-              },
-              messages,
+          assessGenericCandidate({
+            serviceId: context.serviceId,
+            now: adapter.now(),
+            locallyBlocked: blocked(),
+            request: {
+              mailboxId: context.mailboxId,
+              startedAt,
+              receiptNotBefore: context.requestWindow!.notBefore,
+              deadline: request.deadline,
+              ...(request.confirmation
+                ? { confirmation: request.confirmation }
+                : {}),
+              url: context.policyUrl,
+              topLevel: true,
+              current: true,
+              foreground: true,
+              emailFlow: message.emailFlow,
+              purpose: 'sign-in',
+              expectedLength: request.length,
+              competingChallenges: request.ambiguous ? 1 : 0,
             },
-            adapter.registry,
-          );
+            messages,
+          });
         if (!message.manual && !preferences().autofillEnabled)
           return stop(request, 'automatic-disabled');
         status = decide();
-        if (
-          adapter.mode === 'user-confirmed' &&
-          status.state === 'UNKNOWN' &&
-          status.reason === 'ambiguity'
-        )
+        if (status.state === 'UNKNOWN' && status.reason === 'ambiguity')
           adapter.progress?.(
             request.ambiguous
               ? 'requests-ambiguous'
@@ -739,19 +692,18 @@ export function createCoordinator(adapter: Adapter) {
                 ? 'messages-ambiguous'
                 : 'codes-ambiguous',
           );
-        if (status.state !== 'VERIFIED' && status.state !== 'CANDIDATE')
-          return status;
-        if (adapter.mode === 'user-confirmed' && !adapter.confirm)
+        if (status.state !== 'CANDIDATE') return status;
+        if (!adapter.confirm)
           return (status = { state: 'UNKNOWN', reason: 'request' });
-        if (adapter.mode === 'user-confirmed') {
-          if (adapter.now() >= request.deadline)
-            return stop(request, 'deadline');
-          request.confirmation = { offeredAt: adapter.now() };
-          setDeadline(
-            request.confirmation.offeredAt + CONFIRM_MS,
-            'confirmation-expired',
-          );
-        }
+        if (adapter.now() >= request.deadline) return stop(request, 'deadline');
+        const confirmation: NonNullable<Request['confirmation']> = {
+          offeredAt: adapter.now(),
+        };
+        request.confirmation = confirmation;
+        setDeadline(
+          confirmation.offeredAt + CONFIRM_MS,
+          'confirmation-expired',
+        );
         let expiresAt = Math.min(adapter.now() + CONFIRM_MS, request.deadline);
         const binding = {
           requestId: request.id,
@@ -762,30 +714,26 @@ export function createCoordinator(adapter: Adapter) {
               : request.length,
           expiresAt,
         };
-        if (adapter.confirm) {
-          adapter.progress?.('approval');
-          const confirmed = await bounded(request, () =>
-            adapter.confirm!(
-              context,
-              binding,
-              request.abort.signal,
-              !message.manual,
-            ),
+        adapter.progress?.('approval');
+        const confirmed = await bounded(request, () =>
+          adapter.confirm!(
+            context,
+            binding,
+            request.abort.signal,
+            !message.manual,
+          ),
+        );
+        if (confirmed !== true)
+          return stop(
+            request,
+            confirmed === 'confirmation-expired' ? confirmed : 'confirmation',
           );
-          if (confirmed !== true)
-            return stop(
-              request,
-              confirmed === 'confirmation-expired' ? confirmed : 'confirmation',
-            );
-        }
         if (adapter.now() >= expiresAt || request.abort.signal.aborted)
           return stop(request, 'confirmation-expired');
-        if (request.confirmation) {
-          request.confirmation.clickedAt = adapter.now();
-          expiresAt = request.confirmation.clickedAt + RELEASE_MS;
-          binding.expiresAt = expiresAt;
-          setDeadline(expiresAt, 'binding-expired');
-        }
+        confirmation.clickedAt = adapter.now();
+        expiresAt = confirmation.clickedAt + RELEASE_MS;
+        binding.expiresAt = expiresAt;
+        setDeadline(expiresAt, 'binding-expired');
         if (!(await alive(request))) return stop(request, 'current-changed');
         if (adapter.now() >= expiresAt) return stop(request, 'binding-expired');
         if (blocked())
@@ -806,8 +754,7 @@ export function createCoordinator(adapter: Adapter) {
         if (!message.manual && !preferences().autofillEnabled)
           return stop(request, 'automatic-disabled');
         status = decide();
-        if (status.state !== 'VERIFIED' && status.state !== 'CANDIDATE')
-          return status;
+        if (status.state !== 'CANDIDATE') return status;
         const parsed = messages[0]!.parsed;
         if (parsed.status !== 'candidate') return (status = { state: 'ERROR' });
         adapter.progress?.('replay');
@@ -830,8 +777,7 @@ export function createCoordinator(adapter: Adapter) {
         if (!message.manual && !preferences().autofillEnabled)
           return stop(request, 'automatic-disabled');
         status = decide();
-        if (status.state !== 'VERIFIED' && status.state !== 'CANDIDATE')
-          return status;
+        if (status.state !== 'CANDIDATE') return status;
         adapter.progress?.('filling');
         const result = await bounded(request, () =>
           adapter.send(context, {

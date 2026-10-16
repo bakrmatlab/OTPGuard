@@ -22,8 +22,6 @@ function setup() {
   };
   const sent: WorkerMessage[] = [];
   const adapter: Adapter = {
-    mode: 'user-confirmed',
-    registry: [],
     now: Date.now,
     id: () => 'request',
     context: async () => ({

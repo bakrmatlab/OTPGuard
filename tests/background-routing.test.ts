@@ -71,8 +71,6 @@ it('carries an early request across a delayed unfamiliar-site form through the a
   let receivedAt = now;
   const send = vi.fn(async () => true);
   const coordinator = createCoordinator({
-    mode: 'user-confirmed',
-    registry: [],
     now: () => now,
     id: () => documentId,
     context: async () => ({

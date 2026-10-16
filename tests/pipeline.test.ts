@@ -8,26 +8,7 @@ import {
   type Envelope,
 } from '../apps/extension/pipeline/coordinator';
 import { parseClient, parseWorker } from '../apps/extension/pipeline/protocol';
-import type { ServicePolicy } from '../packages/security';
-const policy: ServicePolicy = {
-  id: 'mock',
-  name: 'Synthetic',
-  origins: ['https://lantern.example'],
-  senders: [
-    {
-      address: 'code@lantern.example',
-      authenticatedDomain: 'lantern.example',
-      boundaryId: 'test',
-      method: 'aligned-dkim',
-    },
-  ],
-  templates: ['inline'],
-  purposes: ['sign-in'],
-  codeLengths: [6],
-  maxAgeMs: 300_000,
-  provenance: 'synthetic',
-  validatedOn: '2026-10-03',
-};
+import { createReleaseLedger } from '../apps/extension/pipeline/replay';
 const detect = {
   type: 'detect',
   groupId: 'fields-1',
@@ -53,22 +34,13 @@ function setup() {
     messageId: 'message',
     mailboxId: 'mailbox',
     receivedAt: now,
-    sender: {
-      status: 'authenticated',
-      messageId: 'message',
-      mailboxId: 'mailbox',
-      address: 'code@lantern.example',
-      authenticatedDomain: 'lantern.example',
-      boundaryId: 'test',
-      method: 'aligned-dkim',
-      delivery: 'direct',
-    },
+    sender: { status: 'unknown' },
     email: { subject: 'Sign in', text: 'Your verification code is 042681' },
   };
   const sends: string[] = [];
   let id = 0;
   const adapter: Adapter = {
-    registry: [policy],
+    confirm: async () => true,
     now: () => now,
     id: () => `request-${++id}`,
     context: async () => ({ ...context }),
@@ -124,18 +96,37 @@ describe('closed protocol', () => {
   });
 });
 describe('worker authorization boundary', () => {
-  it('safe synthetic envelope fills once; status contains no code', async () => {
+  it('safe synthetic envelope fills once through the release ledger; status contains no code', async () => {
     const s = setup();
+    let stored: unknown;
+    const ledger = createReleaseLedger(
+      {
+        read: async () => stored,
+        write: async (value) => {
+          stored = value;
+        },
+      },
+      s.adapter.now,
+    );
+    s.adapter.reserve = async (context, messageId) => {
+      const result = await ledger.reserveDetailed(
+        context.accountId,
+        context.mailboxId,
+        messageId,
+      );
+      return result === 'reserved' ? true : result;
+    };
     expect(await s.coordinator.handle(detect, {})).toEqual({ state: 'FILLED' });
     expect(s.sends).toEqual(['prepare', 'release']);
     expect(JSON.stringify(s.coordinator.status())).not.toContain('042681');
-    await s.coordinator.handle(detect, {});
-    expect(s.sends).toHaveLength(2);
+    expect(await s.coordinator.handle(detect, {})).toEqual({
+      state: 'UNKNOWN',
+      reason: 'message-binding',
+      replay: 'already-used',
+    });
+    expect(s.sends).toHaveLength(3);
   });
   it.each([
-    'destination',
-    'sender',
-    'binding',
     'text',
     'receipt',
     'ambiguous',
@@ -147,11 +138,6 @@ describe('worker authorization boundary', () => {
   ] as const)('refuses %s without releasing', async (scenario) => {
     const s = setup();
     const request = { ...detect };
-    if (scenario === 'destination')
-      s.context.policyUrl = 'https://unrelated.example';
-    if (scenario === 'sender') s.envelope.sender = { status: 'unknown' };
-    if (scenario === 'binding' && s.envelope.sender.status === 'authenticated')
-      s.envelope.sender.messageId = 'different';
     if (scenario === 'text') s.envelope.email.text = 'Order number 042681';
     if (scenario === 'receipt') s.envelope.receivedAt = 1;
     if (scenario === 'ambiguous')
@@ -282,13 +268,11 @@ describe('connected account release boundary', () => {
   });
 });
 
-it('bounded polling hands synthetic success to authorization and retains mismatch/stale/ambiguity refusal', async () => {
+it('bounded polling hands synthetic success to authorization and retains stale/ambiguity refusal', async () => {
   const { createRetrievalEngine } =
     await import('../apps/extension/gmail/retrieval');
-  for (const scenario of ['safe', 'mismatch', 'stale', 'ambiguous']) {
+  for (const scenario of ['safe', 'stale', 'ambiguous']) {
     const test = setup();
-    if (scenario === 'mismatch')
-      test.context.policyUrl = 'https://unrelated.example';
     if (scenario === 'stale') test.envelope.receivedAt = 1;
     const engine = createRetrievalEngine({
       now: test.adapter.now,
@@ -302,11 +286,12 @@ it('bounded polling hands synthetic success to authorization and retains mismatc
       ...test.adapter,
       retrieve: engine.retrieve,
     });
+    // The request window drops a stale message before authorization: no code, no release.
     expect((await coordinator.handle(detect, {})).state).toBe(
       scenario === 'safe'
         ? 'FILLED'
-        : scenario === 'mismatch'
-          ? 'MISMATCH'
+        : scenario === 'stale'
+          ? 'NO_CODE'
           : 'UNKNOWN',
     );
     expect(test.sends).toEqual(

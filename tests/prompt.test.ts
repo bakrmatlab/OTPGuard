@@ -10,7 +10,7 @@ const captured = vi.hoisted(() => ({
     status: () => { state: string };
     cancelAll: (reason?: CancellationReason) => void;
   } | null,
-  browser: null as Omit<Adapter, 'retrieve' | 'registry'> | null,
+  browser: null as Omit<Adapter, 'retrieve'> | null,
 }));
 vi.mock('../apps/extension/gmail/retrieval', () => ({
   createGmailPageCoordinator: (browser: typeof captured.browser) => {
@@ -431,8 +431,6 @@ it('finishes admission display when a browser admission is refused', async () =>
   const retrieve = vi.fn(async () => []);
   const coordinator = createCoordinator({
     ...captured.browser!,
-    mode: 'user-confirmed',
-    registry: [],
     retrieve,
     context: async () => ({ ...t.context, foreground: false }),
   });
@@ -506,8 +504,6 @@ it('status expiry aborts real stalled admission and ignores a late successful co
   const retrieve = vi.fn(async () => []);
   const coordinator = createCoordinator({
     ...captured.browser!,
-    mode: 'user-confirmed',
-    registry: [],
     retrieve,
     context: () =>
       new Promise<Context>((resolve) => {
@@ -566,8 +562,6 @@ it('identifies the fresh account read after browser admission instead of leaving
   const coordinator = createConnectedCoordinator(
     {
       ...captured.browser!,
-      mode: 'user-confirmed',
-      registry: [],
       retrieve: async () => [],
     },
     gate,
@@ -614,8 +608,6 @@ it('status expiration retains the original challenge window for a fresh manual R
   const windows: number[] = [];
   const coordinator = createCoordinator({
     ...captured.browser!,
-    mode: 'user-confirmed',
-    registry: [],
     context: async () => {
       if (++reads === 2)
         return new Promise<Context>((resolve) => {

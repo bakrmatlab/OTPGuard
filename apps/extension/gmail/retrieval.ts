@@ -192,7 +192,7 @@ export function createRetrievalEngine(deps: {
 
 /** Shared raw-mail pilot retrieval, entered through both account boundaries. */
 export function createGmailPageCoordinator(
-  browser: Omit<Adapter, 'retrieve' | 'registry'>,
+  browser: Omit<Adapter, 'retrieve'>,
   account: AccountGate,
   mailbox: ReturnType<typeof createGmailLifecycle>,
   transport = createGmailTransport(),
@@ -355,8 +355,6 @@ export function createGmailPageCoordinator(
       settings:
         browser.settings ??
         (() => ({ autofillEnabled: false, blockedOrigins: [] })),
-      registry: [],
-      mode: 'user-confirmed',
       retrieve: engine.retrieve,
     },
     account,
