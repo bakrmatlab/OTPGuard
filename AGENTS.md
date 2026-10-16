@@ -67,8 +67,9 @@ clicks **Fill**, plus the otpguard.net website (Next.js, Clerk). Read
 
 ## Keep agent usage low
 
-- Never drive a browser yourself (no Playwright MCP, no browser tools, no clicking
-  through pages). Use the scripted specs.
+- Prefer the scripted Playwright specs to driving a browser yourself (Playwright MCP,
+  browser tools, clicking through pages). Driving a browser costs far more usage; do it
+  only when the user asks for it or agrees.
 - Run `test:browser` only when the content script, popup, Options page, website or
   build changed. Otherwise run the affected workspace's unit tests. CI runs
   everything on each pull request.

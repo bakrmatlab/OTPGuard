@@ -5,8 +5,9 @@ description: Choose and run the cheapest checks that prove an OTPGuard change wo
 
 # Verify an OTPGuard change
 
-Run only what the change touches, cheapest first. Never drive a browser yourself.
-Stop at the first failure and read only the failing output.
+Run only what the change touches, cheapest first. Use the scripted specs rather than
+driving a browser yourself, unless the user asks for it or agrees. Stop at the first
+failure and read only the failing output.
 
 | Changed                                                                              | Run                                                                                                                      |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
