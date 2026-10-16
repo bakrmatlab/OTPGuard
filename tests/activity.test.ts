@@ -4,14 +4,8 @@ import {
   ACTIVITY_LIMIT,
   LOCAL_RETENTION_MS,
 } from '../packages/shared';
-import { cloudActivityPolicyApproved } from '../packages/shared/activity-policy';
 import { createLocalHistory } from '../apps/extension/activity/local';
-import {
-  createActivitySync,
-  type ActivityTransport,
-} from '../apps/extension/activity/sync';
 import { createActivityRecorder } from '../apps/extension/activity/record';
-import { createAccountGate } from '../apps/extension/account/gate';
 const id = '11111111-1111-4111-8111-111111111111';
 const event = {
   serviceId: null,
@@ -43,38 +37,6 @@ function local() {
         version: 1,
         events: [{ ...event, otp: 'synthetic-forbidden' }],
       };
-    },
-  };
-}
-function sync(approved = true) {
-  let identity = {
-    userId: 'alice',
-    sessionId: 'one',
-    expiresAt: Date.now() + 60_000,
-    label: 'Synthetic',
-  };
-  const account = createAccountGate(async () => identity);
-  const transport: ActivityTransport = {
-    optIn: vi.fn(async () => {}),
-    append: vi.fn(async () => {}),
-    optOutAndDelete: vi.fn(async () => {}),
-    exportHistory: vi.fn(async () => [event]),
-  };
-  const connect = vi.fn(async () => transport);
-  const controller = createActivitySync(account, connect, [], () => approved);
-  return {
-    account,
-    binding: { userId: 'alice', sessionId: 'one', generation: 0 },
-    transport,
-    connect,
-    controller,
-    switchAccount: () => {
-      identity = { ...identity, userId: 'bob', sessionId: 'two' };
-      account.invalidate();
-    },
-    dispose: () => {
-      controller.dispose();
-      account.invalidate();
     },
   };
 }
@@ -188,140 +150,6 @@ describe('local retention, export and deletion', () => {
         time: event.time,
       }),
     ).resolves.toBeUndefined();
-  });
-});
-describe('inactive cloud controller', () => {
-  it('production policy cannot be enabled; opt-out sends no events or requests', async () => {
-    expect(cloudActivityPolicyApproved()).toBe(false);
-    const s = sync(false);
-    try {
-      expect(await s.controller.enable()).toBe(false);
-      expect(await s.controller.upload(event, s.binding)).toBe(false);
-      const defaultPolicy = createActivitySync(s.account, s.connect, []);
-      try {
-        expect(await defaultPolicy.enable()).toBe(false);
-        expect(await defaultPolicy.upload(event, s.binding)).toBe(false);
-      } finally {
-        defaultPolicy.dispose();
-      }
-      expect(s.connect).not.toHaveBeenCalled();
-    } finally {
-      s.dispose();
-    }
-    const approved = sync();
-    try {
-      expect(await approved.controller.upload(event, approved.binding)).toBe(
-        false,
-      );
-      expect(approved.connect).not.toHaveBeenCalled();
-    } finally {
-      approved.dispose();
-    }
-  });
-  it('explicit hypothetical approved opt-in sends closed events; delete opts out; export rejects raw extras', async () => {
-    const s = sync();
-    try {
-      expect(await s.controller.enable()).toBe(true);
-      expect(await s.controller.upload(event, s.binding)).toBe(true);
-      expect(s.transport.append).toHaveBeenCalledWith(
-        event,
-        expect.any(AbortSignal),
-      );
-      expect(JSON.parse((await s.controller.export())!).events).toEqual([
-        event,
-      ]);
-      vi.mocked(s.transport.exportHistory).mockResolvedValueOnce([
-        { ...event, otpHash: 'synthetic' },
-      ]);
-      expect(await s.controller.export()).toBeNull();
-      expect(await s.controller.disableAndDelete()).toBe(true);
-      expect(await s.controller.upload(event, s.binding)).toBe(false);
-    } finally {
-      s.dispose();
-    }
-  });
-  it('refuses stale connect and in-flight delivery on account switch', async () => {
-    const s = sync();
-    try {
-      await s.controller.enable();
-      let resolve!: (value: ActivityTransport) => void;
-      s.connect.mockImplementationOnce(
-        () =>
-          new Promise((done) => {
-            resolve = done;
-          }),
-      );
-      const pending = s.controller.upload(event, s.binding);
-      await vi.waitFor(() => expect(resolve).toBeTypeOf('function'));
-      s.switchAccount();
-      resolve(s.transport);
-      expect(await pending).toBe(false);
-      expect(s.transport.append).not.toHaveBeenCalled();
-      expect(s.controller.enabled()).toBe(false);
-      expect(await s.controller.upload(event, s.binding)).toBe(false);
-    } finally {
-      s.dispose();
-    }
-  });
-  it('cancels pending opt-in and never resurrects consent on opt-out', async () => {
-    const s = sync();
-    try {
-      let done!: () => void;
-      vi.mocked(s.transport.optIn).mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            done = resolve;
-          }),
-      );
-      const pending = s.controller.enable();
-      await vi.waitFor(() => expect(done).toBeTypeOf('function'));
-      await s.controller.disableAndDelete();
-      done();
-      expect(await pending).toBe(false);
-      expect(s.controller.enabled()).toBe(false);
-    } finally {
-      s.dispose();
-    }
-  });
-  it('rejects stale event source and disposed work, and reports failed deletion', async () => {
-    const s = sync();
-    try {
-      await s.controller.enable();
-      expect(
-        await s.controller.upload(event, { ...s.binding, generation: 1 }),
-      ).toBe(false);
-      expect(s.transport.append).not.toHaveBeenCalled();
-      vi.mocked(s.transport.optOutAndDelete).mockRejectedValueOnce(
-        new Error('offline'),
-      );
-      expect(await s.controller.disableAndDelete()).toBe(false);
-      expect(s.controller.enabled()).toBe(false);
-      s.controller.dispose();
-      const before = s.connect.mock.calls.length;
-      expect(await s.controller.enable()).toBe(false);
-      expect(await s.controller.export()).toBeNull();
-      expect(await s.controller.disableAndDelete()).toBe(false);
-      expect(s.connect).toHaveBeenCalledTimes(before);
-    } finally {
-      s.dispose();
-    }
-  });
-  it('bounds stalled upload to ten seconds and contains delivery rejection', async () => {
-    vi.useFakeTimers();
-    const s = sync();
-    try {
-      await s.controller.enable();
-      vi.mocked(s.transport.append).mockImplementationOnce(
-        () => new Promise(() => {}),
-      );
-      const pending = s.controller.upload(event, s.binding);
-      await vi.advanceTimersByTimeAsync(10_000);
-      expect(await pending).toBe(false);
-      vi.mocked(s.transport.append).mockRejectedValueOnce(new Error('offline'));
-      expect(await s.controller.upload(event, s.binding)).toBe(false);
-    } finally {
-      s.dispose();
-    }
   });
 });
 

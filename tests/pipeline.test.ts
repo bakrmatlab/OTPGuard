@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createLocalSettings } from '../apps/extension/settings/local';
-import { createSettingsSync } from '../apps/extension/settings/sync';
 import { createAccountGate } from '../apps/extension/account/gate';
 import {
   createCoordinator,
@@ -371,45 +370,6 @@ describe('PR11 local settings at the actual authorization boundary', () => {
     });
     expect(f.sends).toEqual(['prepare']);
   });
-  it('stalled cloud sync does not delay a locally authorized synthetic fill', async () => {
-    const f = setup();
-    const local = createLocalSettings(
-      { read: async () => undefined, write: async () => {} },
-      () => '11111111-1111-4111-8111-111111111111',
-    );
-    await local.initialized;
-    await local.setAutofill(true);
-    const account = createAccountGate(async () => ({
-      userId: 'account',
-      sessionId: 'synthetic-session',
-      expiresAt: Date.now() + 60_000,
-      label: 'synthetic',
-    }));
-    let started!: () => void;
-    const readStarted = new Promise<void>((resolve) => {
-      started = resolve;
-    });
-    const sync = createSettingsSync(local, account, async () => ({
-      registerInstallation: async () => {},
-      writeSettings: async () => {},
-      readSettings: async () => {
-        started();
-        return new Promise(() => {});
-      },
-    }));
-    sync.enable(true);
-    const pending = sync.synchronize('CONNECTED');
-    await readStarted;
-    const coordinator = createCoordinator({
-      ...f.adapter,
-      settings: sync.settings,
-    });
-    expect(await coordinator.handle(detect, {})).toEqual({ state: 'FILLED' });
-    expect(f.sends).toEqual(['prepare', 'release']);
-    sync.dispose();
-    account.invalidate();
-    await pending;
-  });
 });
 
 it('a saved local block aborts an ongoing retrieval immediately', async () => {
@@ -482,15 +442,13 @@ it.each(['reject', 'throw', 'stall'])(
   },
 );
 
-it('actual recorder and failed cloud delivery preserve local history and connected synthetic fill', async () => {
+it('actual recorder preserves local history during a connected synthetic fill', async () => {
   const { createConnectedCoordinator } =
     await import('../apps/extension/account/connected');
   const { createLocalHistory } =
     await import('../apps/extension/activity/local');
   const { createActivityRecorder } =
     await import('../apps/extension/activity/record');
-  const { createActivitySync } =
-    await import('../apps/extension/activity/sync');
   const { adapter, coordinator: unused, sends } = setup();
   unused.dispose();
   const id = '11111111-1111-4111-8111-111111111111';
@@ -500,20 +458,6 @@ it('actual recorder and failed cloud delivery preserve local history and connect
     expiresAt: Date.now() + 60_000,
     label: 'Synthetic',
   }));
-  const append = vi.fn(async () => {
-    throw new Error('offline');
-  });
-  const cloud = createActivitySync(
-    account,
-    async () => ({
-      optIn: async () => {},
-      append,
-      optOutAndDelete: async () => {},
-      exportHistory: async () => [],
-    }),
-    ['mock'],
-    () => true,
-  );
   let stored: unknown;
   const history = createLocalHistory(
     {
@@ -525,10 +469,9 @@ it('actual recorder and failed cloud delivery preserve local history and connect
     ['mock'],
     adapter.now,
   );
-  adapter.activity = createActivityRecorder(history, () => id, ['mock'], cloud);
+  adapter.activity = createActivityRecorder(history, () => id, ['mock']);
   const coordinator = createConnectedCoordinator(adapter, account);
   try {
-    expect(await cloud.enable()).toBe(true);
     expect(await coordinator.handle(detect, {})).toEqual({ state: 'FILLED' });
     expect(sends).toEqual(['prepare', 'release']);
     expect(await history.list()).toEqual([
@@ -541,10 +484,8 @@ it('actual recorder and failed cloud delivery preserve local history and connect
         installationId: id,
       },
     ]);
-    await vi.waitFor(() => expect(append).toHaveBeenCalledTimes(1));
   } finally {
     coordinator.dispose();
-    cloud.dispose();
     account.invalidate();
   }
 });

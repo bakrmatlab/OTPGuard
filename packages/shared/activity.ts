@@ -1,7 +1,6 @@
 import { FILL_REFUSALS } from './fill-diagnostics';
 /** Activity is sensitive even without mail. These are maximum retention windows. */
 export const LOCAL_RETENTION_MS = 7 * 24 * 60 * 60_000;
-export const CLOUD_RETENTION_MS = 30 * 24 * 60 * 60_000;
 export const ACTIVITY_LIMIT = 500;
 export const ACTIVITY_RESULTS = [
   'FILLED',
