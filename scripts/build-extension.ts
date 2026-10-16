@@ -4,6 +4,7 @@ import {
   connectionManifest,
 } from '../apps/extension/gmail/config';
 import { readFile, writeFile, rm, mkdir, copyFile } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
 import domainAuth from '../configuration/domain-auth.json';
 import { accountConfig } from '../apps/extension/account/config';
 const config = accountConfig({
@@ -41,8 +42,12 @@ const pilotManifest = {
   optional_host_permissions: ['https://*/*'],
   minimum_chrome_version: '127',
 };
-// The configured export passes a fresh directory outside the checkout.
-const outdir = process.env.OTPGUARD_OUTDIR || 'build/chrome-mv3-prod';
+// The configured export passes a fresh absolute directory outside the checkout.
+// The build deletes outdir first, so refuse relative overrides.
+const outdirOverride = process.env.OTPGUARD_OUTDIR;
+if (outdirOverride && !isAbsolute(outdirOverride))
+  throw new Error('OTPGUARD_OUTDIR must be an absolute path');
+const outdir = outdirOverride || 'build/chrome-mv3-prod';
 await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
 // Preserve legacy public configuration names. No generic env serialization.
