@@ -290,7 +290,7 @@ export function createGmailPageCoordinator(
         }
         browser.progress?.('decoding');
         let failure: RawEmailIssue | undefined;
-        const email = normalizeRawEmail(bytes, true, (issue) => {
+        const email = normalizeRawEmail(bytes, (issue) => {
           failure = issue;
         });
         if (!email) {

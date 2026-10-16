@@ -123,7 +123,7 @@ it.each(['A7b9Q2', 'ABCDEF', '003719'])(
         const raw = new TextEncoder().encode(
           `Subject: Verification code\r\nContent-Type: ${index ? 'text/html' : 'text/plain'}; charset=utf-8\r\nContent-Transfer-Encoding: ${transfer}\r\n\r\n${encoded}`,
         );
-        const normalized = normalizeRawEmail(raw, true);
+        const normalized = normalizeRawEmail(raw);
         expect(normalized).not.toBeNull();
         exact(normalized!.subject, normalized!.text, code);
       }

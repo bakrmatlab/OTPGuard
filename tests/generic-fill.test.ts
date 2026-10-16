@@ -38,8 +38,7 @@ it('extracts inert HTML and combines alternatives without hiding distinct codes'
     headers: ['Subject: Login code', 'Content-Type: text/html; charset=utf-8'],
     body: '<style>p{color:red}</style><p>Your verification code is <b>003719</b></p>',
   }).raw;
-  expect(normalizeRawEmail(raw)).toBeNull();
-  expect(parseGenericCode(normalizeRawEmail(raw, true)!)).toMatchObject({
+  expect(parseGenericCode(normalizeRawEmail(raw)!)).toMatchObject({
     status: 'candidate',
     candidate: { code: '003719' },
   });
@@ -445,17 +444,13 @@ it.each([
     '=?UTF-8?Q?Your_login_?= =?UTF-8?B?Y29kZSBpcyAwMDM3MTk=?=',
     'Your login code is 003719',
   ],
-])(
-  'decodes ordinary encoded subjects only in generic mode: %s',
-  (subject, expected) => {
-    const raw = fixture({
-      headers: ['Subject: ' + subject, 'Content-Type: text/plain'],
-      body: '003719\r\n',
-    }).raw;
-    expect(normalizeRawEmail(raw)).toBeNull();
-    expect(normalizeRawEmail(raw, true)?.subject).toBe(expected);
-  },
-);
+])('decodes ordinary encoded subjects: %s', (subject, expected) => {
+  const raw = fixture({
+    headers: ['Subject: ' + subject, 'Content-Type: text/plain'],
+    body: '003719\r\n',
+  }).raw;
+  expect(normalizeRawEmail(raw)?.subject).toBe(expected);
+});
 it.each([
   '=?UTF-8?B?invalid?=',
   '=?UTF-8?Q?code=0A003719?=',
@@ -463,7 +458,7 @@ it.each([
   '=?UTF-8?Q?Your_code=ZZ003719?=',
 ])('refuses malformed or unsafe encoded subjects: %s', (subject) => {
   expect(
-    normalizeRawEmail(fixture({ headers: ['Subject: ' + subject] }).raw, true),
+    normalizeRawEmail(fixture({ headers: ['Subject: ' + subject] }).raw),
   ).toBeNull();
 });
 
@@ -476,7 +471,6 @@ it('retains previously working plain text with ordinary HTML copyright entities'
     body: '--parts\r\nContent-Type: text/plain\r\n\r\nYour login code is 003719\r\n--parts\r\nContent-Type: text/html\r\n\r\n<p>Your login code is <b>003719</b></p><footer>&copy; 2026 Example &mdash; do not share your code</footer>\r\n--parts--\r\n',
   }).raw;
   expect(normalizeRawEmail(raw)).not.toBeNull();
-  expect(normalizeRawEmail(raw, true)).not.toBeNull();
 });
 
 it('keeps alternative-code ambiguity and encoded unsafe controls after HTML entity decoding', () => {
@@ -489,7 +483,6 @@ it('keeps alternative-code ambiguity and encoded unsafe controls after HTML enti
         ],
         body: html,
       }).raw,
-      true,
     );
   expect(
     parseGenericCode(
@@ -532,7 +525,6 @@ it('accepts HTML preheader padding without joining invisible code fragments', ()
         ],
         body,
       }).raw,
-      true,
     );
   expect(
     parseGenericCode(
@@ -876,7 +868,6 @@ it('extracts a code from inert HTML while excluding a request audit date', () =>
       ],
       body: '<h2>Verification code</h2><p>Enter the following verification code when prompted:</p><strong>003719</strong><p>To protect your account, do not share this code.</p><h3>Did not request this?</h3><p>This code was requested from <b>192.0.2.10, Example City at 05 October 2026, 17:15 UTC.</b> If you did not make this request, ignore this email.</p><footer>© 2026 Example</footer>',
     }).raw,
-    true,
   );
   expect(email).not.toBeNull();
   expect(parseGenericCode(email!)).toMatchObject({

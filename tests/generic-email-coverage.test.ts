@@ -22,7 +22,6 @@ it.each([
           ],
           text,
         ),
-        true,
       )!,
     ),
   ).toMatchObject({ status: 'candidate', candidate: { code: '003719' } });
@@ -47,7 +46,6 @@ for (const mime of ['text/plain', 'text/html'])
               ],
               body,
             ),
-            true,
           )!,
         ),
       ).toMatchObject({ status: 'candidate', candidate: { code: '003719' } });
@@ -68,7 +66,6 @@ it.each(['multipart/related', 'multipart/mixed'])(
             ],
             body,
           ),
-          true,
         )!,
       ),
     ).toMatchObject({ status: 'candidate', candidate: { code: '003719' } });
@@ -85,7 +82,7 @@ it.each(['iso-8859-1', 'windows-1252'])(
         'latin1',
       ),
     );
-    expect(parseGenericCode(normalizeRawEmail(bytes, true)!)).toMatchObject({
+    expect(parseGenericCode(normalizeRawEmail(bytes)!)).toMatchObject({
       status: 'candidate',
       candidate: { code: '003719' },
     });
@@ -104,7 +101,6 @@ it('keeps different alternatives ambiguous and refuses forwarded/encrypted bodie
           ],
           body,
         ),
-        true,
       )!,
     ).status,
   ).toBe('ambiguous');
@@ -114,13 +110,11 @@ it('keeps different alternatives ambiguous and refuses forwarded/encrypted bodie
         ['Subject: Code', 'Content-Type: message/rfc822'],
         'Your code is 003719',
       ),
-      true,
     ),
   ).toBeNull();
   expect(
     normalizeRawEmail(
       raw(['Subject: Code', 'Content-Type: multipart/encrypted'], 'ciphertext'),
-      true,
     ),
   ).toBeNull();
 });
@@ -137,7 +131,6 @@ it.each([
           ['Subject: Sign in', 'Content-Type: text/html; charset=utf-8'],
           html,
         ),
-        true,
       )!,
     ),
   ).toMatchObject({ status: 'candidate', candidate: { code: '003719' } });
@@ -159,10 +152,7 @@ it.each([
 ])('supports folded and legacy-encoded subjects', (subject, text) => {
   expect(
     parseGenericCode(
-      normalizeRawEmail(
-        raw([subject, 'Content-Type: text/plain'], text),
-        true,
-      )!,
+      normalizeRawEmail(raw([subject, 'Content-Type: text/plain'], text))!,
     ),
   ).toMatchObject({ status: 'candidate', candidate: { code: '003719' } });
 });
@@ -212,7 +202,6 @@ for (const container of [
               ],
               body,
             ),
-            true,
           )!,
         ),
       ).toMatchObject({ status: 'candidate', candidate: { code: '003719' } });
@@ -227,17 +216,14 @@ it('ignores a binary attachment while refusing email attachments and malformed b
     'Content-Type: multipart/mixed; boundary=p',
   ];
   expect(
-    parseGenericCode(normalizeRawEmail(raw(headers, body), true)!),
+    parseGenericCode(normalizeRawEmail(raw(headers, body))!),
   ).toMatchObject({ status: 'candidate' });
   expect(
     normalizeRawEmail(
       raw(headers, body.replace('application/pdf', 'message/rfc822')),
-      true,
     ),
   ).toBeNull();
-  expect(
-    normalizeRawEmail(raw(headers, body.replace('--p--', '')), true),
-  ).toBeNull();
+  expect(normalizeRawEmail(raw(headers, body.replace('--p--', '')))).toBeNull();
 });
 
 it('reports the exact decoding stage without including email contents', () => {
@@ -250,9 +236,7 @@ it('reports the exact decoding stage without including email contents', () => {
     ],
     'Your code is 003719',
   );
-  expect(
-    normalizeRawEmail(bytes, true, (issue) => issues.push(issue)),
-  ).toBeNull();
+  expect(normalizeRawEmail(bytes, (issue) => issues.push(issue))).toBeNull();
   expect(issues).toEqual(['duplicate-headers']);
 });
 
@@ -272,7 +256,6 @@ it.each([
       ],
       '<p>Your code is 003719</p><p>© Example</p>',
     ),
-    true,
     (value) => {
       issue = value;
     },
@@ -300,7 +283,6 @@ it.each([
         ],
         body,
       ),
-      true,
       (value) => {
         issue = value;
       },

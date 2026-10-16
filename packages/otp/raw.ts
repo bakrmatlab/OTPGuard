@@ -19,14 +19,13 @@ export type RawEmailIssue =
   | 'html'
   | 'text-missing';
 
-/** Parse the exact signed bytes, never Gmail's separately rendered format=full.
- * Bounded related/alternative containers; plain text is the pilot's authoritative
- * representation. Generic mode additionally extracts inert HTML text and ignores
- * embedded image/binary resources; resources are never rendered or opened.
+/** Parse the exact raw bytes, never Gmail's separately rendered format=full.
+ * Bounded related/alternative/mixed containers. Extracts plain text and inert HTML
+ * text and ignores embedded image/binary resources; resources are never rendered
+ * or opened.
  */
 export function normalizeRawEmail(
   input: Uint8Array,
-  generic = false,
   onFailure: (issue: RawEmailIssue) => void = () => {},
 ): NormalizedEmail | null {
   let stage: RawEmailIssue = 'raw-size';
@@ -56,19 +55,15 @@ export function normalizeRawEmail(
         stage = 'duplicate-headers';
         if (
           headers.has(h[1]!.toLowerCase()) &&
-          !(generic
-            ? ![
-                'subject',
-                'content-type',
-                'content-transfer-encoding',
-                'content-disposition',
-                'to',
-                'cc',
-                'from',
-              ].includes(h[1]!.toLowerCase())
-            : ['received', 'dkim-signature', 'authentication-results'].includes(
-                h[1]!.toLowerCase(),
-              ))
+          [
+            'subject',
+            'content-type',
+            'content-transfer-encoding',
+            'content-disposition',
+            'to',
+            'cc',
+            'from',
+          ].includes(h[1]!.toLowerCase())
         )
           throw Error();
         headers.set(h[1]!.toLowerCase(), h[2]!);
@@ -82,7 +77,7 @@ export function normalizeRawEmail(
         throw Error();
       const type = headers.get('content-type') ?? 'text/plain';
       stage = 'mime-type';
-      if (generic) validateParameters(type);
+      validateParameters(type);
       const mime = type.split(';')[0]!.trim().toLowerCase();
       const disposition = headers
         .get('content-disposition')
@@ -92,42 +87,36 @@ export function normalizeRawEmail(
       // Embedded images and binary attachments are inert resources, not code text.
       // Attached/forwarded email bodies are deliberately unsupported.
       if (
-        generic &&
         depth > 0 &&
         (mime.startsWith('image/') ||
           (mime.startsWith('application/') && disposition === 'attachment'))
       )
         return { subject: undefined, text: null };
       stage = 'disposition';
-      if (
-        headers.has('content-disposition') &&
-        (generic
-          ? disposition !== 'inline'
-          : headers.get('content-disposition') !== 'inline')
-      )
+      if (headers.has('content-disposition') && disposition !== 'inline')
         throw Error();
       if (/\b(?:name|filename)\s*=/i.test(type)) throw Error();
       const body = raw.slice(split + 4);
       stage = 'subject';
       const headerSubject = headers.get('subject');
       if (headerSubject && headerSubject.length > 1000) throw Error();
-      const subject =
-        generic && headerSubject ? decodeSubject(headerSubject) : headerSubject;
+      const subject = headerSubject
+        ? decodeSubject(headerSubject)
+        : headerSubject;
       if (subject && (subject.length > 1000 || /=\?/.test(subject)))
         throw Error();
       if (
         [
           'multipart/related',
           'multipart/alternative',
-          ...(generic ? ['multipart/mixed'] : []),
+          'multipart/mixed',
         ].includes(mime)
       ) {
         stage = 'boundary';
-        const boundary = (
-          generic
-            ? /;\s*boundary\s*=\s*(?:"([^"\r\n]{1,200})"|([^;\s]{1,200}))/i
-            : /;\s*boundary=(?:"([^"\r\n]{1,200})"|([^;\s]{1,200}))/i
-        ).exec(type);
+        const boundary =
+          /;\s*boundary\s*=\s*(?:"([^"\r\n]{1,200})"|([^;\s]{1,200}))/i.exec(
+            type,
+          );
         const marker = '--' + (boundary?.[1] ?? boundary?.[2] ?? '');
         if (!boundary) throw Error();
         const lines = body.split('\r\n');
@@ -135,7 +124,7 @@ export function normalizeRawEmail(
         let current: string[] | null = null,
           closed = false;
         for (const line of lines) {
-          const boundaryLine = generic ? line.replace(/[ \t]+$/, '') : line;
+          const boundaryLine = line.replace(/[ \t]+$/, '');
           if (boundaryLine === marker || boundaryLine === marker + '--') {
             if (current) children.push(current.join('\r\n') + '\r\n');
             current = [];
@@ -150,18 +139,14 @@ export function normalizeRawEmail(
           .map((c) => part(c, depth + 1).text)
           .filter((t): t is string => t !== null);
         stage = 'text-missing';
-        if (!texts.length || (!generic && texts.length !== 1)) throw Error();
-        return { subject, text: generic ? texts.join('\n') : texts[0]! };
+        if (!texts.length) throw Error();
+        return { subject, text: texts.join('\n') };
       }
       stage = 'mime-type';
       if (!['text/plain', 'text/html'].includes(mime)) throw Error();
-      const charset = (
-        generic
-          ? /;\s*charset\s*=\s*(?:"([^";]+)"|([^;\s]+))/i
-          : /;\s*charset=(?:"([^";]+)"|([^;\s]+))/i
-      ).exec(type);
+      const charset = /;\s*charset\s*=\s*(?:"([^";]+)"|([^;\s]+))/i.exec(type);
       const transfer = headers.get('content-transfer-encoding') ?? '7bit';
-      const encoding = (generic ? transfer.trim() : transfer).toLowerCase();
+      const encoding = transfer.trim().toLowerCase();
       stage = 'transfer-encoding';
       let decoded = body;
       if (encoding === 'quoted-printable') {
@@ -172,11 +157,7 @@ export function normalizeRawEmail(
         );
       } else if (encoding === 'base64') {
         let compact = body.replace(/[\r\n \t]/g, '');
-        if (
-          generic &&
-          /^[A-Za-z0-9+/]+$/.test(compact) &&
-          compact.length % 4 !== 1
-        )
+        if (/^[A-Za-z0-9+/]+$/.test(compact) && compact.length % 4 !== 1)
           compact = compact.padEnd(Math.ceil(compact.length / 4) * 4, '=');
         if (
           !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
@@ -187,17 +168,12 @@ export function normalizeRawEmail(
         decoded = atob(compact);
       } else if (!['7bit', '8bit'].includes(encoding)) throw Error();
       stage = 'charset';
-      // Generic mail commonly omits charset on valid UTF-8 bodies. Decode it
-      // once as UTF-8 (ASCII is a subset); never guess a legacy encoding.
-      const label =
-        charset?.[1] ?? charset?.[2] ?? (generic ? 'utf-8' : 'us-ascii');
-      const cs = (generic ? label.trim() : label).toLowerCase();
-      if (!generic && !['utf-8', 'us-ascii'].includes(cs)) throw Error();
+      // Mail commonly omits charset on valid UTF-8 bodies. Decode it once as
+      // UTF-8 (ASCII is a subset); never guess a legacy encoding.
+      const label = charset?.[1] ?? charset?.[2] ?? 'utf-8';
+      const cs = label.trim().toLowerCase();
       const bytes = Uint8Array.from(decoded, (c) => c.charCodeAt(0));
-      const ascii = [
-        'us-ascii',
-        ...(generic ? ['ascii', 'ansi_x3.4-1968'] : []),
-      ].includes(cs);
+      const ascii = ['us-ascii', 'ascii', 'ansi_x3.4-1968'].includes(cs);
       if (ascii && bytes.some((b) => b > 127)) throw Error();
       // Use the browser's standard encoding labels, with no replacement decoding
       // or guessed fallback. Unsupported labels and malformed bytes still refuse.
@@ -205,12 +181,12 @@ export function normalizeRawEmail(
         fatal: true,
       }).decode(bytes);
       const text =
-        generic && mime === 'text/html'
+        mime === 'text/html'
           ? decodedText.replace(/[\u200b-\u200d\ufeff]/g, '\n')
           : decodedText;
       stage = 'text-controls';
       if (
-        text.length > (generic && mime === 'text/html' ? 256 * 1024 : 32768) ||
+        text.length > (mime === 'text/html' ? 256 * 1024 : 32768) ||
         /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/.test(
           text,
         )
@@ -219,17 +195,16 @@ export function normalizeRawEmail(
       stage = 'html';
       return {
         subject,
-        text:
-          mime === 'text/plain' ? text : generic ? inertHtmlText(text) : null,
+        text: mime === 'text/plain' ? text : inertHtmlText(text),
       };
     }
     const result = part(raw, 0);
-    if ((!generic && !result.subject) || result.text === null) {
+    if (result.text === null) {
       stage = 'text-missing';
       throw Error();
     }
     stage = 'text-controls';
-    if (generic && result.text.length > 32768) throw Error();
+    if (result.text.length > 32768) throw Error();
     return { subject: result.subject ?? '', text: result.text };
   } catch {
     onFailure(stage);
@@ -269,8 +244,7 @@ function inertHtmlText(html: string): string {
   return text;
 }
 
-/** Bounded RFC 2047 decoding for candidate-only mode. Signed pilot templates keep
- * their original strict subject contract. Unsupported or malformed words refuse. */
+/** Bounded RFC 2047 decoding. Unsupported or malformed words refuse. */
 function decodeSubject(subject: string): string {
   const decoded = subject
     .replace(/(\?=)[ \t]+(?==\?)/g, '$1')

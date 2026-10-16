@@ -16,7 +16,7 @@ it('reads inert HTML with grouped subject and body as one exact candidate', () =
   const raw = new TextEncoder().encode(
     'Subject: Team confirmation code: A7B-C9D\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<h1>Confirm your email address</h1><p>Here is your confirmation code. Enter it in the browser.</p><div>A7B-C9D</div><a href="https://fixture.invalid/signin">Confirm and sign in</a>',
   );
-  expect(parseGenericCode(normalizeRawEmail(raw, true)!)).toMatchObject({
+  expect(parseGenericCode(normalizeRawEmail(raw)!)).toMatchObject({
     status: 'candidate',
     candidate: { code: 'A7BC9D' },
   });

@@ -60,9 +60,7 @@ it('retains plain/HTML alternative disagreement even with unrelated metadata', (
   const raw = new TextEncoder().encode(
     'Subject: Verification code\r\nContent-Type: multipart/alternative; boundary=p\r\n\r\n--p\r\nContent-Type: text/plain\r\n\r\nYour code is 003719. Request reference: 123456.\r\n--p\r\nContent-Type: text/html\r\n\r\n<p>Your code is 008417</p>\r\n--p--\r\n',
   );
-  expect(parseGenericCode(normalizeRawEmail(raw, true)!).status).toBe(
-    'ambiguous',
-  );
+  expect(parseGenericCode(normalizeRawEmail(raw)!).status).toBe('ambiguous');
 });
 it.each(cases)(
   'connected retrieval retains Fill confirmation with %s',

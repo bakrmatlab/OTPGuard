@@ -113,7 +113,7 @@ it('accepts padded/folded transfer encoding tokens without losing alternative co
       btoa('Your code is 003719') +
       '\r\n--p\r\nContent-Type: text/html\r\nContent-Transfer-Encoding:\r\n quoted-printable\r\n\r\n<p>Your code is 008417</p>\r\n--p--\r\n',
   );
-  const email = normalizeRawEmail(bytes, true);
+  const email = normalizeRawEmail(bytes);
   expect(email).not.toBeNull();
   expect(parseGenericCode(email!).status).toBe('ambiguous');
 });

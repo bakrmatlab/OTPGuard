@@ -31,7 +31,7 @@ it.each([
     Buffer.from('Your code is 003719').toString('base64').replace(/=+$/, ''),
   ],
 ])('normalizes %s without hiding a code', (_name, headers, body) => {
-  const email = normalizeRawEmail(raw(headers, body), true);
+  const email = normalizeRawEmail(raw(headers, body));
   expect(email).not.toBeNull();
   expect(parseGenericCode(email!)).toMatchObject({
     status: 'candidate',
@@ -48,7 +48,6 @@ it('retains ambiguity across large rich alternatives and rejects critical duplic
         text +
         '\r\n--p--\r\n',
     ),
-    true,
   );
   expect(email).not.toBeNull();
   expect(parseGenericCode(email!).status).toBe('ambiguous');
@@ -58,7 +57,6 @@ it('retains ambiguity across large rich alternatives and rejects critical duplic
         ['Content-Type: text/plain', 'Content-Type: text/html'],
         'Your code is 003719',
       ),
-      true,
     ),
   ).toBeNull();
 });
@@ -69,7 +67,6 @@ it.each(['charset=utf8; charset=windows-1252', 'boundary=p; boundary=q'])(
     expect(
       normalizeRawEmail(
         raw(['Content-Type: text/plain; ' + parameters], 'Your code is 003719'),
-        true,
       ),
     ).toBeNull();
   },
@@ -95,7 +92,6 @@ it.each(['text/plain', 'text/html'])(
           ? '<p>Your code is 003719</p><p>© Example</p>'
           : 'Your code is 003719 © Example',
       ),
-      true,
     );
     expect(email).not.toBeNull();
     expect(parseGenericCode(email!)).toMatchObject({
