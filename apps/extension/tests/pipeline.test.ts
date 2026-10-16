@@ -298,7 +298,7 @@ it('bounded polling hands synthetic success to authorization and retains stale/a
   }
 });
 
-describe('PR11 local settings at the actual authorization boundary', () => {
+describe('local settings at the authorization boundary', () => {
   it('explicit local block refuses before any retrieval', async () => {
     const f = setup();
     const retrieve = vi.fn(f.adapter.retrieve);
@@ -497,7 +497,7 @@ it('dispose while browser context is pending cannot start retrieval or release',
   expect(sends).toEqual([]);
 });
 
-it('pilot waits for extension Fill confirmation and reserves before release', async () => {
+it('waits for extension Fill confirmation and reserves before release', async () => {
   const t = setup();
   let click!: (v: boolean) => void;
   t.adapter.confirm = vi.fn(
@@ -522,7 +522,7 @@ it('pilot waits for extension Fill confirmation and reserves before release', as
   expect((await run).state).toBe('FILLED');
   expect(order).toEqual(['prepare', 'reserve', 'release']);
 });
-it('pilot rechecks navigation and replay reservation after a Fill click', async () => {
+it('rechecks navigation and replay reservation after a Fill click', async () => {
   for (const failure of ['navigation', 'replay']) {
     const t = setup();
     t.adapter.confirm = async () => {
@@ -534,7 +534,7 @@ it('pilot rechecks navigation and replay reservation after a Fill click', async 
     expect(t.sends).not.toContain('release');
   }
 });
-it('manual pilot retrieval uses policy while automatic prompting is off', async () => {
+it('manual retrieval uses policy while automatic prompting is off', async () => {
   const t = setup();
   t.adapter.settings = () => ({ autofillEnabled: false, blockedOrigins: [] });
   t.adapter.confirm = async () => true;

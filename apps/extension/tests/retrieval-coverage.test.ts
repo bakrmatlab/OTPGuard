@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { createGmailTransport } from '../gmail/transport';
 import { normalizeRawEmail, parseGenericCode } from '@otpguard/otp';
+import { fixture } from './fixtures/email/dkim';
 
 const cycle = (
   fetcher: (url: string, init: RequestInit) => Promise<Response>,
@@ -250,4 +251,29 @@ it('a failed body cancels siblings and prevents fetching the remaining queue', a
   expect(signals).toHaveLength(4);
   expect(signals.every((signal) => signal.aborted)).toBe(true);
   expect(fetcher).toHaveBeenCalledTimes(5);
+});
+
+it('normalizes bounded related/alternative quoted-printable plain text without rendering HTML', () => {
+  const raw = fixture({
+    headers: [
+      'From: codes@mailer.example',
+      'To: owner@example.test',
+      'Subject: Your login code is 003719',
+      'Content-Type: multipart/related; boundary="outer"',
+    ],
+    body: '--outer\r\nContent-Type: multipart/alternative; boundary="inner"\r\n\r\n--inner\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLog in to your Canva Account\r\nEnter this code within the next 10 minutes to log in to your Canva Account.\r\n003719\r\nCanva Pty Ltd, 110 Kippax St, NSW 2010, Australia\r\nABN 80 158 929 938\r\n--inner\r\nContent-Type: text/html\r\n\r\n<p>003719</p>\r\n--inner--\r\n--outer--\r\n',
+  });
+  const email = normalizeRawEmail(raw.raw);
+  expect(email).not.toBeNull();
+  expect(parseGenericCode(email!)).toMatchObject({
+    status: 'candidate',
+    candidate: { code: '003719' },
+  });
+  expect(normalizeRawEmail(new Uint8Array(256 * 1024 + 1))).toBeNull();
+  expect(
+    normalizeRawEmail(
+      fixture({ headers: ['Subject: Sign in', 'Content-Type: message/rfc822'] })
+        .raw,
+    ),
+  ).toBeNull();
 });

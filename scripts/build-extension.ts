@@ -35,10 +35,10 @@ const finalized = {
     ? { key: domainAuth.extensionPublicKey, minimum_chrome_version: '116' }
     : {}),
 };
-// Core 3: exact optional site access; extension-owned user-clicked prompt.
+// Optional HTTPS site access; the extension popup confirms every Fill.
 finalized.permissions.push('scripting', 'webNavigation');
 
-const pilotManifest = {
+const siteAccessManifest = {
   optional_host_permissions: ['https://*/*'],
   minimum_chrome_version: '127',
 };
@@ -110,7 +110,7 @@ await writeFile(
       options_ui: { page: 'management.html', open_in_tab: true },
       background: { service_worker: 'background.js', type: 'module' },
       ...finalized,
-      ...pilotManifest,
+      ...siteAccessManifest,
       ...(config
         ? {
             externally_connectable: {

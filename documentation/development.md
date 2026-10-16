@@ -50,7 +50,7 @@ Only Clerk production keys work: development keys put a browser token in request
 URLs. Never change the extension public key; it fixes the extension ID that Google
 and Clerk know.
 
-`bun scripts/build-core-3.ts <new absolute directory>` builds the configured
+`bun run build:release <new absolute directory>` builds the configured
 extension from the committed public configuration in `configuration/` into
 `<directory>/extension`, without reading any env file. The directory must be new and
 outside the checkout. To test that artifact, set `OTPGuard_ARTIFACT` to it; the configured-Gmail browser test reads

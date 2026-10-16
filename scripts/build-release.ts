@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 import auth from '../configuration/domain-auth.json';
-import gmail from '../configuration/core-1-gmail.json';
+import gmail from '../configuration/gmail.json';
 
 // Build into a new directory with committed public configuration only: never
 // overwrite owner builds or read owner env files.
@@ -44,7 +44,7 @@ const result = spawnSync(
 if (result.error || result.status !== 0)
   throw new Error('Controlled extension build failed');
 await writeFile(
-  resolve(out, 'core-3-build.json'),
+  resolve(out, 'release.json'),
   JSON.stringify(
     {
       extensionId: gmail.extensionId,
@@ -52,11 +52,11 @@ await writeFile(
       artifact,
       distribution: gmail.distribution,
       realRetrieval: true,
-      realFill: 'user-clicked-pilot',
+      realFill: 'user-clicked',
       cloudHistory: false,
     },
     null,
     2,
   ) + '\n',
 );
-console.log('Controlled Core 3 artifact: ' + artifact);
+console.log('Configured release build: ' + artifact);

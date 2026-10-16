@@ -190,7 +190,7 @@ export function createRetrievalEngine(deps: {
   };
 }
 
-/** Shared raw-mail pilot retrieval, entered through both account boundaries. */
+/** Shared raw-mail retrieval, entered through both account boundaries. */
 export function createGmailPageCoordinator(
   browser: Omit<Adapter, 'retrieve'>,
   account: AccountGate,

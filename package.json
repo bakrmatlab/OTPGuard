@@ -12,6 +12,7 @@
     "dev:web": "bun run --filter @otpguard/web dev",
     "cli:check": "bun scripts/check-cli.ts",
     "cli:clerk": "CLERK_TELEMETRY_DISABLED=1 clerk",
+    "build:release": "bun scripts/build-release.ts",
     "build": "bun run --filter '@otpguard/*' build",
     "typecheck": "bun run --filter '@otpguard/*' typecheck && tsc -p tsconfig.tools.json",
     "lint": "eslint .",

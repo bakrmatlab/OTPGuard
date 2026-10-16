@@ -3,7 +3,7 @@ import {
   configuredGmail,
   gmailConfig,
 } from '../apps/extension/gmail/config';
-import coreGmail from '../configuration/core-1-gmail.json';
+import gmailConfigFile from '../configuration/gmail.json';
 import { accountConfig } from '../apps/extension/account/config';
 import domainAuth from '../configuration/domain-auth.json';
 import { configuredAccount } from '../apps/extension/account/config';
@@ -53,9 +53,9 @@ describe('production extension permission boundary', () => {
       : configuredAccount();
     const gmail = exported
       ? gmailConfig({
-          clientId: coreGmail.clientId,
+          clientId: gmailConfigFile.clientId,
           key: domainAuth.extensionPublicKey,
-          extensionId: coreGmail.extensionId,
+          extensionId: gmailConfigFile.extensionId,
         })
       : configuredGmail();
     expect(manifest.externally_connectable).toEqual(

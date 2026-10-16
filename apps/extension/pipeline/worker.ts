@@ -519,6 +519,8 @@ export async function registerSites() {
   for (const match of matches)
     if (await chrome.permissions.contains({ origins: [match] }))
       allowed.push(match);
+  // Chrome keeps this ID from earlier builds. Renaming it would leave the old
+  // registration behind and inject the content script twice.
   await chrome.scripting
     .unregisterContentScripts({ ids: ['otpguard-pilot'] })
     .catch(() => {});
