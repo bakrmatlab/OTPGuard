@@ -2,7 +2,7 @@ import domainAuth from '../../../configuration/domain-auth.json';
 import type {
   BrowserAction,
   BrowserResponse,
-} from '../../../packages/shared/browser-management';
+} from '@otpguard/shared/browser-management';
 interface Runtime {
   lastError?: { message?: string };
   sendMessage(

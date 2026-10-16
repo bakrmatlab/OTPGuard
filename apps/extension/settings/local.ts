@@ -3,7 +3,7 @@ import {
   installationIdPattern,
   parseSettings,
   type Settings,
-} from '../../../packages/shared';
+} from '@otpguard/shared';
 export interface LocalSettings extends Settings {
   version: 1;
   installationId: string;

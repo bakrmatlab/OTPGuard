@@ -28,6 +28,9 @@
       "version": "0.0.0",
       "dependencies": {
         "@clerk/chrome-extension": "3.1.90",
+        "@otpguard/otp": "workspace:*",
+        "@otpguard/security": "workspace:*",
+        "@otpguard/shared": "workspace:*",
         "react": "18.3.1",
         "react-dom": "18.3.1",
       },
@@ -42,6 +45,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@clerk/nextjs": "7.9.10",
+        "@otpguard/shared": "workspace:*",
         "next": "16.3.8",
         "react": "19.2.4",
         "react-dom": "19.2.4",

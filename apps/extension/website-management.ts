@@ -2,7 +2,7 @@ import type {
   BrowserAction,
   BrowserRequest,
   BrowserResponse,
-} from '../../packages/shared/browser-management';
+} from '@otpguard/shared/browser-management';
 import type { AccountGate } from './account/gate';
 import { canonicalBlock } from './settings/local';
 export interface WebsiteSender {

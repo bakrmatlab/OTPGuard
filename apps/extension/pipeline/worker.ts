@@ -1,4 +1,4 @@
-import { SEARCH_MS } from '../../../packages/security/timing';
+import { SEARCH_MS } from '@otpguard/security/timing';
 import { createProgress } from './progress';
 import { createEmailRecovery } from './email-recovery';
 import {
@@ -9,7 +9,7 @@ import { gmailLifecycle } from '../gmail/worker';
 import { authenticatedMailbox } from '../gmail/authenticated-worker';
 import { accountGate } from '../account/worker';
 import { localSettings } from '../settings/worker';
-import { normalizeOrigin } from '../../../packages/security';
+import { normalizeOrigin } from '@otpguard/security';
 import { createReleaseLedger } from './replay';
 import { createActivityRecorder } from '../activity/record';
 import { localHistory } from '../activity/worker';

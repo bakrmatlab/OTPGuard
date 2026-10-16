@@ -1,21 +1,17 @@
 import {
   fillRefusal,
   type FillRefusal,
-} from '../../../packages/shared/fill-diagnostics';
-import {
-  SEARCH_MS,
-  CONFIRM_MS,
-  RELEASE_MS,
-} from '../../../packages/security/timing';
-import { genericRetrievalLimits } from '../../../packages/security/retrieval-limits';
-import { parseGenericCode, type NormalizedEmail } from '../../../packages/otp';
-import { type Decision, type SenderEvidence } from '../../../packages/security';
+} from '@otpguard/shared/fill-diagnostics';
+import { SEARCH_MS, CONFIRM_MS, RELEASE_MS } from '@otpguard/security/timing';
+import { genericRetrievalLimits } from '@otpguard/security/retrieval-limits';
+import { parseGenericCode, type NormalizedEmail } from '@otpguard/otp';
+import { type Decision, type SenderEvidence } from '@otpguard/security';
 import {
   assessGenericCandidate,
   recipientContradiction,
   genericServiceHint,
   type CandidateDecision,
-} from '../../../packages/security/generic';
+} from '@otpguard/security/generic';
 import { parseClient, type WorkerMessage } from './protocol';
 
 export interface Context {
@@ -84,7 +80,7 @@ export interface Adapter {
   activity?(outcome: {
     serviceId: string;
     result: 'FILLED' | 'REFUSED' | 'CANCELLED' | 'ERROR';
-    reason: import('../../../packages/shared').ActivityEvent['reason'];
+    reason: import('@otpguard/shared').ActivityEvent['reason'];
     time: number;
   }): Promise<void>;
   subscribeSettings?(listener: () => void): () => void;

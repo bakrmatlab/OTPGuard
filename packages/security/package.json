@@ -2,8 +2,13 @@
   "name": "@otpguard/security",
   "version": "0.0.0",
   "private": true,
+  "exports": {
+    ".": "./index.ts",
+    "./generic": "./generic.ts",
+    "./retrieval-limits": "./retrieval-limits.ts",
+    "./timing": "./timing.ts"
+  },
   "type": "module",
-  "exports": "./index.ts",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
   },

@@ -1,4 +1,4 @@
-import { parseActivity } from '../../../packages/shared';
+import { parseActivity } from '@otpguard/shared';
 import type { Adapter } from '../pipeline/coordinator';
 import type { createLocalHistory } from './local';
 /** Construct six fields explicitly. Unknown service becomes null; no context serialized. */

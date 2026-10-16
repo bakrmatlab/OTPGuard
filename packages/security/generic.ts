@@ -1,4 +1,4 @@
-import { parseMailboxAddress } from '../otp/addresses';
+import { parseMailboxAddress } from '@otpguard/otp/addresses';
 import { SEARCH_MS, CONFIRM_MS, RELEASE_MS } from './timing';
 import {
   normalizeOrigin,

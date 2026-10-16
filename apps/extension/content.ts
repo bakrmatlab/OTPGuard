@@ -1,5 +1,5 @@
 import { unchangedFrameworkInput } from './insertion/framework-input';
-import { displayedRecipient } from '../../packages/otp/addresses';
+import { displayedRecipient } from '@otpguard/otp/addresses';
 import {
   createDetector,
   codeLengths,

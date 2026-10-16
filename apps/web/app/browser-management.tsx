@@ -8,12 +8,12 @@ import {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { setupProgress } from '../../../packages/shared/setup-progress';
+import { setupProgress } from '@otpguard/shared/setup-progress';
 import { sendBrowserAction } from './browser-transport';
 import type {
   BrowserAction,
   BrowserSnapshot,
-} from '../../../packages/shared/browser-management';
+} from '@otpguard/shared/browser-management';
 interface BrowserContextValue {
   canConnect: boolean;
   checking?: boolean;

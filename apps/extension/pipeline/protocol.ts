@@ -1,4 +1,4 @@
-import { parseMailboxAddress } from '../../../packages/otp/addresses';
+import { parseMailboxAddress } from '@otpguard/otp/addresses';
 /** Closed, minimal runtime protocol. No page-provided account, origin or evidence. */
 export type DetectionMessage = {
   type: 'detect';

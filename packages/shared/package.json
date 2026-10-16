@@ -2,6 +2,12 @@
   "name": "@otpguard/shared",
   "version": "0.0.0",
   "private": true,
+  "exports": {
+    ".": "./index.ts",
+    "./browser-management": "./browser-management.ts",
+    "./fill-diagnostics": "./fill-diagnostics.ts",
+    "./setup-progress": "./setup-progress.ts"
+  },
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit"

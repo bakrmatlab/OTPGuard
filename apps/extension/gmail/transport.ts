@@ -1,6 +1,6 @@
 /* eslint-disable no-control-regex -- Reject unsafe opaque pagination tokens. */
 import { GmailUnauthorized } from './lifecycle';
-import { genericRetrievalLimits as limits } from '../../../packages/security/retrieval-limits';
+import { genericRetrievalLimits as limits } from '@otpguard/security/retrieval-limits';
 
 export class RetrievalFailure extends Error {
   constructor(

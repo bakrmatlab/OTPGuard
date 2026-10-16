@@ -3,7 +3,7 @@ import {
   LOCAL_RETENTION_MS,
   parseActivity,
   type ActivityEvent,
-} from '../../../packages/shared';
+} from '@otpguard/shared';
 export interface HistoryStore {
   read(): Promise<unknown>;
   write(value: { version: 1; events: ActivityEvent[] }): Promise<void>;

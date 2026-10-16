@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ActivityEvent } from '../../packages/shared';
+import type { ActivityEvent } from '@otpguard/shared';
 import type { MailboxStatus } from './gmail/lifecycle';
 import { configuredGmail } from './gmail/config';
 import { configuredAccount } from './account/config';
 import { createConnectionQueue } from './account/connection-queue';
 import { canonicalBlock } from './settings/local';
 import './management.css';
-import { setupProgress } from '../../packages/shared/setup-progress';
+import { setupProgress } from '@otpguard/shared/setup-progress';
 type Status = { state: string; userId?: string; label?: string };
 const unavailableMailbox = (): MailboxStatus => ({
   state: configuredGmail() ? 'RECONNECT_REQUIRED' : 'UNCONFIGURED',

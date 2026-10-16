@@ -1,12 +1,12 @@
-import { recipientContradiction } from '../../../packages/security/generic';
+import { recipientContradiction } from '@otpguard/security/generic';
 import type { Context, Envelope, Adapter } from '../pipeline/coordinator';
 import type { AccountGate } from '../account/gate';
 import type { createGmailLifecycle } from './lifecycle';
 import { createMailboxCoordinator } from './connected';
 import { createGmailTransport, RetrievalFailure } from './transport';
-import { rawEmailHints, type RawEmailIssue } from '../../../packages/otp/raw';
-import { genericRetrievalLimits } from '../../../packages/security/retrieval-limits';
-import { normalizeRawEmail, parseGenericCode } from '../../../packages/otp';
+import { rawEmailHints, type RawEmailIssue } from '@otpguard/otp/raw';
+import { genericRetrievalLimits } from '@otpguard/security/retrieval-limits';
+import { normalizeRawEmail, parseGenericCode } from '@otpguard/otp';
 
 export type RetrievalIssue =
   | 'quota'

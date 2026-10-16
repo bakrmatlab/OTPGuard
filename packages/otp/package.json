@@ -2,8 +2,13 @@
   "name": "@otpguard/otp",
   "version": "0.0.0",
   "private": true,
+  "exports": {
+    ".": "./index.ts",
+    "./addresses": "./addresses.ts",
+    "./generic": "./generic.ts",
+    "./raw": "./raw.ts"
+  },
   "type": "module",
-  "exports": "./index.ts",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
   },
