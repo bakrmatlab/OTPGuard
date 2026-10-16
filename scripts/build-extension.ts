@@ -7,16 +7,22 @@ import { readFile, writeFile, rm, mkdir, copyFile } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import domainAuth from '../configuration/domain-auth.json';
 import { accountConfig } from '../apps/extension/account/config';
+// The builder used PLASMO_PUBLIC_* names before. A build with old env files would
+// silently come out unconfigured, so stop and say what to rename.
+if (Object.keys(process.env).some((name) => name.startsWith('PLASMO_PUBLIC_')))
+  throw new Error(
+    'Rename PLASMO_PUBLIC_* variables to OTPGUARD_PUBLIC_* in your env files',
+  );
 const config = accountConfig({
-  key: process.env.PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY,
-  syncHost: process.env.PLASMO_PUBLIC_CLERK_SYNC_HOST,
-  frontendApi: process.env.PLASMO_PUBLIC_CLERK_FRONTEND_API,
-  webOrigin: process.env.PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN,
+  key: process.env.OTPGUARD_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  syncHost: process.env.OTPGUARD_PUBLIC_CLERK_SYNC_HOST,
+  frontendApi: process.env.OTPGUARD_PUBLIC_CLERK_FRONTEND_API,
+  webOrigin: process.env.OTPGUARD_PUBLIC_ACCOUNT_WEB_ORIGIN,
 });
 const gmail = gmailConfig({
-  clientId: process.env.PLASMO_PUBLIC_GOOGLE_CLIENT_ID,
-  key: process.env.PLASMO_PUBLIC_EXTENSION_KEY,
-  extensionId: process.env.PLASMO_PUBLIC_EXTENSION_ID,
+  clientId: process.env.OTPGUARD_PUBLIC_GOOGLE_CLIENT_ID,
+  key: process.env.OTPGUARD_PUBLIC_EXTENSION_KEY,
+  extensionId: process.env.OTPGUARD_PUBLIC_EXTENSION_ID,
 });
 if (gmail) {
   const der = Buffer.from(gmail.key, 'base64');
@@ -50,18 +56,18 @@ if (outdirOverride && !isAbsolute(outdirOverride))
 const outdir = outdirOverride || 'build/chrome-mv3-prod';
 await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
-// Preserve legacy public configuration names. No generic env serialization.
+// Only these public configuration names reach the bundle. No generic env serialization.
 const define: Record<string, string> = {
   'process.env.NODE_ENV': JSON.stringify('production'),
 };
 for (const name of [
-  'PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY',
-  'PLASMO_PUBLIC_CLERK_SYNC_HOST',
-  'PLASMO_PUBLIC_CLERK_FRONTEND_API',
-  'PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN',
-  'PLASMO_PUBLIC_GOOGLE_CLIENT_ID',
-  'PLASMO_PUBLIC_EXTENSION_KEY',
-  'PLASMO_PUBLIC_EXTENSION_ID',
+  'OTPGUARD_PUBLIC_CLERK_PUBLISHABLE_KEY',
+  'OTPGUARD_PUBLIC_CLERK_SYNC_HOST',
+  'OTPGUARD_PUBLIC_CLERK_FRONTEND_API',
+  'OTPGUARD_PUBLIC_ACCOUNT_WEB_ORIGIN',
+  'OTPGUARD_PUBLIC_GOOGLE_CLIENT_ID',
+  'OTPGUARD_PUBLIC_EXTENSION_KEY',
+  'OTPGUARD_PUBLIC_EXTENSION_ID',
 ])
   define[`process.env.${name}`] = JSON.stringify(process.env[name] ?? '');
 const result = await Bun.build({

@@ -2,7 +2,7 @@ import { parseGenericCode } from '@otpguard/otp/generic';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 const artifact =
-  process.env.OTPGuard_ARTIFACT ?? 'apps/extension/build/chrome-mv3-prod';
+  process.env.OTPGUARD_TEST_EXTENSION ?? 'apps/extension/build/chrome-mv3-prod';
 async function load(page: import('@playwright/test').Page, body: string) {
   await page.route('https://unfamiliar.fixture.invalid/**', (route) =>
     route.fulfill({ contentType: 'text/html', body: '<!doctype html>' + body }),

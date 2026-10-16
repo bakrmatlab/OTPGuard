@@ -20,15 +20,15 @@ const env = {
   PATH: process.env.PATH ?? '',
   HOME: process.env.HOME ?? '',
   OTPGUARD_OUTDIR: artifact,
-  PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY:
+  OTPGUARD_PUBLIC_CLERK_PUBLISHABLE_KEY:
     'pk_live_' +
     Buffer.from(new URL(auth.frontendApi).hostname + '$').toString('base64'),
-  PLASMO_PUBLIC_CLERK_SYNC_HOST: auth.syncHost,
-  PLASMO_PUBLIC_CLERK_FRONTEND_API: auth.frontendApi,
-  PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN: auth.webOrigin,
-  PLASMO_PUBLIC_GOOGLE_CLIENT_ID: gmail.clientId,
-  PLASMO_PUBLIC_EXTENSION_KEY: auth.extensionPublicKey,
-  PLASMO_PUBLIC_EXTENSION_ID: gmail.extensionId,
+  OTPGUARD_PUBLIC_CLERK_SYNC_HOST: auth.syncHost,
+  OTPGUARD_PUBLIC_CLERK_FRONTEND_API: auth.frontendApi,
+  OTPGUARD_PUBLIC_ACCOUNT_WEB_ORIGIN: auth.webOrigin,
+  OTPGUARD_PUBLIC_GOOGLE_CLIENT_ID: gmail.clientId,
+  OTPGUARD_PUBLIC_EXTENSION_KEY: auth.extensionPublicKey,
+  OTPGUARD_PUBLIC_EXTENSION_ID: gmail.extensionId,
 };
 if (gmail.extensionId !== auth.extensionId)
   throw new Error('Reviewed identities differ');

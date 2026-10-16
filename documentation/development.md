@@ -36,10 +36,10 @@ Provider values are public client configuration, never secrets. They live in
 ignored files:
 
 - Web: `apps/web/.env.local` (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`).
-- Extension account: `apps/extension/.env.account` (`PLASMO_PUBLIC_CLERK_*`,
-  `PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN`).
-- Extension Gmail: `apps/extension/.env.gmail` (`PLASMO_PUBLIC_GOOGLE_CLIENT_ID`,
-  `PLASMO_PUBLIC_EXTENSION_KEY`, `PLASMO_PUBLIC_EXTENSION_ID`).
+- Extension account: `apps/extension/.env.account` (`OTPGUARD_PUBLIC_CLERK_*`,
+  `OTPGUARD_PUBLIC_ACCOUNT_WEB_ORIGIN`).
+- Extension Gmail: `apps/extension/.env.gmail` (`OTPGUARD_PUBLIC_GOOGLE_CLIENT_ID`,
+  `OTPGUARD_PUBLIC_EXTENSION_KEY`, `OTPGUARD_PUBLIC_EXTENSION_ID`).
 
 Load them explicitly. From `apps/extension`: `bun --env-file=.env.account run build`.
 Run checks against the same configuration, for example
@@ -53,9 +53,9 @@ and Clerk know.
 `bun run build:release <new absolute directory>` builds the configured
 extension from the committed public configuration in `configuration/` into
 `<directory>/extension`, without reading any env file. The directory must be new and
-outside the checkout. To test that artifact, set `OTPGuard_ARTIFACT` to it; the configured-Gmail browser test reads
-`OTPGUARD_TEST_EXTENSION` instead. Browser tests keep traces, video and screenshots
-off; keep them off when testing a configured build.
+outside the checkout. To test that artifact, set `OTPGUARD_TEST_EXTENSION` to it.
+Browser tests keep traces, video and screenshots off; keep them off when testing a
+configured build.
 
 ## Review archives
 

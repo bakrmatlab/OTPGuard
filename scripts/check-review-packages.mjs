@@ -58,7 +58,11 @@ try {
     );
   const env = { ...process.env, PORT: '3201', HOSTNAME: '127.0.0.1' };
   for (const name of Object.keys(env))
-    if (/^(?:PLASMO_PUBLIC_|NEXT_PUBLIC_CLERK_|CLERK_|CONVEX_)/.test(name))
+    if (
+      /^(?:OTPGUARD_PUBLIC_|PLASMO_PUBLIC_|NEXT_PUBLIC_CLERK_|CLERK_|CONVEX_)/.test(
+        name,
+      )
+    )
       delete env[name];
   // Refuse occupied port before launching, never reuse/stop another server.
   const net = await import('node:net');

@@ -122,10 +122,14 @@ describe('credential-free review package boundary', () => {
         setup(root);
         const env = { ...process.env };
         for (const key of Object.keys(env))
-          if (/^(?:PLASMO_PUBLIC_|NEXT_PUBLIC_CLERK_|CLERK_|CONVEX_)/.test(key))
+          if (
+            /^(?:OTPGUARD_PUBLIC_|PLASMO_PUBLIC_|NEXT_PUBLIC_CLERK_|CLERK_|CONVEX_)/.test(
+              key,
+            )
+          )
             delete env[key];
         if (name === 'provider environment')
-          env.PLASMO_PUBLIC_GOOGLE_CLIENT_ID = 'synthetic';
+          env.OTPGUARD_PUBLIC_GOOGLE_CLIENT_ID = 'synthetic';
         const result = spawnSync('bun', [script], {
           cwd: root,
           env,

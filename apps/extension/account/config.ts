@@ -79,10 +79,10 @@ export function accountManifest(config: AccountConfig | null) {
 export function configuredAccount() {
   try {
     return accountConfig({
-      key: process.env.PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY,
-      syncHost: process.env.PLASMO_PUBLIC_CLERK_SYNC_HOST,
-      frontendApi: process.env.PLASMO_PUBLIC_CLERK_FRONTEND_API,
-      webOrigin: process.env.PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN,
+      key: process.env.OTPGUARD_PUBLIC_CLERK_PUBLISHABLE_KEY,
+      syncHost: process.env.OTPGUARD_PUBLIC_CLERK_SYNC_HOST,
+      frontendApi: process.env.OTPGUARD_PUBLIC_CLERK_FRONTEND_API,
+      webOrigin: process.env.OTPGUARD_PUBLIC_ACCOUNT_WEB_ORIGIN,
     });
   } catch {
     return null;

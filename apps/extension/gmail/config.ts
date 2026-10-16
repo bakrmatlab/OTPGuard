@@ -31,9 +31,9 @@ export function gmailConfig(values: {
 export function configuredGmail() {
   try {
     return gmailConfig({
-      clientId: process.env.PLASMO_PUBLIC_GOOGLE_CLIENT_ID,
-      key: process.env.PLASMO_PUBLIC_EXTENSION_KEY,
-      extensionId: process.env.PLASMO_PUBLIC_EXTENSION_ID,
+      clientId: process.env.OTPGUARD_PUBLIC_GOOGLE_CLIENT_ID,
+      key: process.env.OTPGUARD_PUBLIC_EXTENSION_KEY,
+      extensionId: process.env.OTPGUARD_PUBLIC_EXTENSION_ID,
     });
   } catch {
     return null;

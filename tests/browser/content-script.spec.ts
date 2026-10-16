@@ -28,7 +28,7 @@ test.afterAll(() => {
     rmSync(harnessDirectory, { recursive: true, force: true });
 });
 const artifact =
-  process.env.OTPGuard_ARTIFACT ?? 'apps/extension/build/chrome-mv3-prod';
+  process.env.OTPGUARD_TEST_EXTENSION ?? 'apps/extension/build/chrome-mv3-prod';
 
 test('production content detects bounded nearby email challenge and preserves user input', async ({
   page,

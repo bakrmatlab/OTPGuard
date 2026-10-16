@@ -27,7 +27,9 @@ if (
   Object.entries(process.env).some(
     ([name, value]) =>
       value &&
-      /^(?:PLASMO_PUBLIC_|NEXT_PUBLIC_CLERK_|CLERK_|CONVEX_)/.test(name),
+      /^(?:OTPGUARD_PUBLIC_|PLASMO_PUBLIC_|NEXT_PUBLIC_CLERK_|CLERK_|CONVEX_)/.test(
+        name,
+      ),
   )
 )
   throw new Error('Provider configuration must be absent for review packaging');

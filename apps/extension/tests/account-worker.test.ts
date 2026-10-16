@@ -11,19 +11,19 @@ afterEach(() => {
 it('never initializes Clerk or obtains a token for development keys on a Vercel host', async () => {
   sdk.create.mockClear();
   vi.stubEnv(
-    'PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY',
+    'OTPGUARD_PUBLIC_CLERK_PUBLISHABLE_KEY',
     'pk_test_' + btoa('synthetic.clerk.accounts.dev$'),
   );
   vi.stubEnv(
-    'PLASMO_PUBLIC_CLERK_FRONTEND_API',
+    'OTPGUARD_PUBLIC_CLERK_FRONTEND_API',
     'https://synthetic.clerk.accounts.dev',
   );
   vi.stubEnv(
-    'PLASMO_PUBLIC_CLERK_SYNC_HOST',
+    'OTPGUARD_PUBLIC_CLERK_SYNC_HOST',
     'https://otpguard-fixture.vercel.app',
   );
   vi.stubEnv(
-    'PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN',
+    'OTPGUARD_PUBLIC_ACCOUNT_WEB_ORIGIN',
     'https://otpguard-fixture.vercel.app',
   );
   const worker = await import('../account/worker');
@@ -34,15 +34,18 @@ it('never initializes Clerk or obtains a token for development keys on a Vercel 
 });
 it('keeps freshness tokens in the worker and uses no persistent SDK JWT cache', async () => {
   vi.stubEnv(
-    'PLASMO_PUBLIC_CLERK_PUBLISHABLE_KEY',
+    'OTPGUARD_PUBLIC_CLERK_PUBLISHABLE_KEY',
     'pk_live_' + btoa('auth.fixture.invalid$'),
   );
   vi.stubEnv(
-    'PLASMO_PUBLIC_CLERK_FRONTEND_API',
+    'OTPGUARD_PUBLIC_CLERK_FRONTEND_API',
     'https://auth.fixture.invalid',
   );
-  vi.stubEnv('PLASMO_PUBLIC_CLERK_SYNC_HOST', 'https://auth.fixture.invalid');
-  vi.stubEnv('PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN', 'https://app.fixture.invalid');
+  vi.stubEnv('OTPGUARD_PUBLIC_CLERK_SYNC_HOST', 'https://auth.fixture.invalid');
+  vi.stubEnv(
+    'OTPGUARD_PUBLIC_ACCOUNT_WEB_ORIGIN',
+    'https://app.fixture.invalid',
+  );
   const listeners: ((value: {
     cookie: { domain: string; name: string };
   }) => void)[] = [];

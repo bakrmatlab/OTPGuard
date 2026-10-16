@@ -13,7 +13,8 @@ import { describe, expect, it } from 'vitest';
 describe('production extension permission boundary', () => {
   it('keeps the distributable artifact below the reviewed 25 MiB budget', () => {
     const root =
-      process.env.OTPGuard_ARTIFACT ?? 'apps/extension/build/chrome-mv3-prod';
+      process.env.OTPGUARD_TEST_EXTENSION ??
+      'apps/extension/build/chrome-mv3-prod';
     const bytes = readdirSync(root, { recursive: true }).reduce(
       (total, file) => {
         const stat = statSync(`${root}/${String(file)}`);
@@ -26,7 +27,7 @@ describe('production extension permission boundary', () => {
   it('ships MV3 popup and worker without site access or content injection', () => {
     const manifest = JSON.parse(
       readFileSync(
-        `${process.env.OTPGuard_ARTIFACT ?? 'apps/extension/build/chrome-mv3-prod'}/manifest.json`,
+        `${process.env.OTPGUARD_TEST_EXTENSION ?? 'apps/extension/build/chrome-mv3-prod'}/manifest.json`,
         'utf8',
       ),
     );
@@ -38,7 +39,7 @@ describe('production extension permission boundary', () => {
     });
     expect(manifest.web_accessible_resources).toBeUndefined();
     expect(manifest.background.service_worker).toBeTruthy();
-    const exported = !!process.env.OTPGuard_ARTIFACT;
+    const exported = !!process.env.OTPGUARD_TEST_EXTENSION;
     const account = exported
       ? accountConfig({
           key:
@@ -92,7 +93,8 @@ describe('production extension permission boundary', () => {
 // Check generated artifacts rather than relying solely on source import discipline.
 describe('fixture isolation', () => {
   for (const directory of [
-    process.env.OTPGuard_ARTIFACT ?? 'apps/extension/build/chrome-mv3-prod',
+    process.env.OTPGUARD_TEST_EXTENSION ??
+      'apps/extension/build/chrome-mv3-prod',
     'apps/web/.next/static',
   ]) {
     it(`excludes local fixture adapters from ${directory}`, () => {
