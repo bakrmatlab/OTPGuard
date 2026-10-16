@@ -1,11 +1,5 @@
 'use client';
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 const views = ['connections', 'activity', 'settings'] as const;
 type View = (typeof views)[number];
 const ViewContext = createContext<View>('connections');
@@ -16,6 +10,8 @@ export function Workspace({ children }: { children: ReactNode }) {
     const navigate = (focus: boolean) => {
       const hash = window.location.hash.slice(1);
       const next = views.find((value) => value === hash) ?? 'connections';
+      // The hash exists only in the browser, so the first view is set after hydration.
+      // eslint-disable-next-line @eslint-react/set-state-in-effect
       setView(next);
       if (focus)
         requestAnimationFrame(() => {
@@ -30,11 +26,11 @@ export function Workspace({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('hashchange', changed);
   }, []);
   return (
-    <ViewContext.Provider value={view}>
+    <ViewContext value={view}>
       <div className="workspace" data-view={view}>
         {children}
       </div>
-    </ViewContext.Provider>
+    </ViewContext>
   );
 }
 
@@ -43,7 +39,7 @@ export function WorkspaceNavigation({
 }: {
   sections: readonly (readonly [string, string])[];
 }) {
-  const view = useContext(ViewContext);
+  const view = use(ViewContext);
   return (
     <nav aria-label="Dashboard">
       {sections.map(([id, label]) => (

@@ -1,7 +1,7 @@
 'use client';
 import {
   createContext,
-  useContext,
+  use,
   useEffect,
   useRef,
   useState,
@@ -42,7 +42,7 @@ export function BrowserManagement({
   return configured ? (
     <AuthenticatedBrowser>{children}</AuthenticatedBrowser>
   ) : (
-    <BrowserContext.Provider
+    <BrowserContext
       value={{
         canConnect: false,
         snapshot: null,
@@ -53,7 +53,7 @@ export function BrowserManagement({
       }}
     >
       {children}
-    </BrowserContext.Provider>
+    </BrowserContext>
   );
 }
 function AuthenticatedBrowser({ children }: { children: ReactNode }) {
@@ -82,6 +82,8 @@ function BrowserSession({
 }) {
   const [snapshot, setSnapshot] = useState<BrowserSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
+  // The ref guards synchronously inside run(); the state value drives rendering.
+  const [timedOut, setTimedOut] = useState(false);
   const [previouslyConnected, setPreviouslyConnected] = useState(false);
   const [message, setMessage] = useState(
     'Connect your installed extension to manage this Chrome profile here.',
@@ -129,6 +131,7 @@ function BrowserSession({
       setSnapshot(null);
       if (error instanceof Error && error.message === 'TIMED_OUT') {
         uncertain.current = true;
+        setTimedOut(true);
         setMessage(
           'The action is taking longer than expected. Check the extension and reload this page before trying again.',
         );
@@ -142,20 +145,20 @@ function BrowserSession({
     }
   };
   return (
-    <BrowserContext.Provider
+    <BrowserContext
       value={{
         checking,
         previouslyConnected,
         canConnect: !!userId && !!sessionId,
         snapshot,
-        busy: busy || uncertain.current,
+        busy: busy || timedOut,
         message,
         exportJson,
         run,
       }}
     >
       {children}
-    </BrowserContext.Provider>
+    </BrowserContext>
   );
 }
 export function BrowserConnection() {
@@ -167,7 +170,7 @@ export function BrowserConnection() {
     canConnect,
     checking,
     previouslyConnected,
-  } = useContext(BrowserContext);
+  } = use(BrowserContext);
   const progress = setupProgress(
     canConnect,
     snapshot,
@@ -275,7 +278,7 @@ export function BrowserConnection() {
   );
 }
 export function BrowserMailbox() {
-  const { snapshot, busy, run } = useContext(BrowserContext);
+  const { snapshot, busy, run } = use(BrowserContext);
   const mailbox = snapshot?.mailbox;
   return (
     <>
@@ -343,7 +346,7 @@ export function BrowserMailbox() {
   );
 }
 export function BrowserPreferences() {
-  const { snapshot, busy, run } = useContext(BrowserContext);
+  const { snapshot, busy, run } = use(BrowserContext);
   const [origin, setOrigin] = useState('');
   const [error, setError] = useState('');
   const available = snapshot?.settings.state === 'LOCAL';
@@ -482,7 +485,7 @@ export function BrowserPreferences() {
   );
 }
 export function BrowserActivity() {
-  const { snapshot, busy, exportJson, run } = useContext(BrowserContext);
+  const { snapshot, busy, exportJson, run } = use(BrowserContext);
   const history = snapshot?.history;
   const last = history?.lastAction;
   return (
