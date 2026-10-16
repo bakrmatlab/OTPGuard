@@ -8,7 +8,7 @@ import {
   type Envelope,
 } from '../pipeline/coordinator';
 import { createGmailTransport } from '../gmail/transport';
-import { fixture } from './fixtures/email/dkim';
+import { fixture } from './fixtures/email';
 
 it.each([
   ['Your security code', 'Use this code to sign in: 003719', '003719'],

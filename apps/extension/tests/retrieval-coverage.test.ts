@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { createGmailTransport } from '../gmail/transport';
 import { normalizeRawEmail, parseGenericCode } from '@otpguard/otp';
-import { fixture } from './fixtures/email/dkim';
+import { fixture } from './fixtures/email';
 
 const cycle = (
   fetcher: (url: string, init: RequestInit) => Promise<Response>,

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { rawEmailHints } from '@otpguard/otp/raw';
 import { recipientMatches } from '@otpguard/security/generic';
-import { fixture } from './fixtures/email/dkim';
+import { fixture } from './fixtures/email';
 
 const hints = (headers: string[]) =>
   rawEmailHints(fixture({ headers, body: 'Your code is 003719\r\n' }).raw);
