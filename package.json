@@ -19,7 +19,6 @@
     "test": "vitest run",
     "test:browser": "playwright test",
     "check": "bun run typecheck && bun run lint && bun run format:check && bun run test",
-    "build:mock": "bun scripts/build-mock-extension.ts",
     "package:review": "bun scripts/package-review.ts",
     "check:packages": "node scripts/check-review-packages.mjs"
   },

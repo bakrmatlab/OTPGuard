@@ -84,7 +84,6 @@ From a fresh clone without provider environment files or exported provider varia
 ```sh
 bun install --frozen-lockfile
 NEXT_TELEMETRY_DISABLED=1 bun run build
-bun run build:mock
 bun run check
 bun x --no-install playwright install chromium
 bun run test:browser
@@ -106,7 +105,7 @@ bun run check:packages
 
 Source layout: `apps/extension` (Bun MV3/React 18), `apps/web` (Next.js/React 19),
 `packages/otp` and `packages/security` (pure logic), `packages/shared` (contracts),
-`development/mock-extension` and `tests/fixtures` (synthetic only).
+`tests/fixtures` (synthetic only).
 
 ## Engineering references
 
