@@ -252,7 +252,6 @@ it.each([
     const t = setup();
     expect(
       assessGenericCandidate({
-        serviceId: 'generic',
         now,
         locallyBlocked: false,
         request: {
@@ -265,7 +264,6 @@ it.each([
           current: true,
           foreground: true,
           emailFlow: true,
-          purpose: 'sign-in',
           expectedLength: 6,
           competingChallenges: 0,
         },

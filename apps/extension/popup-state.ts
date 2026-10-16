@@ -17,13 +17,11 @@ const titles: Record<string, string> = {
   SEARCHING: 'Finding a code…',
   FILLING: 'Inserting your code',
   CANDIDATE: 'Completing your request',
-  VERIFIED: 'Completing your request',
   FILLED: 'Code inserted',
   NO_CODE: 'No code found',
   UNKNOWN: 'Could not select a code',
   CANCELLED: 'Request stopped',
   BLOCKED: 'Site blocked',
-  MISMATCH: 'Destination does not match',
   ERROR: 'Could not complete the request',
   UNAVAILABLE: 'Request unavailable',
   DELIVERY_UNCONFIRMED: 'Insertion not confirmed',
@@ -40,13 +38,11 @@ const descriptions: Record<string, string> = {
   SEARCHING: 'Checking recent email.',
   FILLING: 'Waiting for the page.',
   CANDIDATE: 'Waiting for insertion confirmation.',
-  VERIFIED: 'Waiting for insertion confirmation.',
   FILLED: 'Check the site to continue.',
   NO_CODE: 'Request a new code, then retry.',
   UNKNOWN: 'Use the code from your email.',
   CANCELLED: 'Return to the code field, then retry.',
   BLOCKED: 'Manage blocked sites in browser settings.',
-  MISMATCH: 'Use your usual manual sign-in.',
   ERROR: 'Return to the code field, then retry.',
   UNAVAILABLE: 'Reopen OTPGuard to try again.',
   DELIVERY_UNCONFIRMED: 'Check the site before trying again.',
@@ -62,9 +58,7 @@ export function popupPresentation(
   account: string,
   siteAccess: boolean | null,
 ) {
-  const busy = ['SEARCHING', 'FILLING', 'CANDIDATE', 'VERIFIED'].includes(
-    pipeline.state,
-  );
+  const busy = ['SEARCHING', 'FILLING', 'CANDIDATE'].includes(pipeline.state);
   if (account === 'CHECKING')
     return {
       title: 'Checking account…',
@@ -147,7 +141,6 @@ export function popupPresentation(
         'READY',
         'FILLED',
         'BLOCKED',
-        'MISMATCH',
         'ACCOUNT_UNAVAILABLE',
         'MAILBOX_UNAVAILABLE',
       ].includes(pipeline.state) &&

@@ -188,7 +188,6 @@ it('generic Gmail search is bounded by time without sender/domain/page-derived f
 it('generic assessment refuses non-HTTPS without asserting sender trust', () => {
   expect(
     assessGenericCandidate({
-      serviceId: 'generic',
       now: 100000,
       locallyBlocked: false,
       request: {
@@ -200,7 +199,6 @@ it('generic assessment refuses non-HTTPS without asserting sender trust', () => 
         current: true,
         foreground: true,
         emailFlow: true,
-        purpose: 'sign-in',
         expectedLength: 6,
         competingChallenges: 0,
       },

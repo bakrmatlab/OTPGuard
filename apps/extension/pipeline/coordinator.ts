@@ -461,10 +461,7 @@ export function createCoordinator(adapter: Adapter) {
         outcome: LocalStatus,
         cancellation?: CancellationReason,
       ) => {
-        if (
-          ['IDLE', 'SEARCHING', 'VERIFIED', 'CANDIDATE'].includes(outcome.state)
-        )
-          return;
+        if (['IDLE', 'SEARCHING', 'CANDIDATE'].includes(outcome.state)) return;
         adapter.finished?.();
         try {
           void adapter
@@ -498,7 +495,8 @@ export function createCoordinator(adapter: Adapter) {
       }
       if (!message.manual && !preferences().autofillEnabled)
         return { state: 'UNKNOWN', reason: 'request' };
-      // A document/group gets only one attempt per worker lifetime. No automatic restart/retry.
+      // One live attempt per document and field group, with no automatic retry. A finished
+      // attempt frees its key; the release ledger stops the same message filling twice.
       const key = `${context.accountId}/${context.mailboxId}/${context.tabId}/${context.documentId}/${message.groupId}`;
       if (message.fresh || message.manual || message.replacement) {
         for (const existing of [...requests.values()])
@@ -649,7 +647,6 @@ export function createCoordinator(adapter: Adapter) {
         }));
         const decide = () =>
           assessGenericCandidate({
-            serviceId: context.serviceId,
             now: adapter.now(),
             locallyBlocked: blocked(),
             request: {
@@ -665,7 +662,6 @@ export function createCoordinator(adapter: Adapter) {
               current: true,
               foreground: true,
               emailFlow: message.emailFlow,
-              purpose: 'sign-in',
               expectedLength: request.length,
               competingChallenges: request.ambiguous ? 1 : 0,
             },

@@ -6,9 +6,7 @@ import {
   type Decision,
 } from './index';
 
-export type CandidateDecision =
-  | { state: 'CANDIDATE' }
-  | Exclude<Decision, { state: 'VERIFIED' }>;
+export type CandidateDecision = { state: 'CANDIDATE' } | Decision;
 /** Explicit user-confirmed mode. Never claims a sender-to-website association. */
 export function assessGenericCandidate(
   input: AuthorizationInput,

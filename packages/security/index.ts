@@ -1,22 +1,7 @@
-import type { ParseResult, Purpose } from '@otpguard/otp';
+import type { ParseResult } from '@otpguard/otp';
 
-/** Produced only by a trusted adapter, never by interpreting page or raw header claims.
- * These types are a contract, not a cryptographic attestation. The future background
- * boundary must validate adapter provenance and bind evidence to the fetched message.
- */
-export type SenderEvidence =
-  | { status: 'unknown' | 'failed' }
-  | {
-      status: 'authenticated';
-      messageId: string;
-      mailboxId: string;
-      address: string;
-      authenticatedDomain: string;
-      boundaryId: string;
-      method: 'aligned-dkim' | 'aligned-dmarc';
-      delivery: 'direct' | 'unverified';
-      signedAt?: number;
-    };
+/** Sender identity is never verified: every message reports an unknown sender. */
+export type SenderEvidence = { status: 'unknown' };
 export interface MessageEvidence {
   messageId: string;
   mailboxId: string;
@@ -29,7 +14,6 @@ export interface MessageEvidence {
  * No title, logo, claimed service, email link, parser score or page domain hint is used.
  */
 export interface AuthorizationInput {
-  serviceId: string;
   now: number;
   locallyBlocked: boolean;
   request: {
@@ -45,7 +29,6 @@ export interface AuthorizationInput {
     current: boolean;
     foreground: boolean;
     emailFlow: boolean;
-    purpose: Purpose;
     expectedLength: number;
     /** Complete enumeration by the trusted coordinator; unknown is insufficient. */
     competingChallenges: number | null;
@@ -55,18 +38,13 @@ export interface AuthorizationInput {
 }
 export type Reason =
   | 'local-block'
-  | 'unsupported-service'
-  | 'destination'
   | 'request'
   | 'ambiguity'
-  | 'sender'
   | 'message-binding'
   | 'freshness'
   | 'code';
 export type Decision =
-  | { state: 'VERIFIED'; serviceId: string }
   | { state: 'UNKNOWN'; reason: Reason }
-  | { state: 'MISMATCH'; reason: 'destination' | 'sender' }
   | { state: 'BLOCKED'; reason: 'local-block' };
 
 /** WHATWG canonicalization includes ASCII IDNA and default HTTPS port handling.
