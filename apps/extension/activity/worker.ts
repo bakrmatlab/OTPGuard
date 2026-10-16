@@ -1,4 +1,3 @@
-import { supportedServices } from '../../../packages/security';
 import { createLocalHistory } from './local';
 const key = 'otpguard.activity.v1';
 export const localHistory = createLocalHistory(
@@ -13,7 +12,9 @@ export const localHistory = createLocalHistory(
       await chrome.storage.local.set({ [key]: value });
     },
   },
-  supportedServices.map((service) => service.id),
+  // History from builds with the Canva pilot can hold 'canva' events. Keep the id
+  // valid so those stored records still parse instead of making history unavailable.
+  ['canva'],
 );
 export function parseHistoryAction(
   value: unknown,

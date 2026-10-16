@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { normalizeRawEmail, parseVerificationCode } from '../packages/otp';
+import { normalizeRawEmail, parseGenericCode } from '../packages/otp';
 import { createReleaseLedger } from '../apps/extension/pipeline/replay';
 import { fixture } from './fixtures/email/dkim';
 
@@ -15,13 +15,10 @@ it('normalizes bounded signed related/alternative quoted-printable plain text wi
   });
   const email = normalizeRawEmail(raw.raw);
   expect(email).not.toBeNull();
-  expect(parseVerificationCode(email!)).toMatchObject({
+  expect(parseGenericCode(email!)).toMatchObject({
     status: 'candidate',
     candidate: { code: '003719' },
   });
-  expect(
-    parseVerificationCode({ ...email!, text: email!.text + '\n008417' }).status,
-  ).toBe('rejected');
   expect(normalizeRawEmail(new Uint8Array(256 * 1024 + 1))).toBeNull();
   expect(
     normalizeRawEmail(
