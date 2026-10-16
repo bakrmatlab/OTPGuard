@@ -61,6 +61,7 @@ describe('credential-free review package boundary', () => {
       'provider-free',
     ],
     ['provider environment', () => {}, 'Provider configuration'],
+    ['legacy provider environment', () => {}, 'Provider configuration'],
     [
       'unexpected extension file',
       (root: string) =>
@@ -130,6 +131,8 @@ describe('credential-free review package boundary', () => {
             delete env[key];
         if (name === 'provider environment')
           env.OTPGUARD_PUBLIC_GOOGLE_CLIENT_ID = 'synthetic';
+        if (name === 'legacy provider environment')
+          env.PLASMO_PUBLIC_GOOGLE_CLIENT_ID = 'synthetic';
         const result = spawnSync('bun', [script], {
           cwd: root,
           env,
