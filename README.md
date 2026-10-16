@@ -106,7 +106,7 @@ bun run check:packages
 
 Source layout: `apps/extension` (Bun MV3/React 18), `apps/web` (Next.js/React 19),
 `packages/otp` and `packages/security` (pure logic), `packages/shared` (contracts),
-`convex` (backend), `development/mock-extension` and `tests/fixtures` (synthetic only).
+`development/mock-extension` and `tests/fixtures` (synthetic only).
 
 ## Engineering references
 

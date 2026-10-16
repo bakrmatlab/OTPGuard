@@ -1,7 +1,6 @@
 import { createClerkClient } from '@clerk/chrome-extension/client';
 import { configuredAccount } from './config';
 import { createAccountGate } from './gate';
-import { checkAccountSubject, convexProbeOrigin, querySubject } from './probe';
 const config = configuredAccount();
 let signingOut = false;
 let logoutUnconfirmed = false;
@@ -88,38 +87,4 @@ export async function signOutAccount() {
     accountGate.invalidate();
     signingOut = false;
   }
-}
-
-export async function accountProbe() {
-  let origin: string | null;
-  try {
-    origin = convexProbeOrigin(process.env.PLASMO_PUBLIC_AUTH_CONVEX_ORIGIN);
-  } catch {
-    return { state: 'IDENTITY_UNAVAILABLE' as const };
-  }
-  if (!config || !origin) return { state: 'UNCONFIGURED' as const };
-  return checkAccountSubject(
-    accountGate,
-    async (userId, sessionId) => {
-      if (signingOut || logoutUnconfirmed) return null;
-      const clerk = await createClerkClient({
-        publishableKey: config.publishableKey,
-        syncHost: config.syncHost,
-        background: true,
-        storageCache,
-      });
-      const session = clerk.session;
-      if (!session || session.id !== sessionId || clerk.user?.id !== userId)
-        return null;
-      await session.reload();
-      if (
-        session.status !== 'active' ||
-        session.user.id !== userId ||
-        signingOut
-      )
-        return null;
-      return session.getToken({ template: 'convex', skipCache: true });
-    },
-    (jwt, signal) => querySubject(origin, jwt, signal),
-  );
 }

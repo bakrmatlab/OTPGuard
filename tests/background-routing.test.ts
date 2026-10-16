@@ -30,7 +30,6 @@ vi.mock('../apps/extension/gmail/authenticated-worker', () => ({
 }));
 vi.mock('../apps/extension/account/worker', () => ({
   accountStatus: vi.fn(),
-  accountProbe: vi.fn(),
   signOutAccount: vi.fn(),
 }));
 afterEach(() => {

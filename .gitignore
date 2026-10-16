@@ -7,7 +7,6 @@ coverage/
 playwright-report/
 test-results/
 .clerk/
-.convex/
 *.tsbuildinfo
 .env*
 !.env.example

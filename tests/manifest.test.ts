@@ -6,7 +6,6 @@ import {
 import coreGmail from '../configuration/core-1-gmail.json';
 import { accountConfig } from '../apps/extension/account/config';
 import domainAuth from '../configuration/domain-auth.json';
-import { convexProbeOrigin } from '../apps/extension/account/probe';
 import { configuredAccount } from '../apps/extension/account/config';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -63,19 +62,6 @@ describe('production extension permission boundary', () => {
       account ? { ids: [], matches: [account.webOrigin + '/*'] } : undefined,
     );
     const expected = connectionManifest(account, gmail);
-    const probeOrigin = convexProbeOrigin(
-      exported
-        ? 'https://grand-buffalo-545.convex.cloud'
-        : process.env.PLASMO_PUBLIC_AUTH_CONVEX_ORIGIN,
-    );
-    if (probeOrigin) {
-      expected.host_permissions.push(probeOrigin + '/*');
-      expected.content_security_policy.extension_pages =
-        expected.content_security_policy.extension_pages.replace(
-          /;$/,
-          ' ' + probeOrigin + ';',
-        );
-    }
     expect(manifest.permissions ?? []).toEqual([
       ...expected.permissions,
       'scripting',

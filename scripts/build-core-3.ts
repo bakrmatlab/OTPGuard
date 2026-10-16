@@ -37,7 +37,6 @@ const env = {
   PLASMO_PUBLIC_CLERK_SYNC_HOST: auth.syncHost,
   PLASMO_PUBLIC_CLERK_FRONTEND_API: auth.frontendApi,
   PLASMO_PUBLIC_ACCOUNT_WEB_ORIGIN: auth.webOrigin,
-  PLASMO_PUBLIC_AUTH_CONVEX_ORIGIN: 'https://grand-buffalo-545.convex.cloud',
   PLASMO_PUBLIC_GOOGLE_CLIENT_ID: gmail.clientId,
   PLASMO_PUBLIC_EXTENSION_KEY: auth.extensionPublicKey,
   PLASMO_PUBLIC_EXTENSION_ID: gmail.extensionId,

@@ -13,7 +13,7 @@ import {
 } from './settings/worker';
 import { parseHistoryAction, historyAction } from './activity/worker';
 import { authenticatedMailbox } from './gmail/authenticated-worker';
-import { accountStatus, accountProbe, signOutAccount } from './account/worker';
+import { accountStatus, signOutAccount } from './account/worker';
 // Exact owned popup confirms Fill; management is a separate owned page.
 chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
   if (
@@ -103,7 +103,6 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
     typeof message.type !== 'string' ||
     ![
       'account-status',
-      'account-probe',
       'account-sign-out',
       'gmail-status',
       'gmail-connect',
@@ -121,9 +120,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
           ? authenticatedMailbox.check()
           : message.type === 'account-sign-out'
             ? signOutAccount().then(accountStatus)
-            : message.type === 'account-probe'
-              ? accountProbe()
-              : accountStatus();
+            : accountStatus();
   void action
     .then(async (result) => {
       respond(result);

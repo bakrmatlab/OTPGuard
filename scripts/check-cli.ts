@@ -43,7 +43,6 @@ const check = (
 };
 check('Node', 'node', ['--version'], true, '22.19.0');
 check('Bun', 'bun', ['--version'], true, '1.4.2');
-check('Convex', resolve(root, 'node_modules/.bin/convex'), ['--version'], true);
 check('Clerk', resolve(root, 'node_modules/.bin/clerk'), ['--version'], true);
 check(
   'Playwright',
