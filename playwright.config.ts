@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/browser',
   workers: 1,
+  // One status line plus failures keeps output small for coding agents and CI logs.
+  reporter: 'line',
   use: { trace: 'off', screenshot: 'off', video: 'off' },
   webServer: [
     {
