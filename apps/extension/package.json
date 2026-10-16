@@ -5,7 +5,6 @@
   "displayName": "OTPGuard",
   "description": "User-confirmed recent email-code filling on HTTPS websites. Fill only after a user click.",
   "scripts": {
-    "dev": "bun ../../scripts/dev-extension.ts",
     "build": "bun ../../scripts/build-extension.ts",
     "typecheck": "tsc --noEmit"
   },
