@@ -22,12 +22,12 @@ const context = {
   serviceId: 'synthetic',
 };
 afterEach(() => vi.useRealTimers());
-it('fetches deduplicated bounded full bodies with safe credentials and contextual sender/time query', async () => {
+it('fetches deduplicated bounded raw bodies with safe credentials and a time-only query', async () => {
   const fetcher = vi.fn(
     async (url: string) =>
       new Response(
         JSON.stringify(
-          url.includes('format=full')
+          url.includes('format=raw')
             ? { id: 'a' }
             : { messages: [{ id: 'a' }, { id: 'a' }] },
         ),
@@ -36,16 +36,14 @@ it('fetches deduplicated bounded full bodies with safe credentials and contextua
   expect(
     await createGmailTransport(fetcher).cycle(
       'synthetic-token',
-      ['sender@fixture.invalid'],
       100_000,
       new AbortController().signal,
     ),
   ).toEqual([{ id: 'a' }]);
-  expect(fetcher).toHaveBeenCalledTimes(2);
+  // List, one body, then the closing list that detects a changed result set.
+  expect(fetcher).toHaveBeenCalledTimes(3);
   const first = vi.mocked(fetcher).mock.calls[0]![0];
-  expect(new URL(first).searchParams.get('q')).toBe(
-    '{from:sender@fixture.invalid} after:40 before:160',
-  );
+  expect(new URL(first).searchParams.get('q')).toBe('after:40 before:160');
   const init = vi.mocked(fetcher).mock.calls[0] as unknown as [
     string,
     RequestInit,
@@ -59,52 +57,38 @@ it('fetches deduplicated bounded full bodies with safe credentials and contextua
   });
   expect(first).not.toContain('synthetic-token');
 });
-it.each([
-  { nextPageToken: 'more' },
-  { messages: Array.from({ length: 11 }, (_, i) => ({ id: String(i) })) },
-  { messages: [{ id: '../profile' }] },
-])('refuses incomplete or unsafe ID sets before any body get', async (body) => {
-  const fetcher = vi.fn(async () => new Response(JSON.stringify(body)));
+it('refuses unsafe IDs before any body get', async () => {
+  const fetcher = vi.fn(
+    async () =>
+      new Response(JSON.stringify({ messages: [{ id: '../profile' }] })),
+  );
   await expect(
     createGmailTransport(fetcher).cycle(
       'synthetic',
-      ['sender@fixture.invalid'],
       100_000,
       new AbortController().signal,
     ),
-  ).rejects.toBeInstanceOf(RetrievalFailure);
+  ).rejects.toMatchObject({ reason: 'schema' });
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
-it('rejects mismatched message IDs and forged search operators', async () => {
+it('rejects mismatched message IDs', async () => {
   const fetcher = vi.fn(
     async (url: string) =>
       new Response(
         JSON.stringify(
-          url.includes('format=full')
+          url.includes('format=raw')
             ? { id: 'b' }
             : { messages: [{ id: 'a' }] },
         ),
       ),
   );
-  const transport = createGmailTransport(fetcher);
   await expect(
-    transport.cycle(
+    createGmailTransport(fetcher).cycle(
       'synthetic',
-      ['sender@fixture.invalid'],
       100_000,
       new AbortController().signal,
     ),
   ).rejects.toMatchObject({ reason: 'schema' });
-  fetcher.mockClear();
-  await expect(
-    transport.cycle(
-      'synthetic',
-      ['x OR newer_than:1d'],
-      100_000,
-      new AbortController().signal,
-    ),
-  ).rejects.toMatchObject({ reason: 'schema' });
-  expect(fetcher).not.toHaveBeenCalled();
 });
 it.each([
   new Response('12345'),
@@ -127,12 +111,7 @@ it('honors quota Retry-After and keeps 401 separate from retryable network failu
       () => 100_000,
     );
     await expect(
-      transport.cycle(
-        'synthetic',
-        ['sender@fixture.invalid'],
-        100_000,
-        new AbortController().signal,
-      ),
+      transport.cycle('synthetic', 100_000, new AbortController().signal),
     ).rejects.toMatchObject({
       reason: 'quota',
       retryAt: status === 429 ? 220_000 : status === 503 ? 120_000 : 160_000,
@@ -141,7 +120,6 @@ it('honors quota Retry-After and keeps 401 separate from retryable network failu
   await expect(
     createGmailTransport(async () => new Response('', { status: 401 })).cycle(
       'synthetic',
-      ['sender@fixture.invalid'],
       100_000,
       new AbortController().signal,
     ),

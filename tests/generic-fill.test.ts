@@ -179,11 +179,8 @@ it('generic Gmail search is bounded by time without sender/domain/page-derived f
   );
   await createGmailTransport(fetcher).cycle(
     'synthetic',
-    [],
     100000,
     new AbortController().signal,
-    'raw',
-    true,
   );
   const url = new URL(fetcher.mock.calls[0]![0] as unknown as string);
   expect(url.searchParams.get('q')).toBe('after:40 before:160');

@@ -227,11 +227,8 @@ export function createGmailPageCoordinator(
           (token, authorizedSignal) =>
             transport.cycle(
               token,
-              [],
               startedAt,
               authorizedSignal,
-              'raw',
-              true,
               context.requestWindow?.notBefore,
               browser.now() + 60000,
               browser.progress,

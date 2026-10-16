@@ -7,11 +7,8 @@ const cycle = (
 ) =>
   createGmailTransport(fetcher).cycle(
     'synthetic',
-    [],
     100000,
     new AbortController().signal,
-    'raw',
-    true,
   );
 const json = (body: unknown) => new Response(JSON.stringify(body));
 afterEach(() => {
@@ -193,14 +190,7 @@ it.each(['headers', 'body'])(
         : new Response(new ReadableStream());
     };
     await expect(
-      createGmailTransport(fetcher).cycle(
-        'synthetic',
-        [],
-        100000,
-        abort.signal,
-        'raw',
-        true,
-      ),
+      createGmailTransport(fetcher).cycle('synthetic', 100000, abort.signal),
     ).rejects.toMatchObject({ reason: 'network' });
     expect(signals).toHaveLength(2);
     expect(signals.every((signal) => signal.aborted)).toBe(true);

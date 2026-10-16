@@ -144,19 +144,13 @@ export function createGmailTransport(
   return {
     async cycle(
       token: string,
-      senders: readonly string[],
       startedAt: number,
       signal: AbortSignal,
-      format: 'full' | 'raw' = 'full',
-      generic = false,
       notBefore = startedAt - 60000,
       until = startedAt + 60000,
       progress: (stage: 'listing' | 'fetching') => void = () => {},
     ) {
       if (
-        (!senders.length && !generic) ||
-        senders.length > 20 ||
-        senders.some((s) => !/^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+$/.test(s)) ||
         !Number.isSafeInteger(startedAt) ||
         startedAt < 60_000 ||
         !Number.isSafeInteger(notBefore) ||
@@ -168,25 +162,24 @@ export function createGmailTransport(
         throw new RetrievalFailure('schema');
       const cancellation = new AbortController();
       const cycleSignal = AbortSignal.any([signal, cancellation.signal]);
-      const timer = generic
-        ? setTimeout(() => cancellation.abort(), limits.cycleMilliseconds)
-        : undefined;
+      const timer = setTimeout(
+        () => cancellation.abort(),
+        limits.cycleMilliseconds,
+      );
       let totalBytes = 0;
       const consume = (bytes: number) => {
         totalBytes += bytes;
-        if (generic && totalBytes > limits.cycleBytes)
-          throw new RetrievalFailure('limit');
+        if (totalBytes > limits.cycleBytes) throw new RetrievalFailure('limit');
       };
       try {
         const listIds = async () => {
           const url = new URL(base);
           url.searchParams.set('maxResults', String(limits.pageSize));
-          url.searchParams.set('includeSpamTrash', String(generic));
-          if (generic)
-            url.searchParams.set('fields', 'messages(id),nextPageToken');
+          url.searchParams.set('includeSpamTrash', 'true');
+          url.searchParams.set('fields', 'messages(id),nextPageToken');
           url.searchParams.set(
             'q',
-            `${generic ? '' : `{${senders.map((s) => 'from:' + s).join(' ')}} `}after:${Math.floor(notBefore / 1000)} before:${Math.ceil(until / 1000)}`,
+            `after:${Math.floor(notBefore / 1000)} before:${Math.ceil(until / 1000)}`,
           );
           const ids = new Set<string>();
           const tokens = new Set<string>();
@@ -206,10 +199,7 @@ export function createGmailTransport(
               nextPageToken?: unknown;
             };
             // Truncation cannot silently remove a competing challenge.
-            if (
-              (!generic && list.nextPageToken !== undefined) ||
-              (list.messages !== undefined && !Array.isArray(list.messages))
-            )
+            if (list.messages !== undefined && !Array.isArray(list.messages))
               throw new RetrievalFailure('limit');
             const entries = (list.messages ?? []) as unknown[];
             if (entries.length > limits.pageSize)
@@ -224,8 +214,7 @@ export function createGmailTransport(
                 throw new RetrievalFailure('schema');
               ids.add(entry.id);
             }
-            if (ids.size > (generic ? limits.messages : 10))
-              throw new RetrievalFailure('limit');
+            if (ids.size > limits.messages) throw new RetrievalFailure('limit');
             if (list.nextPageToken === undefined) break;
             const next = list.nextPageToken;
             if (
@@ -252,9 +241,8 @@ export function createGmailTransport(
             const index = cursor++;
             const id = orderedIds[index]!;
             const get = new URL(base + '/' + id);
-            get.searchParams.set('format', format);
-            if (generic && format === 'raw')
-              get.searchParams.set('fields', 'id,internalDate,raw');
+            get.searchParams.set('format', 'raw');
+            get.searchParams.set('fields', 'id,internalDate,raw');
             progress('fetching');
             const message = await read(
               get,
@@ -276,17 +264,14 @@ export function createGmailTransport(
         await Promise.all(
           Array.from(
             {
-              length: Math.min(
-                orderedIds.length,
-                generic ? limits.concurrency : 1,
-              ),
+              length: Math.min(orderedIds.length, limits.concurrency),
             },
             worker,
           ),
         );
         // Gmail pagination is not an atomic snapshot. Refuse a visible set change
         // during body reads instead of returning a candidate from an older listing.
-        if (generic && ids.size) {
+        if (ids.size) {
           const closingIds = await listIds();
           if (
             closingIds.size !== ids.size ||
