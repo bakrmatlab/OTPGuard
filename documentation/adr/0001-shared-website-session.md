@@ -22,5 +22,6 @@ URLs. One production session avoids both.
 - Changing the website account changes the extension account and cancels its work.
 - Sign-out targets the current session, not every device. Cookie events and fresh
   checks are prompt but not instantaneous remote revocation.
-- A failed sign-out suspends the worker until a retry succeeds.
+- A failed sign-out suspends the worker until a retry succeeds. The suspension is
+  memory-only; a worker restart revalidates the session with Clerk.
 - Gmail disconnect and history deletion stay separate actions.

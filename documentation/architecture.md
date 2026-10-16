@@ -28,14 +28,16 @@ and management of the extension in this Chrome profile.
    `cancel` messages. Page text is a hint, never trusted input.
 3. **Admission.** The worker checks the sender (this extension, frame 0, active
    document), the live frame URL and origin, local settings and blocks, the Clerk
-   account and the connected mailbox. It sets a receipt window: from 1 s before the
-   latest new-code click, otherwise from 60 s before detection.
+   account and the connected mailbox. It sets a receipt window: from 1 s before a
+   new-code click or a fresh field, otherwise from 60 s before detection.
 4. **Retrieval.** Gmail is polled at 0, 2, 6, 12, 22, 32 and 42 s inside a 60 s
    search budget. Each cycle lists messages by time only, spam and trash included:
    up to 50 IDs over 5 pages of 20. It fetches every raw body with 4 parallel reads,
    then lists again and refuses the cycle if the set changed. Limits: 512 KiB per
-   response, 8 MiB and 30 s per cycle, 10 s per request. A failed cap, request or
-   decode discards the cycle. No partial set reaches selection.
+   response, 8 MiB and 30 s per cycle, 10 s per request. A network failure discards
+   the cycle and the next poll retries; a quota reply waits for its retry time. A
+   size cap, schema or decode failure ends the search. No partial set reaches
+   selection.
 5. **Selection.** Each message is normalized (`packages/otp/raw.ts`) and parsed
    (`packages/otp/generic.ts`). Receipt time, recipient contradictions, field length
    and sender-domain or subject hints narrow the set. More than one plausible code
@@ -74,6 +76,10 @@ intent lasts 30 s and still needs a separate Fill click.
   click is what authorizes release. See
   [ADR 0002](adr/0002-user-confirmed-generic-fill.md).
 
+Permissions: `storage`, `scripting`, `webNavigation`, plus `identity` with Gmail
+and `cookies` with the account configured; optional `https://*/*`; Chrome 127 or
+later; no web-accessible resources.
+
 The manifest limits network reach. A configured build allows only the Gmail API,
 Google token revocation and the Clerk Frontend API in `host_permissions` and
 `connect-src`. An unconfigured build has `connect-src 'none'`.
@@ -90,9 +96,13 @@ stores a version number and two SHA-256 digests: the Clerk user and session, and
 that pair plus the mailbox address. After a worker or browser restart, the worker
 restores the connection only after fresh checks of the Clerk session, a
 non-interactive Chrome grant and the Gmail profile. No token or plaintext identity
-is stored. Disconnect removes the digests first, clears Chrome's token cache and
-then asks Google to revoke the grant. That revocation applies to every client in
-the same Google Cloud project.
+is stored. Chrome chooses the Google account; a Chrome sign-in change invalidates
+the Gmail connection.
+
+Disconnect removes the digests first. If the worker knows the connected mailbox
+and the current Google account still matches it, it asks Google to revoke the
+grant; otherwise it reports revocation as unconfirmed. It then clears Chrome's token
+cache. Revocation applies to every client in the same Google Cloud project.
 
 ## Replay protection
 

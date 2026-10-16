@@ -6,7 +6,8 @@ The otpguard.net dashboard talks to the extension through Chrome external messag
 The manifest's `externally_connectable` has `ids: []` and one exact HTTPS origin. The
 worker also requires the top-level `/dashboard` document, no query string, frame 0,
 and Clerk user and session IDs that match a fresh check of the extension's own
-session. It handles one request at a time with a 60 s deadline.
+session. It handles one request at a time with a 60 s deadline and holds its lock
+until the action settles. The dashboard stops waiting after 90 s.
 
 Allowed actions: status, automatic finding, exact HTTPS blocks, Gmail connect and
 disconnect, history export and delete, and opening Options. The website cannot

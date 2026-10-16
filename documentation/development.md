@@ -53,7 +53,9 @@ and Clerk know.
 `bun scripts/build-core-3.ts <new absolute directory>` exports the source and builds
 the configured extension from the committed public configuration in `configuration/`.
 The directory must be new and outside the checkout. To test that artifact, set
-`OTPGuard_ARTIFACT` to its build folder.
+`OTPGuard_ARTIFACT` to its build folder; the configured-Gmail browser test reads
+`OTPGUARD_TEST_EXTENSION` instead. Browser tests keep traces, video and screenshots
+off; keep them off when testing a configured build.
 
 ## Review archives
 
@@ -65,7 +67,8 @@ bun run check:packages
 ```
 
 These refuse provider configuration, write ignored archives to `dist/review`, and
-check the extracted website and extension.
+check the extracted website and extension. Build archives on the target OS and
+architecture.
 
 ## Production providers
 
@@ -77,7 +80,8 @@ These settings live in provider dashboards, not in this repository.
 - **Cloudflare DNS.** The Clerk and Vercel records for otpguard.net are DNS-only
   (not proxied).
 - **Clerk.** Production instance with Frontend API `https://clerk.otpguard.net`
-  (`configuration/domain-auth.json`).
+  and `allowed_origins` set to the extension origin only
+  (`configuration/domain-auth.json`, `configuration/clerk-production-instance.json`).
 - **Google.** The extension uses a Chrome extension OAuth client. Google sign-in on
   the website uses a separate web client with redirect
   `https://clerk.otpguard.net/v1/oauth_callback`. The Google Cloud project is in

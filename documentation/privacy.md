@@ -29,11 +29,12 @@ out or disconnecting Gmail does not delete history.
 
 - **Google.** Gmail API reads with `gmail.readonly`, and token revocation on
   Disconnect. Search queries contain only a time window.
-- **Clerk.** Sign-in at otpguard.net and session checks from the worker. Clerk sees
-  the account email, sign-in times and IP address.
+- **Clerk.** Sign-in at otpguard.net and session checks from the worker go to the
+  Clerk Frontend API.
 - **otpguard.net dashboard.** After **Connect this browser**, the page receives the
-  Gmail address, blocked origins, the automatic finding flag, the history count and
-  the last result, reason and time. History JSON only on an explicit export. Never
+  Gmail address, blocked origins, the automatic finding flag, the site-access flag,
+  settings, mailbox and history states, the history count and the last result,
+  reason and time. History JSON only on an explicit export. Never
   codes, mail or tokens. The site has no analytics and makes no backend calls with
   this data, but its scripts are trusted for these management actions.
 
